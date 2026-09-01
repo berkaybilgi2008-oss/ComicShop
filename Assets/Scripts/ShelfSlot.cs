@@ -53,9 +53,10 @@ public class ShelfSlot : MonoBehaviour
             ownerBookID = book.bookID;
 
         Transform point = placementPoints[index];
-        book.transform.SetParent(null);
-        book.transform.position = point.position;
-        book.transform.rotation = point.rotation;
+
+        // Point'in world-space konumunu kullan; point'in parent scale'i kitaba aktarilmaz.
+        book.transform.SetParent(null, true);
+        book.transform.SetPositionAndRotation(point.position, point.rotation);
         book.transform.localScale = book.OriginalScale;
         book.SetHeld(false);
 
