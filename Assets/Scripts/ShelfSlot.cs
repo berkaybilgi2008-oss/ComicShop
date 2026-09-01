@@ -1,98 +1,108 @@
-﻿using UnityEngine;
+using UnityEngine;
 
-// Bu raf (slot) ARTIK onceden hangi kahraman/cilde ait oldugu belirlenmis
-// degil. Sadece hangi MARKAYA (brandID) ait oldugu sabit -- fiziksel olarak
-// hangi kitapligin altinda durdugunu belirler. Ilk kitap konuldugunda, raf o
-// kitabin (hero+cilt) kimligini "kapiyor" ve sadece O kimlikten kopyalari
-// kabul ediyor (10'a kadar). Raf tamamen bosalinca kimligini kaybedip
-// tekrar "bos, ayni markadan herhangi bir kitabi kabul edebilir" haline donuyor.
 public class ShelfSlot : MonoBehaviour
 {
-    [Header("Marka (SABIT -- ShelfSlotGenerator tarafindan atanir)")]
-    [Tooltip("Bu raf hangi markanin kitapligi altinda duruyor. Sadece bu markadan kitaplar buraya konabilir.")]
-    public int brandID;
+    [Header("Marka")]
+    [Min(0)] public int brandID;
 
     [Header("Kapasite")]
-    [Tooltip("Bu rafa (bir kere bir kimlik 'kapinca') en fazla kac KOPYA sigar")]
-    public int capacity = 10;
-    private int filledCount = 0;
+    [Min(1)] public int capacity = 10;
 
-    // -1 = raf bos, henuz kimse buraya kitap koymadi (herhangi bir kahraman/cilt olabilir)
-    private int claimedHeroID = -1;
-    private int claimedVolumeID = -1;
+    [Header("Kitap Yerleri")]
+    [Tooltip("Bu bolmedeki kitaplarin konulacagi noktalar. 10 nokta ayarla.")]
+    public Transform[] placementPoints = new Transform[10];
 
-    [Header("Yerlesim Ayari")]
-    [Tooltip("Kitabin varsayilan durusu ile bu slotun istedigi durus arasindaki fark. Kitap yan/ters oturuyorsa buradan eksen bazinda 90 derece dene.")]
-    public Vector3 placementRotationOffset = Vector3.zero;
-    [Tooltip("Ayni slota konan her ek kopyanin, bir oncekine gore ne kadar kaydirilacagi (yan yana dizilsin diye)")]
-    public float copyStackOffset = 0.06f;
+    private BookItem[] placedBooks;
+    private int ownerBookID = -1;
 
-    public bool IsAvailable => filledCount < capacity;
-    public bool IsClaimed => claimedHeroID != -1;
+    public int FilledCount { get; private set; }
+    public int OwnerBookID => ownerBookID;
+    public bool IsAvailable => FilledCount < capacity;
+    public bool IsClaimed => ownerBookID >= 0;
 
-    // Elimizdeki kitap bu rafa konabilir mi?
-    // 1) Marka uyusmali (X markasinin kitabi sadece X markasinin raflarina girer)
-    // 2) Raf bossa (kimse kapmamissa) HERHANGI bir hero+cilt kabul edilir
-    // 3) Raf doluysa (kapilmissa) SADECE ayni hero+cilt kabul edilir
+    void Awake()
+    {
+        capacity = Mathf.Max(1, capacity);
+        placedBooks = new BookItem[capacity];
+    }
+
     public bool Matches(BookItem book)
     {
-        if (book.brandID != brandID) return false;
-        if (!IsClaimed) return true;
-        return book.heroID == claimedHeroID && book.volumeID == claimedVolumeID;
+        if (book == null || book.brandID != brandID || !IsAvailable)
+            return false;
+
+        return !IsClaimed || book.bookID == ownerBookID;
     }
 
     public bool PlaceBook(BookItem book)
     {
-        if (!Matches(book) || !IsAvailable) return false;
+        if (!Matches(book))
+            return false;
 
-        // Raf bossa, bu kitabin kimligini simdi "kap"
-        if (!IsClaimed)
+        int index = FindFreeIndex();
+        if (index < 0)
+            return false;
+
+        if (placementPoints == null || index >= placementPoints.Length || placementPoints[index] == null)
         {
-            claimedHeroID = book.heroID;
-            claimedVolumeID = book.volumeID;
+            Debug.LogWarning($"ShelfSlot '{name}': {index}. kitap noktasi ayarlanmamis.");
+            return false;
         }
 
-        // Ayni slota konan her kopya, KENDI SABIT numarasina (copyIndex, 0-9) gore
-        // bir yuvaya oturur -- hangi sirada getirilirse getirilsin, 9 numarali kopya
-        // HER ZAMAN 9. yuvaya gider. filledCount SADECE kapasite/sayim icin kullanilir,
-        // pozisyon icin degil.
-        // ONEMLI: Kayma yonunu artik kitabin rotasyonundan (finalRotation) DEGIL,
-        // dogrudan RAFIN kendi sabit yonunden (transform.right) hesapliyoruz.
-        // Boylece kitabin durus rotasyonunu (placementRotationOffset) her degistirdiginde
-        // kayma yonu ETKILENMEZ -- ikisi artik birbirinden tamamen bagimsiz.
-        Quaternion finalRotation = transform.rotation * Quaternion.Euler(placementRotationOffset);
-        Vector3 widthDirection = transform.right;
-        Vector3 offset = widthDirection * (book.copyIndex * copyStackOffset);
+        if (!IsClaimed)
+            ownerBookID = book.bookID;
 
+        Transform point = placementPoints[index];
         book.transform.SetParent(null);
-        book.transform.position = transform.position + offset;
-        book.transform.rotation = finalRotation;
-        book.transform.localScale = book.OriginalScale; // rafta her zaman gercek boyutunda otursun
+        book.transform.position = point.position;
+        book.transform.rotation = point.rotation;
+        book.transform.localScale = book.OriginalScale;
         book.SetHeld(false);
-        book.GetComponent<Collider>().enabled = true;
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
-        if (rb != null) rb.isKinematic = true;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
 
-        filledCount++;
+        placedBooks[index] = book;
+        FilledCount++;
         book.currentSlot = this;
-        GameStats.RegisterPlacement(book.heroID);
+        GameStats.RegisterPlacement(book.bookID);
         return true;
     }
 
-    // Oyuncu bu raftaki bir kitabi geri eline aldiginda cagirilir.
-    // Raf tamamen bosalirsa (filledCount 0'a duserse) kimligini KAYBEDER,
-    // tekrar herhangi bir kahraman/cildi kabul edebilir hale gelir.
     public void RemoveBook(BookItem book)
     {
-        if (filledCount > 0) filledCount--;
-        GameStats.UnregisterPlacement(book.heroID);
+        if (book == null || placedBooks == null)
+            return;
+
+        int index = System.Array.IndexOf(placedBooks, book);
+        if (index < 0)
+            return;
+
+        placedBooks[index] = null;
+        FilledCount = Mathf.Max(0, FilledCount - 1);
+        GameStats.UnregisterPlacement(book.bookID);
         book.currentSlot = null;
 
-        if (filledCount == 0)
+        if (FilledCount == 0)
+            ownerBookID = -1;
+    }
+
+    private int FindFreeIndex()
+    {
+        if (placedBooks == null)
+            return -1;
+
+        for (int i = 0; i < placedBooks.Length; i++)
         {
-            claimedHeroID = -1;
-            claimedVolumeID = -1;
+            if (placedBooks[i] == null)
+                return i;
         }
+
+        return -1;
     }
 }
