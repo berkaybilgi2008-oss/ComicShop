@@ -45,6 +45,7 @@ public class PlayerInteraction : MonoBehaviour
 
         lookedSlot = null;
 
+        // Book detection keeps using the configured interaction mask.
         RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
@@ -62,12 +63,18 @@ public class PlayerInteraction : MonoBehaviour
             }
         }
 
-        if (foundBook == null)
+        // Shelf slots are detected separately from the interaction mask.
+        // This allows manually-created ShelfSlot colliders to work even if
+        // their layer is not included in the player's Book mask.
+        if (foundBook == null && heldBooks.Count > 0)
         {
-            foreach (RaycastHit hit in hits)
+            RaycastHit[] shelfHits = Physics.RaycastAll(ray, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+            System.Array.Sort(shelfHits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit hit in shelfHits)
             {
                 ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-                if (slot != null && heldBooks.Count > 0)
+                if (slot != null)
                 {
                     foundSlot = slot;
                     break;
