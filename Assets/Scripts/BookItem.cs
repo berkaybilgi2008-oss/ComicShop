@@ -15,50 +15,76 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bu kitap, ayni hero+cilt icindeki 10 kopyadan KACINCISI (0-9). Rafta HER ZAMAN kendi sabit yuvasina oturur, hangi sirada getirilirse getirilsin.")]
     public int copyIndex;
 
-    // Ayni hero+cilt kombinasyonuna sahip TUM kopyalar (10 tanesi) bu ID'yi paylasir.
-    // Slot eslestirmesi bununla yapiliyor.
-    public int TypeID => heroID * 1000 + volumeID; // 1000 carpani, ID'lerin karismamasi icin guvenli bir bosluk birakiyor
-
-    // UI'da gosterilecek okunabilir isim, orn: "Orbital Rebel - Cilt 2"
+    public int TypeID => heroID * 1000 + volumeID;
     public string DisplayName => $"{heroName} - Cilt {volumeID + 1}";
 
     [Header("Kenar (Outline) Highlight Ayarlari")]
-    [Tooltip("Sadece kenarlarin parlamasini saglayan materyal. Parlak renkli, Unlit bir materyal olmali.")]
     public Material outlineMaterial;
-    [Tooltip("Kenar payinin ne kadar kalin gorunecegi. 1.0 = kitapla ayni boy (gorunmez), 1.05-1.1 arasi iyi bir baslangic.")]
     public float outlineScale = 1.05f;
 
     [Header("Kapak Gorseli (on yuzdeki ayri Quad)")]
-    [Tooltip("Kitabin ustune yapistirdigimiz ince kapak yuzeyinin (CoverQuad) Renderer'i. Bunu Inspector'dan CoverQuad objesinden surukle.")]
     public Renderer coverRenderer;
 
     private GameObject outlineObject;
     private Vector3 originalScale;
 
-    // Bu kitap su an bir rafta duruyorsa, hangi ShelfSlot'ta oldugunu tutar.
-    // Yerdeyken veya elimizdeyken null'dur. Geri alma (E ile tekrar elimize
-    // alma) yapabilmek icin hangi slotu bosaltmamiz gerektigini bilmemiz lazim.
     public ShelfSlot currentSlot;
 
     public bool IsHeld { get; private set; }
     public Vector3 OriginalScale => originalScale;
 
+    [Header("Birakma Fizigi")]
+    [Tooltip("Kitabin fiziksel hareketi bu hizlarin altina dustugunde uykuya alinir.")]
+    public float sleepLinearVelocity = 0.03f;
+    public float sleepAngularVelocity = 0.03f;
+    [Tooltip("Kitap bu kadar sure boyunca dusuk hizda kalirsa fizik kapanir.")]
+    public float sleepDelay = 0.25f;
+
+    private float stillTimer;
+
     void Awake()
     {
-        originalScale = transform.localScale; // yerdeki/raftaki gercek boyutunu hatirla
+        originalScale = transform.localScale;
         CreateOutlineObject();
     }
 
-    // BookSpawner bunu cagirarak bu kitaba rastgele bir kapak resmi atar.
-    // Kitabin govdesine (yanlarina) DOKUNMAZ, sadece ustteki ince CoverQuad'i degistirir.
+    void Update()
+    {
+        if (IsHeld)
+            return;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb == null || rb.isKinematic)
+            return;
+
+        // Kitap gercekten hareket etmeyi bitirene kadar fizik acik kalir.
+        // Anlik bir carpismada hemen kapatmak yerine kisa bir sure boyunca
+        // hem linear hem angular hizlarin cok dusuk olmasini bekliyoruz.
+        if (rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
+            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
+        {
+            stillTimer += Time.deltaTime;
+
+            if (stillTimer >= sleepDelay)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = true;
+                stillTimer = 0f;
+            }
+        }
+        else
+        {
+            stillTimer = 0f;
+        }
+    }
+
     public void SetCoverMaterial(Material coverMaterial)
     {
         if (coverRenderer != null && coverMaterial != null)
             coverRenderer.material = coverMaterial;
     }
 
-    // Kitabin mesh'inin biraz buyutulmus, kendi materyaliyle ayri bir kopyasini olusturur.
-    // Orijinal mesh ustune bindigi icin sadece kenarlardan tasan kisim gorunur -> "outline" efekti.
     void CreateOutlineObject()
     {
         MeshFilter sourceMeshFilter = GetComponentInChildren<MeshFilter>();
@@ -80,7 +106,6 @@ public class BookItem : MonoBehaviour
         MeshRenderer mr = outlineObject.AddComponent<MeshRenderer>();
         mr.material = outlineMaterial;
 
-        // Baslangicta kapali, sadece bakinca acilacak
         outlineObject.SetActive(false);
     }
 
@@ -93,8 +118,12 @@ public class BookItem : MonoBehaviour
     public void SetHeld(bool held)
     {
         IsHeld = held;
-        GetComponent<Collider>().enabled = !held; // elimizdeyken carpisma kapansin
+        GetComponent<Collider>().enabled = !held;
         Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb != null) rb.isKinematic = held; // elimizdeyken fizik uygulanmasin
+        if (rb != null)
+        {
+            stillTimer = 0f;
+            rb.isKinematic = held;
+        }
     }
 }
