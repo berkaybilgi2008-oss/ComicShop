@@ -106,28 +106,18 @@ public class PlayerInteraction : MonoBehaviour
 
     void AutoPlaceAllMatchingBooks()
     {
-        ShelfSlot[] allSlots = FindObjectsOfType<ShelfSlot>();
+        if (lookedSlot == null)
+            return;
 
         for (int i = heldBooks.Count - 1; i >= 0; i--)
         {
             BookItem book = heldBooks[i];
-            ShelfSlot matchingSlot = FindAvailableSlotFor(book, allSlots);
 
-            if (matchingSlot != null && matchingSlot.PlaceBook(book))
+            if (lookedSlot.Matches(book) && lookedSlot.PlaceBook(book))
                 heldBooks.RemoveAt(i);
         }
 
         RepositionHeldBooks();
-    }
-
-    ShelfSlot FindAvailableSlotFor(BookItem book, ShelfSlot[] allSlots)
-    {
-        foreach (ShelfSlot slot in allSlots)
-        {
-            if (slot.Matches(book))
-                return slot;
-        }
-        return null;
     }
 
     void PickUp(BookItem book)
@@ -166,7 +156,6 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        // Kitabi oneki el pozisyonundan cikartiyoruz; artik ileriye teleport etmiyoruz.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
@@ -185,8 +174,6 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
         }
 
-        // Kitap oyuncunun collider'ina takilmasin. Kitap tamamen durdugunda
-        // normal oyuncu-kitap carpismasi tekrar acilir.
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
 
         RepositionHeldBooks();
@@ -217,8 +204,6 @@ public class PlayerInteraction : MonoBehaviour
         while (book != null && rb != null && !rb.isKinematic)
             yield return null;
 
-        // Kinematic olduktan sonra cok kisa bir pay birakiyoruz; boylece son
-        // fizik adiminda oyuncuya tekrar carpma olmaz.
         yield return new WaitForSeconds(0.1f);
 
         if (book == null)
