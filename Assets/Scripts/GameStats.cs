@@ -1,3 +1,5 @@
+using UnityEngine;
+
 public static class GameStats
 {
     public static int totalBookTypes;
@@ -8,8 +10,6 @@ public static class GameStats
     public static int TotalPlaced { get; private set; }
     public static int TotalBooks => totalBookTypes * copiesPerBook;
     public static int CompletedBookGroupCount { get; private set; }
-
-    // Eski HUD koduyla gecici uyumluluk.
     public static int CompletedSeriesCount => CompletedBookGroupCount;
 
     public static void Initialize(int bookTypes, int copies)
@@ -23,8 +23,8 @@ public static class GameStats
 
     public static void RegisterPlacement(int bookID)
     {
-        if (!IsValidBookID(bookID)) return;
-        if (placedPerBook[bookID] >= copiesPerBook) return;
+        if (!IsValidBookID(bookID) || placedPerBook[bookID] >= copiesPerBook)
+            return;
 
         placedPerBook[bookID]++;
         TotalPlaced++;
