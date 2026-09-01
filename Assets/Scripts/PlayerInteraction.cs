@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -165,8 +166,7 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        // Kitabi onceki el pozisyonundan cikartiyoruz; artik ileriye teleport etmiyoruz.
-        // Boyut ve rotasyon da dogal haliyle korunuyor.
+        // Kitabi oneki el pozisyonundan cikartiyoruz; artik ileriye teleport etmiyoruz.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
@@ -175,8 +175,6 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.rotation = worldRotation;
         book.transform.localScale = book.OriginalScale;
 
-        // SetHeld(false) Rigidbody'yi fiziksel moda alir. Kitap artik gravity ile
-        // gercekten dusecek ve hareketi bittiginde BookItem onu kinematic yapacak.
         book.SetHeld(false);
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
@@ -187,6 +185,55 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
         }
 
+        // Kitap oyuncunun collider'ina takilmasin. Kitap tamamen durdugunda
+        // normal oyuncu-kitap carpismasi tekrar acilir.
+        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
+
         RepositionHeldBooks();
+    }
+
+    IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
+    {
+        Collider[] playerColliders = GetComponentsInChildren<Collider>();
+        Collider[] bookColliders = book != null ? book.GetComponentsInChildren<Collider>() : null;
+
+        if (bookColliders == null)
+            yield break;
+
+        foreach (Collider bookCollider in bookColliders)
+        {
+            if (bookCollider == null)
+                continue;
+
+            foreach (Collider playerCollider in playerColliders)
+            {
+                if (playerCollider != null)
+                    Physics.IgnoreCollision(bookCollider, playerCollider, true);
+            }
+        }
+
+        Rigidbody rb = book.GetComponent<Rigidbody>();
+
+        while (book != null && rb != null && !rb.isKinematic)
+            yield return null;
+
+        // Kinematic olduktan sonra cok kisa bir pay birakiyoruz; boylece son
+        // fizik adiminda oyuncuya tekrar carpma olmaz.
+        yield return new WaitForSeconds(0.1f);
+
+        if (book == null)
+            yield break;
+
+        foreach (Collider bookCollider in bookColliders)
+        {
+            if (bookCollider == null)
+                continue;
+
+            foreach (Collider playerCollider in playerColliders)
+            {
+                if (playerCollider != null)
+                    Physics.IgnoreCollision(bookCollider, playerCollider, false);
+            }
+        }
     }
 }
