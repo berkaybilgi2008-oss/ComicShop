@@ -103,7 +103,7 @@ public class PlayerInteraction : MonoBehaviour
 
         if (heldBooks.Count > 0 && lookedSlot != null)
         {
-            AutoPlaceAllMatchingBooks();
+            PlaceOneMatchingBook();
             return;
         }
 
@@ -111,20 +111,28 @@ public class PlayerInteraction : MonoBehaviour
             DropTopBook();
     }
 
-    void AutoPlaceAllMatchingBooks()
+    void PlaceOneMatchingBook()
     {
         if (lookedSlot == null)
             return;
 
-        for (int i = heldBooks.Count - 1; i >= 0; i--)
+        // Holding order does not matter. Find the first held book that this
+        // shelf accepts, then place exactly one book per interaction press.
+        for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
 
-            if (lookedSlot.Matches(book) && lookedSlot.PlaceBook(book))
-                heldBooks.RemoveAt(i);
-        }
+            if (!lookedSlot.Matches(book))
+                continue;
 
-        RepositionHeldBooks();
+            if (lookedSlot.PlaceBook(book))
+            {
+                heldBooks.RemoveAt(i);
+                RepositionHeldBooks();
+            }
+
+            return;
+        }
     }
 
     void PickUp(BookItem book)
