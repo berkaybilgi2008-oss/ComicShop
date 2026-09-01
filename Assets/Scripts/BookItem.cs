@@ -103,7 +103,10 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
             rb.isKinematic = held;
+            rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
         }
     }
 }
