@@ -3,13 +3,14 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    [Header("Prefab ve Alan")]
+    [Header("Varsayilan Prefab ve Alan")]
+    [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
     public Vector2 areaSize = new Vector2(10f, 10f);
     public float spawnHeight = 1.5f;
 
     [Header("Kitap Verileri")]
-    [Tooltip("Hazir BookData assetlerini buraya sirayla koy. Su an 15 kitapla test edilebilir; 360'a tamamlandiginda sistem otomatik 3600 kopya uretecek.")]
+    [Tooltip("BookID sirasina gore BookData assetlerini koy. Her BookData kendi model prefab'ini kullanabilir.")]
     public BookData[] bookTypes;
 
     [Min(1)]
@@ -34,10 +35,10 @@ public class BookSpawner : MonoBehaviour
     {
         List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
 
-        for (int bookID = 0; bookID < bookTypeCount; bookID++)
+        for (int index = 0; index < bookTypeCount; index++)
         {
             for (int copy = 0; copy < copiesPerBook; copy++)
-                ids.Add(bookID);
+                ids.Add(index);
         }
 
         for (int i = ids.Count - 1; i > 0; i--)
@@ -46,37 +47,42 @@ public class BookSpawner : MonoBehaviour
             (ids[i], ids[j]) = (ids[j], ids[i]);
         }
 
-        foreach (int bookID in ids)
-            SpawnSingleBook(bookID);
+        foreach (int index in ids)
+            SpawnSingleBook(index);
 
         Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
     }
 
-    void SpawnSingleBook(int bookID)
+    void SpawnSingleBook(int index)
     {
+        BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
+
+        int bookID = data != null ? data.BookID : index;
+        int brandID = data != null ? data.BrandID : GetBrandID(bookID);
+        GameObject prefabToSpawn = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
+
+        if (prefabToSpawn == null)
+        {
+            Debug.LogError($"BookSpawner: BookID {bookID} icin spawn edilecek prefab yok.");
+            return;
+        }
+
         float x = Random.Range(-areaSize.x / 2f, areaSize.x / 2f);
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
         Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
 
-        Quaternion rot = Random.rotation;
-        GameObject book = Instantiate(bookPrefab, pos, rot);
+        GameObject book = Instantiate(prefabToSpawn, pos, Random.rotation);
         BookItem bookItem = book.GetComponent<BookItem>();
 
         if (bookItem == null)
         {
-            Debug.LogError("BookSpawner: BookPrefab uzerinde BookItem bulunamadi.");
+            Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookData BookID {bookID}.");
             Destroy(book);
             return;
         }
 
         bookItem.bookID = bookID;
-        bookItem.brandID = GetBrandID(bookID);
-
-        if (bookTypes != null && bookID < bookTypes.Length && bookTypes[bookID] != null)
-        {
-            bookItem.bookID = bookTypes[bookID].BookID;
-            bookItem.brandID = bookTypes[bookID].BrandID;
-        }
+        bookItem.brandID = brandID;
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
