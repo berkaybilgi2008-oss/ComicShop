@@ -1,61 +1,59 @@
-// Marka (brand) sistemini MERKEZI olarak burada tanimliyoruz. BookSpawner ve
-// ShelfSlotGenerator'in birbiriyle TUTARLI kahraman/marka esajlemesi kullanmasi
-// icin ikisi de bu sinifi okuyor -- boylece bir yerde 120, bir yerde 100
-// kahraman gibi bir tutarsizlik yasanmaz.
-//
-// Test icin daha az marka/kahraman denemek istersen, asagidaki
-// BuildDefaultBrandSizes() fonksiyonundaki sayilari degistirebilirsin
-// (orn. "for i in 0..20" yerine "for i in 0..2" yaparsan test icin
-// sadece kucuk bir kismini kullanmis olursun).
 public static class BrandConfig
 {
-    // Index = markaID, Deger = o markanin kac kahramani oldugu.
-    // Varsayilan: 20 marka x 5 kahraman + 2 marka x 10 kahraman
-    //           = 100 + 20 = 120 kahraman, 22 marka toplam.
-    public static int[] heroesPerBrand = BuildDefaultBrandSizes();
+    // 22 marka: ilk 20 marka 15 kitap, son 2 marka 30 kitap.
+    // Toplam: 360 farkli kitap turu.
+    public static int[] booksPerBrand = BuildDefaultBrandSizes();
 
-    static int[] BuildDefaultBrandSizes()
-    {
-        int[] sizes = new int[22];
-        for (int i = 0; i < 1; i++) sizes[i] = 5;   // ilk 20 marka: 5'er kahraman
-        //sizes[20] = 10;                               // 21. marka: 10 kahraman (2 kitaplik kaplar)
-        //sizes[21] = 10;                               // 22. marka: 10 kahraman (2 kitaplik kaplar)
-        return sizes;
-    }
+    public static int BrandCount => booksPerBrand.Length;
 
-    public static int BrandCount => heroesPerBrand.Length;
-
-    public static int TotalHeroCount
+    public static int TotalBookTypeCount
     {
         get
         {
             int total = 0;
-            foreach (int c in heroesPerBrand) total += c;
+            foreach (int count in booksPerBrand)
+                total += count;
             return total;
         }
     }
 
-    // Verilen heroID'nin hangi markaya ait oldugunu bulur.
-    public static int GetBrandForHero(int heroID)
+    public static int GetBrandForBookID(int bookID)
     {
         int cursor = 0;
-        for (int b = 0; b < heroesPerBrand.Length; b++)
+        for (int brand = 0; brand < booksPerBrand.Length; brand++)
         {
-            if (heroID < cursor + heroesPerBrand[b]) return b;
-            cursor += heroesPerBrand[b];
+            if (bookID >= cursor && bookID < cursor + booksPerBrand[brand])
+                return brand;
+            cursor += booksPerBrand[brand];
         }
-        return -1; // gecersiz heroID, boyle bir sey olmamali
+        return -1;
     }
 
-    // Verilen markanin heroID araliginin BASLANGICINI dondurur.
-    public static int GetHeroRangeStart(int brandID)
+    public static int GetBookRangeStart(int brandID)
     {
+        if (brandID < 0 || brandID >= booksPerBrand.Length)
+            return -1;
+
         int cursor = 0;
-        for (int b = 0; b < heroesPerBrand.Length; b++)
-        {
-            if (b == brandID) return cursor;
-            cursor += heroesPerBrand[b];
-        }
-        return 0;
+        for (int brand = 0; brand < brandID; brand++)
+            cursor += booksPerBrand[brand];
+        return cursor;
+    }
+
+    // Eski scriptlerin derlenmesini koruyan gecici uyumluluk isimleri.
+    public static int[] heroesPerBrand => booksPerBrand;
+    public static int TotalHeroCount => TotalBookTypeCount;
+    public static int GetBrandForHero(int heroID) => GetBrandForBookID(heroID);
+    public static int GetHeroRangeStart(int brandID) => GetBookRangeStart(brandID);
+
+    private static int[] BuildDefaultBrandSizes()
+    {
+        int[] sizes = new int[22];
+        for (int i = 0; i < 20; i++)
+            sizes[i] = 15;
+
+        sizes[20] = 30;
+        sizes[21] = 30;
+        return sizes;
     }
 }
