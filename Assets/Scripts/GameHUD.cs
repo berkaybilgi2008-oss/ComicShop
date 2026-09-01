@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using UnityEngine;
 using TMPro;
 
@@ -17,17 +17,14 @@ public class GameHUD : MonoBehaviour
         if (hudText == null || playerInteraction == null) return;
 
         sb.Clear();
-        // GECICI TEST: sprite etiketleri kaldirildi, sadece duz metin var
-        sb.Append(GameStats.CompletedSeriesCount).Append("/").Append(GameStats.totalHeroes)
-          .Append(" (seri)\n");
+        sb.Append(GameStats.CompletedBookGroupCount).Append("/").Append(GameStats.totalBookTypes)
+          .Append(" (kitap grubu)\n");
         sb.Append(GameStats.TotalPlaced).Append("/").Append(GameStats.TotalBooks)
           .Append(" (kitap)\n");
         sb.Append(playerInteraction.HeldBooksList.Count).Append("/").Append(playerInteraction.MaxHeldBooks)
           .Append(" (elde)\n");
         sb.Append("\n");
 
-        // Kitap isimleri listesini daha kucuk bir font ile yaziyoruz (ustteki
-        // sayaclardan daha az onemli oldugu icin gorsel olarak da kucuk kalsin)
         sb.Append("<size=70%>");
         foreach (BookItem book in playerInteraction.HeldBooksList)
         {
