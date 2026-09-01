@@ -1,61 +1,53 @@
-// Bu sinif "static" -- yani sahnede bir GameObject'e eklemene GEREK YOK.
-// BookSpawner.cs baslangicta GameStats.Initialize(...) cagirir,
-// ShelfSlot.cs her dogru yerlestirmede GameStats.RegisterPlacement(...) cagirir,
-// GameHUD.cs da bu degerleri okuyup ekranda gosterir.
 public static class GameStats
 {
-    public static int totalHeroes;
-    public static int volumesPerHero;
-    public static int copiesPerVolume;
+    public static int totalBookTypes;
+    public static int copiesPerBook;
 
-    private static int[] placedPerHero;
+    private static int[] placedPerBook;
 
     public static int TotalPlaced { get; private set; }
-    public static int TotalBooks => totalHeroes * volumesPerHero * copiesPerVolume;
-    public static int CompletedSeriesCount { get; private set; }
+    public static int TotalBooks => totalBookTypes * copiesPerBook;
+    public static int CompletedBookGroupCount { get; private set; }
 
-    // BookSpawner, kac kahraman/cilt/kopya oldugunu buraya bildirir.
-    public static void Initialize(int heroes, int volumes, int copies)
+    // Eski HUD koduyla gecici uyumluluk.
+    public static int CompletedSeriesCount => CompletedBookGroupCount;
+
+    public static void Initialize(int bookTypes, int copies)
     {
-        totalHeroes = heroes;
-        volumesPerHero = volumes;
-        copiesPerVolume = copies;
-        placedPerHero = new int[heroes];
+        totalBookTypes = Mathf.Max(0, bookTypes);
+        copiesPerBook = Mathf.Max(1, copies);
+        placedPerBook = new int[totalBookTypes];
         TotalPlaced = 0;
-        CompletedSeriesCount = 0;
+        CompletedBookGroupCount = 0;
     }
 
-    // ShelfSlot, DOGRU bir kitap yerlestigi her seferinde bunu cagirir.
-    public static void RegisterPlacement(int heroID)
+    public static void RegisterPlacement(int bookID)
     {
-        if (placedPerHero == null || heroID < 0 || heroID >= placedPerHero.Length) return;
+        if (!IsValidBookID(bookID)) return;
+        if (placedPerBook[bookID] >= copiesPerBook) return;
 
-        placedPerHero[heroID]++;
+        placedPerBook[bookID]++;
         TotalPlaced++;
 
-        int neededForComplete = volumesPerHero * copiesPerVolume;
-        if (placedPerHero[heroID] == neededForComplete)
-        {
-            CompletedSeriesCount++;
-        }
+        if (placedPerBook[bookID] == copiesPerBook)
+            CompletedBookGroupCount++;
     }
 
-    // Oyuncu raftaki bir kitabi geri elin aldiginda bunu cagirir --
-    // RegisterPlacement'in tam tersi, sayaclari geri duzeltir.
-    public static void UnregisterPlacement(int heroID)
+    public static void UnregisterPlacement(int bookID)
     {
-        if (placedPerHero == null || heroID < 0 || heroID >= placedPerHero.Length) return;
-        if (placedPerHero[heroID] <= 0) return; // zaten 0'sa daha geri alacak bir sey yok
+        if (!IsValidBookID(bookID) || placedPerBook[bookID] <= 0)
+            return;
 
-        int neededForComplete = volumesPerHero * copiesPerVolume;
-        bool wasComplete = placedPerHero[heroID] == neededForComplete;
-
-        placedPerHero[heroID]--;
+        bool wasComplete = placedPerBook[bookID] == copiesPerBook;
+        placedPerBook[bookID]--;
         TotalPlaced--;
 
         if (wasComplete)
-        {
-            CompletedSeriesCount--;
-        }
+            CompletedBookGroupCount--;
+    }
+
+    private static bool IsValidBookID(int bookID)
+    {
+        return placedPerBook != null && bookID >= 0 && bookID < placedPerBook.Length;
     }
 }
