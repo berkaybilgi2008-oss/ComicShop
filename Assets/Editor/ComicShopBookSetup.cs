@@ -58,9 +58,6 @@ public static class ComicShopBookSetup
             AssetDatabase.DeleteAsset(prefabPath);
             AssetDatabase.DeleteAsset(dataPath);
 
-            // FBX'i dogrudan prefab root olarak kullaniyoruz.
-            // Ekstra bos root eklenmedigi icin FBX'in Unity'deki mevcut
-            // root transformu, hiyerarsisi ve import scale'i korunur.
             GameObject bookRoot = PrefabUtility.InstantiatePrefab(model) as GameObject;
             if (bookRoot == null)
                 continue;
@@ -90,13 +87,14 @@ public static class ComicShopBookSetup
                 bookItem.outlineScale = baseBookItem.outlineScale;
             }
 
-            // FBX'in root transformuna mudahale etmiyoruz.
             bookRoot.transform.localPosition = originalLocalPosition;
             bookRoot.transform.localRotation = originalLocalRotation;
             bookRoot.transform.localScale = originalLocalScale;
 
-            BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
             Bounds bounds = CalculateExactLocalBounds(bookRoot);
+            bookItem.orientationCorrection = CalculateFlatOrientationCorrection(bounds);
+
+            BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
             collider.center = bounds.center;
             collider.size = bounds.size;
 
@@ -144,7 +142,21 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap, FBX dogrudan prefab root olarak kullanilarak hazirlandi. FBX'in Unity'deki mevcut boyutu korunuyor. Collider artik mesh bounds verisinden hesaplanir. Her kitaptan 10 kopya spawn edilecek.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri korunuyor; modelin en ince ekseni yatay kitap icin yukariya hizalanacak. Spawn random donusu korunuyor.");
+    }
+
+    private static Quaternion CalculateFlatOrientationCorrection(Bounds bounds)
+    {
+        Vector3 size = bounds.size;
+
+        int thinAxis = 0;
+        if (size.y < size.x && size.y <= size.z)
+            thinAxis = 1;
+        else if (size.z < size.x && size.z < size.y)
+            thinAxis = 2;
+
+        Vector3 localAxis = thinAxis == 0 ? Vector3.right : thinAxis == 1 ? Vector3.up : Vector3.forward;
+        return Quaternion.FromToRotation(localAxis, Vector3.up);
     }
 
     private static Bounds CalculateExactLocalBounds(GameObject root)
@@ -153,9 +165,6 @@ public static class ComicShopBookSetup
         Bounds bounds = new Bounds();
         Transform rootTransform = root.transform;
 
-        // Static FBX meshlerinin gercek mesh bounds'larini kullan.
-        // Renderer.bounds dunya eksenlerinde AABB oldugu icin model donukse
-        // gereksiz buyuk bir collider uretebiliyordu.
         MeshFilter[] meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
         foreach (MeshFilter meshFilter in meshFilters)
         {
@@ -170,20 +179,19 @@ public static class ComicShopBookSetup
             Vector3[] corners =
             {
                 c + new Vector3(-e.x, -e.y, -e.z),
-                c + new Vector3(-e.x, -e.y,  e.z),
-                c + new Vector3(-e.x,  e.y, -e.z),
-                c + new Vector3(-e.x,  e.y,  e.z),
-                c + new Vector3( e.x, -e.y, -e.z),
-                c + new Vector3( e.x, -e.y,  e.z),
-                c + new Vector3( e.x,  e.y, -e.z),
-                c + new Vector3( e.x,  e.y,  e.z)
+                c + new Vector3(-e.x, -e.y, e.z),
+                c + new Vector3(-e.x, e.y, -e.z),
+                c + new Vector3(-e.x, e.y, e.z),
+                c + new Vector3(e.x, -e.y, -e.z),
+                c + new Vector3(e.x, -e.y, e.z),
+                c + new Vector3(e.x, e.y, -e.z),
+                c + new Vector3(e.x, e.y, e.z)
             };
 
             foreach (Vector3 corner in corners)
                 EncapsulateWorldPoint(ref bounds, ref initialized, rootTransform, meshFilter.transform.TransformPoint(corner));
         }
 
-        // FBX icinde SkinnedMeshRenderer varsa onun bounds'ini kullan.
         SkinnedMeshRenderer[] skinnedRenderers = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
         foreach (SkinnedMeshRenderer renderer in skinnedRenderers)
         {
@@ -194,13 +202,13 @@ public static class ComicShopBookSetup
             Vector3[] corners =
             {
                 c + new Vector3(-e.x, -e.y, -e.z),
-                c + new Vector3(-e.x, -e.y,  e.z),
-                c + new Vector3(-e.x,  e.y, -e.z),
-                c + new Vector3(-e.x,  e.y,  e.z),
-                c + new Vector3( e.x, -e.y, -e.z),
-                c + new Vector3( e.x, -e.y,  e.z),
-                c + new Vector3( e.x,  e.y, -e.z),
-                c + new Vector3( e.x,  e.y,  e.z)
+                c + new Vector3(-e.x, -e.y, e.z),
+                c + new Vector3(-e.x, e.y, -e.z),
+                c + new Vector3(-e.x, e.y, e.z),
+                c + new Vector3(e.x, -e.y, -e.z),
+                c + new Vector3(e.x, -e.y, e.z),
+                c + new Vector3(e.x, e.y, -e.z),
+                c + new Vector3(e.x, e.y, e.z)
             };
 
             foreach (Vector3 corner in corners)
