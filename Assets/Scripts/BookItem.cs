@@ -16,7 +16,7 @@ public class BookItem : MonoBehaviour
     public Renderer coverRenderer;
 
     [Header("Model Yonu")]
-    [Tooltip("Modelin kendi eksenlerini standart yatay kitap yonune getiren duzeltme. Olcegi degistirmez.")]
+    [Tooltip("FBX modelinin ince eksenini yatay kitapta yukariya hizalar. Olcegi degistirmez.")]
     public Quaternion orientationCorrection = Quaternion.identity;
 
     private GameObject outlineObject;
@@ -37,6 +37,11 @@ public class BookItem : MonoBehaviour
     {
         originalScale = transform.localScale;
         CreateOutlineObject();
+    }
+
+    public void ApplyOrientationCorrection()
+    {
+        transform.rotation = transform.rotation * orientationCorrection;
     }
 
     void Update()
