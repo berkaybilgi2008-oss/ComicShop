@@ -19,7 +19,7 @@ public class BookItem : MonoBehaviour
     [Tooltip("FBX modelinin ince eksenini yatay kitapta yukariya hizalar. Olcegi degistirmez.")]
     public Quaternion orientationCorrection = Quaternion.identity;
 
-    private GameObject outlineObject;
+    private GameObject[] outlineObjects;
     private Vector3 originalScale;
 
     public ShelfSlot currentSlot;
@@ -36,7 +36,7 @@ public class BookItem : MonoBehaviour
     void Awake()
     {
         originalScale = transform.localScale;
-        CreateOutlineObject();
+        CreateOutlineObjects();
     }
 
     public void ApplyOrientationCorrection()
@@ -77,32 +77,48 @@ public class BookItem : MonoBehaviour
             coverRenderer.material = coverMaterial;
     }
 
-    void CreateOutlineObject()
+    void CreateOutlineObjects()
     {
-        MeshFilter sourceMeshFilter = GetComponentInChildren<MeshFilter>();
-        if (sourceMeshFilter == null || outlineMaterial == null)
+        if (outlineMaterial == null)
             return;
 
-        outlineObject = new GameObject("Outline");
-        outlineObject.transform.SetParent(sourceMeshFilter.transform, false);
-        outlineObject.transform.localScale = Vector3.one * outlineScale;
+        MeshFilter[] sourceMeshes = GetComponentsInChildren<MeshFilter>(true);
+        outlineObjects = new GameObject[sourceMeshes.Length];
 
-        MeshFilter mf = outlineObject.AddComponent<MeshFilter>();
-        mf.mesh = sourceMeshFilter.sharedMesh;
+        for (int i = 0; i < sourceMeshes.Length; i++)
+        {
+            MeshFilter source = sourceMeshes[i];
+            if (source.sharedMesh == null)
+                continue;
 
-        MeshRenderer mr = outlineObject.AddComponent<MeshRenderer>();
-        mr.material = outlineMaterial;
-        outlineObject.SetActive(false);
+            GameObject outline = new GameObject("Outline_" + i);
+            outline.transform.SetParent(source.transform, false);
+            outline.transform.localScale = Vector3.one * outlineScale;
+
+            MeshFilter mf = outline.AddComponent<MeshFilter>();
+            mf.sharedMesh = source.sharedMesh;
+
+            MeshRenderer mr = outline.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = outlineMaterial;
+            outline.SetActive(false);
+            outlineObjects[i] = outline;
+        }
     }
 
     public void SetHighlight(bool on)
     {
-        // Rafta duran kitaplar asla highlight edilmez.
-        if (currentSlot != null)
+        // Rafta duran veya elde tutulan kitaplar asla highlight edilmez.
+        if (currentSlot != null || IsHeld)
             on = false;
 
-        if (outlineObject != null)
-            outlineObject.SetActive(on);
+        if (outlineObjects == null)
+            return;
+
+        foreach (GameObject outline in outlineObjects)
+        {
+            if (outline != null)
+                outline.SetActive(on);
+        }
     }
 
     public void SetHeld(bool held)
@@ -112,9 +128,12 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
-        Collider col = GetComponent<Collider>();
-        if (col != null)
-            col.enabled = !held;
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider col in colliders)
+        {
+            if (col != null)
+                col.enabled = !held;
+        }
 
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
