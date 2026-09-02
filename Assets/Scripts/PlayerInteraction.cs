@@ -9,14 +9,14 @@ public class PlayerInteraction : MonoBehaviour
     public Transform rightHandPoint;
 
     [Header("Tasima Ayarlari")]
-    public int maxHeldBooks = 10;
+    [Min(1)] public int maxHeldBooks = 10;
     public float stackSpacing = 0.06f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
     [Range(0.2f, 1f)] public float heldThicknessMultiplier = 0.8f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
-    public LayerMask interactMask;
+    public LayerMask interactMask = ~0;
 
     [Header("Tusu")]
     public KeyCode pickupKey = KeyCode.Mouse0;
@@ -45,41 +45,34 @@ public class PlayerInteraction : MonoBehaviour
         if (playerCamera == null)
             return;
 
-        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-
         if (lookedBook != null)
-        {
             lookedBook.SetHighlight(false);
-            lookedBook = null;
-        }
 
+        lookedBook = null;
         lookedSlot = null;
+
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Collide);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
         BookItem foundBook = null;
         ShelfSlot foundSlot = null;
 
-        RaycastHit[] hits = Physics.RaycastAll(
-            ray,
-            interactRange,
-            Physics.DefaultRaycastLayers,
-            QueryTriggerInteraction.Collide
-        );
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
-            if (book != null && canPickMore && !book.IsHeld && foundBook == null)
-                foundBook = book;
-
             ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
+
             if (slot != null && foundSlot == null)
                 foundSlot = slot;
+
+            if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null && foundBook == null)
+                foundBook = book;
         }
 
-        // Bir raf bolmesine bakiyorsak raf etkilesimi onceliklidir.
-        // Boylece elde kitap varken de ayni veya baska raftan kitap alinabilir.
+        // Raf collider'i hedefleniyorsa raf etkilesimi secilir.
+        // Bu, elde kitap varken baska raflardan da kitap almayi engellemez.
         if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
         {
             lookedSlot = foundSlot;
@@ -91,16 +84,12 @@ public class PlayerInteraction : MonoBehaviour
             lookedBook = foundBook;
             lookedBook.SetHighlight(true);
         }
-        else
-        {
-            lookedSlot = foundSlot;
-        }
     }
 
     void HandlePickupPress()
     {
-        // Sol mouse: raftan veya yerden kitap al.
-        if (lookedSlot != null && heldBooks.Count < maxHeldBooks)
+        // Sol mouse: once raftan kitap, yoksa yerden kitap al.
+        if (lookedSlot != null && lookedSlot.FilledCount > 0 && heldBooks.Count < maxHeldBooks)
         {
             TakeFromShelf();
             return;
@@ -112,20 +101,19 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandleDropOrPlacePress()
     {
-        // Sag mouse: rafa bakiyorsak eldeki uygun kitabi yerlestir.
+        // Sag mouse: uygun kitabi hedeflenen rafa koy.
         if (lookedSlot != null && heldBooks.Count > 0)
         {
             PlaceOneMatchingBook();
             return;
         }
 
-        // Raf yoksa eldeki son kitabi fizik ile birak.
         DropTopBook();
     }
 
     void TakeFromShelf()
     {
-        if (lookedSlot == null || heldBooks.Count >= maxHeldBooks)
+        if (lookedSlot == null || lookedSlot.FilledCount <= 0 || heldBooks.Count >= maxHeldBooks)
             return;
 
         BookItem book = lookedSlot.TakeFirstBook();
@@ -162,7 +150,7 @@ public class PlayerInteraction : MonoBehaviour
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
-            book.transform.SetParent(rightHandPoint);
+            book.transform.SetParent(rightHandPoint, false);
             book.transform.localPosition = new Vector3(0f, i * stackSpacing, 0f);
             book.transform.localRotation = book.OrientationCorrection;
 
@@ -206,9 +194,8 @@ public class PlayerInteraction : MonoBehaviour
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
-        book.transform.SetParent(null);
-        book.transform.position = worldPosition;
-        book.transform.rotation = worldRotation;
+        book.transform.SetParent(null, true);
+        book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
         book.SetHeld(false);
 
@@ -217,6 +204,7 @@ public class PlayerInteraction : MonoBehaviour
         {
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = false;
             rb.WakeUp();
         }
 
