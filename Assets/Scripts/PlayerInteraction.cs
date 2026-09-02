@@ -34,8 +34,6 @@ public class PlayerInteraction : MonoBehaviour
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
 
-        // Mevcut VERIDIAN prefablarinin bazilari Default (Layer 0) olabilir.
-        // Etkilesim maskesi bunlari da gorebilsin.
         interactMask |= 1 << 0;
 
         if (FindFirstObjectByType<Crosshair>() == null)
@@ -46,10 +44,12 @@ public class PlayerInteraction : MonoBehaviour
     {
         HandleLookDetection();
 
-        if (Input.GetKeyDown(pickupKey))
+        // Etkilesim tuslari kesin olarak mouse sol/sag olsun.
+        // Sahne prefabinda eski E/Q degerleri serialize edilmis olsa bile kullanilmaz.
+        if (Input.GetKeyDown(KeyCode.Mouse0))
             HandlePickupPress();
 
-        if (Input.GetKeyDown(dropKey))
+        if (Input.GetKeyDown(KeyCode.Mouse1))
             HandleDropOrPlacePress();
     }
 
