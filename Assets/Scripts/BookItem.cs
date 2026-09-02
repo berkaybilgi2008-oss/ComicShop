@@ -15,12 +15,17 @@ public class BookItem : MonoBehaviour
     [Header("Kapak Gorseli")]
     public Renderer coverRenderer;
 
+    [Header("Model Yonu")]
+    [Tooltip("Modelin kendi eksenlerini standart yatay kitap yonune getiren duzeltme. Olcegi degistirmez.")]
+    public Quaternion orientationCorrection = Quaternion.identity;
+
     private GameObject outlineObject;
     private Vector3 originalScale;
 
     public ShelfSlot currentSlot;
     public bool IsHeld { get; private set; }
     public Vector3 OriginalScale => originalScale;
+    public Quaternion OrientationCorrection => orientationCorrection;
 
     [Header("Birakma Fizigi")]
     public float sleepLinearVelocity = 0.03f;
