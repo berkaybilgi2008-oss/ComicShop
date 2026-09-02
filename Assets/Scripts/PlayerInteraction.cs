@@ -78,7 +78,8 @@ public class PlayerInteraction : MonoBehaviour
                 foundSlot = slot;
         }
 
-        // Raf bolmesi gorunuyorsa, raf etkilesimi kitap etkilesiminden onceliklidir.
+        // Bir raf bolmesine bakiyorsak raf etkilesimi onceliklidir.
+        // Boylece elde kitap varken de ayni veya baska raftan kitap alinabilir.
         if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
         {
             lookedSlot = foundSlot;
@@ -98,8 +99,8 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandlePickupPress()
     {
-        // Sol mouse: kitap alma.
-        if (lookedSlot != null && heldBooks.Count == 0)
+        // Sol mouse: raftan veya yerden kitap al.
+        if (lookedSlot != null && heldBooks.Count < maxHeldBooks)
         {
             TakeFromShelf();
             return;
@@ -111,7 +112,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandleDropOrPlacePress()
     {
-        // Sag mouse: rafa bakiyorsak bir kitap yerlestir.
+        // Sag mouse: rafa bakiyorsak eldeki uygun kitabi yerlestir.
         if (lookedSlot != null && heldBooks.Count > 0)
         {
             PlaceOneMatchingBook();
@@ -140,7 +141,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void PickUp(BookItem book)
     {
-        if (book == null)
+        if (book == null || heldBooks.Count >= maxHeldBooks)
             return;
 
         if (book.currentSlot != null)
@@ -155,6 +156,9 @@ public class PlayerInteraction : MonoBehaviour
 
     void RepositionHeldBooks()
     {
+        if (rightHandPoint == null)
+            return;
+
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
