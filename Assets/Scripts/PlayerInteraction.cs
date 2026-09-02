@@ -78,6 +78,7 @@ public class PlayerInteraction : MonoBehaviour
                 foundSlot = slot;
         }
 
+        // Raf bolmesi gorunuyorsa, raf etkilesimi kitap etkilesiminden onceliklidir.
         if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
         {
             lookedSlot = foundSlot;
@@ -97,7 +98,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandlePickupPress()
     {
-        // Sol mouse: sadece kitap alma.
+        // Sol mouse: kitap alma.
         if (lookedSlot != null && heldBooks.Count == 0)
         {
             TakeFromShelf();
@@ -117,7 +118,7 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
-        // Raf yoksa kitabi elden birak.
+        // Raf yoksa eldeki son kitabi fizik ile birak.
         DropTopBook();
     }
 
@@ -159,7 +160,7 @@ public class PlayerInteraction : MonoBehaviour
             BookItem book = heldBooks[i];
             book.transform.SetParent(rightHandPoint);
             book.transform.localPosition = new Vector3(0f, i * stackSpacing, 0f);
-            book.transform.localRotation = Quaternion.identity;
+            book.transform.localRotation = book.OrientationCorrection;
 
             Vector3 baseScale = book.OriginalScale * heldScaleMultiplier;
             book.transform.localScale = new Vector3(
