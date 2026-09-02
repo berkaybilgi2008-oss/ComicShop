@@ -21,10 +21,6 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int testBookTypeCount = 15;
 
-    [Header("Spawn Donusu")]
-    [Tooltip("Kitaplarin spawn olurken yatay ve kapaklari yukari bakacak sekilde kullanilacak donusu.")]
-    public Vector3 spawnRotation = Vector3.zero;
-
     void Start()
     {
         int bookTypeCount = bookTypes != null && bookTypes.Length > 0
@@ -75,7 +71,9 @@ public class BookSpawner : MonoBehaviour
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
         Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
 
-        GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.Euler(spawnRotation));
+        // Rastgele donus korunuyor. Kitabin model icindeki duzeltme rotasyonu
+        // prefab tarafinda uygulanir; spawn fiziğinin rastgeleligi degismez.
+        GameObject book = Instantiate(prefabToSpawn, pos, Random.rotation);
         BookItem bookItem = book.GetComponent<BookItem>();
 
         if (bookItem == null)
