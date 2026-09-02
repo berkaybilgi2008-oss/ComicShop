@@ -96,7 +96,7 @@ public static class ComicShopBookSetup
             bookRoot.transform.localScale = originalLocalScale;
 
             BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
-            Bounds bounds = CalculateLocalBounds(bookRoot);
+            Bounds bounds = CalculateExactLocalBounds(bookRoot);
             collider.center = bounds.center;
             collider.size = bounds.size;
 
@@ -144,51 +144,84 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap, FBX dogrudan prefab root olarak kullanilarak hazirlandi. FBX'in Unity'deki mevcut boyutu korunuyor. Her kitaptan 10 kopya spawn edilecek.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap, FBX dogrudan prefab root olarak kullanilarak hazirlandi. FBX'in Unity'deki mevcut boyutu korunuyor. Collider artik mesh bounds verisinden hesaplanir. Her kitaptan 10 kopya spawn edilecek.");
     }
 
-    private static Bounds CalculateLocalBounds(GameObject root)
+    private static Bounds CalculateExactLocalBounds(GameObject root)
     {
-        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-            return new Bounds(Vector3.zero, Vector3.one);
-
         bool initialized = false;
         Bounds bounds = new Bounds();
+        Transform rootTransform = root.transform;
 
-        foreach (Renderer renderer in renderers)
+        // Static FBX meshlerinin gercek mesh bounds'larini kullan.
+        // Renderer.bounds dunya eksenlerinde AABB oldugu icin model donukse
+        // gereksiz buyuk bir collider uretebiliyordu.
+        MeshFilter[] meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+        foreach (MeshFilter meshFilter in meshFilters)
         {
-            Bounds worldBounds = renderer.bounds;
-            Vector3 extents = worldBounds.extents;
+            Mesh mesh = meshFilter.sharedMesh;
+            if (mesh == null)
+                continue;
+
+            Bounds meshBounds = mesh.bounds;
+            Vector3 e = meshBounds.extents;
+            Vector3 c = meshBounds.center;
 
             Vector3[] corners =
             {
-                new Vector3(-extents.x, -extents.y, -extents.z),
-                new Vector3(-extents.x, -extents.y,  extents.z),
-                new Vector3(-extents.x,  extents.y, -extents.z),
-                new Vector3(-extents.x,  extents.y,  extents.z),
-                new Vector3( extents.x, -extents.y, -extents.z),
-                new Vector3( extents.x, -extents.y,  extents.z),
-                new Vector3( extents.x,  extents.y, -extents.z),
-                new Vector3( extents.x,  extents.y,  extents.z)
+                c + new Vector3(-e.x, -e.y, -e.z),
+                c + new Vector3(-e.x, -e.y,  e.z),
+                c + new Vector3(-e.x,  e.y, -e.z),
+                c + new Vector3(-e.x,  e.y,  e.z),
+                c + new Vector3( e.x, -e.y, -e.z),
+                c + new Vector3( e.x, -e.y,  e.z),
+                c + new Vector3( e.x,  e.y, -e.z),
+                c + new Vector3( e.x,  e.y,  e.z)
             };
 
             foreach (Vector3 corner in corners)
+                EncapsulateWorldPoint(ref bounds, ref initialized, rootTransform, meshFilter.transform.TransformPoint(corner));
+        }
+
+        // FBX icinde SkinnedMeshRenderer varsa onun bounds'ini kullan.
+        SkinnedMeshRenderer[] skinnedRenderers = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        foreach (SkinnedMeshRenderer renderer in skinnedRenderers)
+        {
+            Bounds worldBounds = renderer.bounds;
+            Vector3 e = worldBounds.extents;
+            Vector3 c = worldBounds.center;
+
+            Vector3[] corners =
             {
-                Vector3 localPoint = root.transform.InverseTransformPoint(worldBounds.center + corner);
-                if (!initialized)
-                {
-                    bounds = new Bounds(localPoint, Vector3.zero);
-                    initialized = true;
-                }
-                else
-                {
-                    bounds.Encapsulate(localPoint);
-                }
-            }
+                c + new Vector3(-e.x, -e.y, -e.z),
+                c + new Vector3(-e.x, -e.y,  e.z),
+                c + new Vector3(-e.x,  e.y, -e.z),
+                c + new Vector3(-e.x,  e.y,  e.z),
+                c + new Vector3( e.x, -e.y, -e.z),
+                c + new Vector3( e.x, -e.y,  e.z),
+                c + new Vector3( e.x,  e.y, -e.z),
+                c + new Vector3( e.x,  e.y,  e.z)
+            };
+
+            foreach (Vector3 corner in corners)
+                EncapsulateWorldPoint(ref bounds, ref initialized, rootTransform, corner);
         }
 
         return initialized ? bounds : new Bounds(Vector3.zero, Vector3.one);
+    }
+
+    private static void EncapsulateWorldPoint(ref Bounds bounds, ref bool initialized, Transform root, Vector3 worldPoint)
+    {
+        Vector3 localPoint = root.InverseTransformPoint(worldPoint);
+        if (!initialized)
+        {
+            bounds = new Bounds(localPoint, Vector3.zero);
+            initialized = true;
+        }
+        else
+        {
+            bounds.Encapsulate(localPoint);
+        }
     }
 
     private static void EnsureFolder(string parent, string child)
