@@ -70,18 +70,20 @@ public class PlayerInteraction : MonoBehaviour
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
-            if (book != null && canPickMore && !book.IsHeld)
-            {
+            if (book != null && canPickMore && !book.IsHeld && foundBook == null)
                 foundBook = book;
-                break;
-            }
 
             ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-            if (slot != null)
-            {
+            if (slot != null && foundSlot == null)
                 foundSlot = slot;
-                break;
-            }
+        }
+
+        // Raf bolmesine bakiliyorsa bolum her zaman onceliklidir.
+        // Boylece raftaki kitaplari tek tek secmek yerine bolumden sirayla aliriz.
+        if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
+        {
+            lookedSlot = foundSlot;
+            return;
         }
 
         if (foundBook != null)
@@ -97,19 +99,23 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandlePickupPress()
     {
-        // E ile yerdeki/normal kitabi tek tek eline al.
-        if (lookedBook != null && heldBooks.Count < maxHeldBooks)
+        // Elde kitap varsa E = baktigin raf bolmesine bir tane koy.
+        if (lookedSlot != null && heldBooks.Count > 0)
         {
-            PickUp(lookedBook);
+            PlaceOneMatchingBook();
             return;
         }
 
-        // Raf bolmesine bakiyorsan, kitabi tek tek secmek yerine
-        // bolmenin ilk siradaki kitabini al.
-        if (lookedSlot != null && heldBooks.Count < maxHeldBooks)
+        // Elde kitap yoksa E = baktigin raf bolmesinden siradaki kitabi al.
+        if (lookedSlot != null && heldBooks.Count == 0)
         {
             TakeFromShelf();
+            return;
         }
+
+        // Raf degilse normal yerdeki kitabi al.
+        if (lookedBook != null && heldBooks.Count < maxHeldBooks)
+            PickUp(lookedBook);
     }
 
     void TakeFromShelf()
@@ -163,7 +169,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void PlaceOneMatchingBook()
     {
-        if (lookedSlot == null)
+        if (lookedSlot == null || heldBooks.Count == 0)
             return;
 
         for (int i = 0; i < heldBooks.Count; i++)
@@ -186,33 +192,28 @@ public class PlayerInteraction : MonoBehaviour
         if (heldBooks.Count == 0)
             return;
 
-        // Q: eldeki son kitabi yere birak.
-        // E ile raf yerlestirmesi icin ise bakilan slotta yine tek kitap konur.
-        if (Input.GetKeyDown(dropKey))
+        BookItem book = heldBooks[heldBooks.Count - 1];
+        heldBooks.RemoveAt(heldBooks.Count - 1);
+
+        Vector3 worldPosition = book.transform.position;
+        Quaternion worldRotation = book.transform.rotation;
+
+        book.transform.SetParent(null);
+        book.transform.position = worldPosition;
+        book.transform.rotation = worldRotation;
+        book.transform.localScale = book.OriginalScale;
+        book.SetHeld(false);
+
+        Rigidbody rb = book.GetComponent<Rigidbody>();
+        if (rb != null)
         {
-            BookItem book = heldBooks[heldBooks.Count - 1];
-            heldBooks.RemoveAt(heldBooks.Count - 1);
-
-            Vector3 worldPosition = book.transform.position;
-            Quaternion worldRotation = book.transform.rotation;
-
-            book.transform.SetParent(null);
-            book.transform.position = worldPosition;
-            book.transform.rotation = worldRotation;
-            book.transform.localScale = book.OriginalScale;
-            book.SetHeld(false);
-
-            Rigidbody rb = book.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
-                rb.WakeUp();
-            }
-
-            StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
-            RepositionHeldBooks();
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.WakeUp();
         }
+
+        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
+        RepositionHeldBooks();
     }
 
     IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
