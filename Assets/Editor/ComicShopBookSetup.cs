@@ -12,6 +12,7 @@ public static class ComicShopBookSetup
     private const string BaseBookPrefabPath = "Assets/Prefabs/Book.prefab";
     private const string OutputPrefabFolder = "Assets/Prefabs/VeridianBooks";
     private const string OutputDataFolder = "Assets/BookData/VERIDIAN";
+    private const int BookLayer = 8;
 
     [MenuItem("ComicShop/Setup 15 VERIDIAN Books")]
     public static void Setup()
@@ -63,6 +64,7 @@ public static class ComicShopBookSetup
                 continue;
 
             bookRoot.name = $"Book_{i:00}_{modelName}";
+            bookRoot.layer = BookLayer;
 
             Vector3 originalLocalScale = bookRoot.transform.localScale;
             Quaternion originalLocalRotation = bookRoot.transform.localRotation;
@@ -142,7 +144,7 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri korunuyor; modelin en ince ekseni yatay kitap icin yukariya hizalanacak. Spawn random donusu korunuyor.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri ve Point'ler korunuyor; kitaplar etilesim icin Book layer 8'e alindi.");
     }
 
     private static Quaternion CalculateFlatOrientationCorrection(Bounds bounds)
@@ -178,14 +180,10 @@ public static class ComicShopBookSetup
 
             Vector3[] corners =
             {
-                c + new Vector3(-e.x, -e.y, -e.z),
-                c + new Vector3(-e.x, -e.y, e.z),
-                c + new Vector3(-e.x, e.y, -e.z),
-                c + new Vector3(-e.x, e.y, e.z),
-                c + new Vector3(e.x, -e.y, -e.z),
-                c + new Vector3(e.x, -e.y, e.z),
-                c + new Vector3(e.x, e.y, -e.z),
-                c + new Vector3(e.x, e.y, e.z)
+                c + new Vector3(-e.x, -e.y, -e.z), c + new Vector3(-e.x, -e.y, e.z),
+                c + new Vector3(-e.x, e.y, -e.z), c + new Vector3(-e.x, e.y, e.z),
+                c + new Vector3(e.x, -e.y, -e.z), c + new Vector3(e.x, -e.y, e.z),
+                c + new Vector3(e.x, e.y, -e.z), c + new Vector3(e.x, e.y, e.z)
             };
 
             foreach (Vector3 corner in corners)
@@ -201,14 +199,10 @@ public static class ComicShopBookSetup
 
             Vector3[] corners =
             {
-                c + new Vector3(-e.x, -e.y, -e.z),
-                c + new Vector3(-e.x, -e.y, e.z),
-                c + new Vector3(-e.x, e.y, -e.z),
-                c + new Vector3(-e.x, e.y, e.z),
-                c + new Vector3(e.x, -e.y, -e.z),
-                c + new Vector3(e.x, -e.y, e.z),
-                c + new Vector3(e.x, e.y, -e.z),
-                c + new Vector3(e.x, e.y, e.z)
+                c + new Vector3(-e.x, -e.y, -e.z), c + new Vector3(-e.x, -e.y, e.z),
+                c + new Vector3(-e.x, e.y, -e.z), c + new Vector3(-e.x, e.y, e.z),
+                c + new Vector3(e.x, -e.y, -e.z), c + new Vector3(e.x, -e.y, e.z),
+                c + new Vector3(e.x, e.y, -e.z), c + new Vector3(e.x, e.y, e.z)
             };
 
             foreach (Vector3 corner in corners)
