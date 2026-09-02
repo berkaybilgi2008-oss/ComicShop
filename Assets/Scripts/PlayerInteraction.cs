@@ -34,6 +34,10 @@ public class PlayerInteraction : MonoBehaviour
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
 
+        // Mevcut VERIDIAN prefablarinin bazilari Default (Layer 0) olabilir.
+        // Etkilesim maskesi bunlari da gorebilsin.
+        interactMask |= 1 << 0;
+
         if (FindFirstObjectByType<Crosshair>() == null)
             gameObject.AddComponent<Crosshair>();
     }
@@ -84,7 +88,6 @@ public class PlayerInteraction : MonoBehaviour
             }
         }
 
-        // Raf kitabi hedefleniyorsa sadece raf etkilesimi kullanilir.
         if (lookedBook != null)
         {
             lookedSlot = null;
