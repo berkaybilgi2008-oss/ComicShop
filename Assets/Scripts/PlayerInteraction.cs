@@ -18,6 +18,10 @@ public class PlayerInteraction : MonoBehaviour
     public float interactRange = 3f;
     public LayerMask interactMask;
 
+    [Header("Tusu")]
+    public KeyCode pickupKey = KeyCode.E;
+    public KeyCode dropKey = KeyCode.Q;
+
     private readonly List<BookItem> heldBooks = new List<BookItem>();
     public IReadOnlyList<BookItem> HeldBooksList => heldBooks;
     public int MaxHeldBooks => maxHeldBooks;
@@ -29,8 +33,11 @@ public class PlayerInteraction : MonoBehaviour
     {
         HandleLookDetection();
 
-        if (Input.GetKeyDown(KeyCode.E))
-            HandleInteractPress();
+        if (Input.GetKeyDown(pickupKey))
+            HandlePickupPress();
+
+        if (Input.GetKeyDown(dropKey))
+            DropTopBook();
     }
 
     void HandleLookDetection()
@@ -52,51 +59,28 @@ public class PlayerInteraction : MonoBehaviour
         BookItem foundBook = null;
         ShelfSlot foundSlot = null;
 
-        // Kitaplar hangi Layer'a konmuş olursa olsun bulunabilsin.
-        // Önceden interactMask kullanıldığı için Book prefab'ının collider'ı
-        // maskede değilse oyuncu kitabı hiç göremiyordu.
-        if (canPickMore)
+        RaycastHit[] hits = Physics.RaycastAll(
+            ray,
+            interactRange,
+            Physics.DefaultRaycastLayers,
+            QueryTriggerInteraction.Collide
+        );
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+        foreach (RaycastHit hit in hits)
         {
-            RaycastHit[] bookHits = Physics.RaycastAll(
-                ray,
-                interactRange,
-                Physics.DefaultRaycastLayers,
-                QueryTriggerInteraction.Collide
-            );
-
-            System.Array.Sort(bookHits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (RaycastHit hit in bookHits)
+            BookItem book = hit.collider.GetComponentInParent<BookItem>();
+            if (book != null && canPickMore && !book.IsHeld)
             {
-                BookItem book = hit.collider.GetComponentInParent<BookItem>();
-                if (book != null && !book.IsHeld)
-                {
-                    foundBook = book;
-                    break;
-                }
+                foundBook = book;
+                break;
             }
-        }
 
-        // Kitap bulunamadığında ve elde kitap varken raf bölmesini ara.
-        if (foundBook == null && heldBooks.Count > 0)
-        {
-            RaycastHit[] shelfHits = Physics.RaycastAll(
-                ray,
-                interactRange,
-                Physics.DefaultRaycastLayers,
-                QueryTriggerInteraction.Collide
-            );
-
-            System.Array.Sort(shelfHits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (RaycastHit hit in shelfHits)
+            ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
+            if (slot != null)
             {
-                ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-                if (slot != null)
-                {
-                    foundSlot = slot;
-                    break;
-                }
+                foundSlot = slot;
+                break;
             }
         }
 
@@ -105,50 +89,43 @@ public class PlayerInteraction : MonoBehaviour
             lookedBook = foundBook;
             lookedBook.SetHighlight(true);
         }
-        else if (foundSlot != null)
+        else
         {
             lookedSlot = foundSlot;
         }
     }
 
-    void HandleInteractPress()
+    void HandlePickupPress()
     {
+        // E ile yerdeki/normal kitabi tek tek eline al.
         if (lookedBook != null && heldBooks.Count < maxHeldBooks)
         {
             PickUp(lookedBook);
             return;
         }
 
-        if (heldBooks.Count > 0 && lookedSlot != null)
+        // Raf bolmesine bakiyorsan, kitabi tek tek secmek yerine
+        // bolmenin ilk siradaki kitabini al.
+        if (lookedSlot != null && heldBooks.Count < maxHeldBooks)
         {
-            PlaceOneMatchingBook();
-            return;
+            TakeFromShelf();
         }
-
-        if (heldBooks.Count > 0 && lookedBook == null && lookedSlot == null)
-            DropTopBook();
     }
 
-    void PlaceOneMatchingBook()
+    void TakeFromShelf()
     {
-        if (lookedSlot == null)
+        if (lookedSlot == null || heldBooks.Count >= maxHeldBooks)
             return;
 
-        for (int i = 0; i < heldBooks.Count; i++)
-        {
-            BookItem book = heldBooks[i];
-
-            if (!lookedSlot.Matches(book))
-                continue;
-
-            if (lookedSlot.PlaceBook(book))
-            {
-                heldBooks.RemoveAt(i);
-                RepositionHeldBooks();
-            }
-
+        BookItem book = lookedSlot.TakeFirstBook();
+        if (book == null)
             return;
-        }
+
+        book.SetHighlight(false);
+        book.SetHeld(true);
+        heldBooks.Add(book);
+        RepositionHeldBooks();
+        lookedSlot = null;
     }
 
     void PickUp(BookItem book)
@@ -161,7 +138,6 @@ public class PlayerInteraction : MonoBehaviour
 
         book.SetHighlight(false);
         book.SetHeld(true);
-
         heldBooks.Add(book);
         RepositionHeldBooks();
         lookedBook = null;
@@ -185,46 +161,70 @@ public class PlayerInteraction : MonoBehaviour
         }
     }
 
+    void PlaceOneMatchingBook()
+    {
+        if (lookedSlot == null)
+            return;
+
+        for (int i = 0; i < heldBooks.Count; i++)
+        {
+            BookItem book = heldBooks[i];
+            if (!lookedSlot.Matches(book))
+                continue;
+
+            if (lookedSlot.PlaceBook(book))
+            {
+                heldBooks.RemoveAt(i);
+                RepositionHeldBooks();
+            }
+            return;
+        }
+    }
+
     void DropTopBook()
     {
-        BookItem book = heldBooks[heldBooks.Count - 1];
-        heldBooks.RemoveAt(heldBooks.Count - 1);
+        if (heldBooks.Count == 0)
+            return;
 
-        Vector3 worldPosition = book.transform.position;
-        Quaternion worldRotation = book.transform.rotation;
-
-        book.transform.SetParent(null);
-        book.transform.position = worldPosition;
-        book.transform.rotation = worldRotation;
-        book.transform.localScale = book.OriginalScale;
-
-        book.SetHeld(false);
-
-        Rigidbody rb = book.GetComponent<Rigidbody>();
-        if (rb != null)
+        // Q: eldeki son kitabi yere birak.
+        // E ile raf yerlestirmesi icin ise bakilan slotta yine tek kitap konur.
+        if (Input.GetKeyDown(dropKey))
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.WakeUp();
-        }
+            BookItem book = heldBooks[heldBooks.Count - 1];
+            heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
-        RepositionHeldBooks();
+            Vector3 worldPosition = book.transform.position;
+            Quaternion worldRotation = book.transform.rotation;
+
+            book.transform.SetParent(null);
+            book.transform.position = worldPosition;
+            book.transform.rotation = worldRotation;
+            book.transform.localScale = book.OriginalScale;
+            book.SetHeld(false);
+
+            Rigidbody rb = book.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.WakeUp();
+            }
+
+            StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
+            RepositionHeldBooks();
+        }
     }
 
     IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
     {
         Collider[] playerColliders = GetComponentsInChildren<Collider>();
         Collider[] bookColliders = book != null ? book.GetComponentsInChildren<Collider>() : null;
-
         if (bookColliders == null)
             yield break;
 
         foreach (Collider bookCollider in bookColliders)
         {
-            if (bookCollider == null)
-                continue;
-
+            if (bookCollider == null) continue;
             foreach (Collider playerCollider in playerColliders)
             {
                 if (playerCollider != null)
@@ -233,20 +233,16 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
-
         while (book != null && rb != null && !rb.isKinematic)
             yield return null;
 
         yield return new WaitForSeconds(0.1f);
-
         if (book == null)
             yield break;
 
         foreach (Collider bookCollider in bookColliders)
         {
-            if (bookCollider == null)
-                continue;
-
+            if (bookCollider == null) continue;
             foreach (Collider playerCollider in playerColliders)
             {
                 if (playerCollider != null)
