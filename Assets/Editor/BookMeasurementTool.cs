@@ -13,63 +13,68 @@ public class BookMeasurementTool : EditorWindow
     {
         GUILayout.Label("Kitap Ölçüm Aracı", EditorStyles.boldLabel);
 
-        if (Selection.activeGameObject == null)
+        GameObject selected = Selection.activeGameObject;
+        if (selected == null)
         {
             EditorGUILayout.HelpBox("Ölçmek istediğin kitabı Hierarchy'den seç.", MessageType.Info);
             return;
         }
 
-        GameObject selected = Selection.activeGameObject;
-        Vector3 size;
+        EditorGUILayout.LabelField("Seçilen Obje", selected.name);
+        EditorGUILayout.Space();
 
-        if (!TryMeasureWithoutRootRotation(selected.transform, out size))
+        // ÖNEMLİ: Bu araç artık Transform/Renderer.bounds/World AABB ölçmüyor.
+        // Doğrudan MeshFilter.sharedMesh.bounds değerini, mesh'in kendi lokal
+        // koordinat sisteminde gösteriyor. Böylece Rotation hiçbir şekilde
+        // ölçüyü değiştiremez.
+        MeshFilter[] filters = selected.GetComponentsInChildren<MeshFilter>(true);
+        MeshFilter firstValid = null;
+
+        foreach (MeshFilter filter in filters)
         {
-            EditorGUILayout.HelpBox("Seçilen objede ölçülebilecek Renderer bulunamadı.", MessageType.Warning);
+            if (filter.sharedMesh != null)
+            {
+                firstValid = filter;
+                break;
+            }
+        }
+
+        if (firstValid == null)
+        {
+            EditorGUILayout.HelpBox("MeshFilter/sharedMesh bulunamadı.", MessageType.Warning);
             return;
         }
 
+        Mesh mesh = firstValid.sharedMesh;
+        Vector3 rawMeshSize = mesh.bounds.size;
+
+        // Mesh'in kendi lokal ölçüsünü göster.
+        EditorGUILayout.LabelField("FBX Mesh Bounds", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("X / Genişlik", FormatMeters(rawMeshSize.x));
+        EditorGUILayout.LabelField("Y / Yükseklik", FormatMeters(rawMeshSize.y));
+        EditorGUILayout.LabelField("Z / Derinlik", FormatMeters(rawMeshSize.z));
+
         EditorGUILayout.Space();
-        EditorGUILayout.LabelField("Kitap Boyutu (gerçek model sınırı)", EditorStyles.boldLabel);
-        EditorGUILayout.LabelField("X / Genişlik", $"{size.x:F4} m  ({size.x * 100:F2} cm)");
-        EditorGUILayout.LabelField("Y / Yükseklik", $"{size.y:F4} m  ({size.y * 100:F2} cm)");
-        EditorGUILayout.LabelField("Z / Derinlik", $"{size.z:F4} m  ({size.z * 100:F2} cm)");
+        EditorGUILayout.LabelField("Mesh", mesh.name);
+        EditorGUILayout.LabelField("MeshFilter", firstValid.name);
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Transform Scale", EditorStyles.boldLabel);
+        Vector3 scale = firstValid.transform.localScale;
+        EditorGUILayout.LabelField("X", scale.x.ToString("F4"));
+        EditorGUILayout.LabelField("Y", scale.y.ToString("F4"));
+        EditorGUILayout.LabelField("Z", scale.z.ToString("F4"));
 
         EditorGUILayout.Space();
         EditorGUILayout.HelpBox(
-            "Bu araç kitabın root Rotation değerini geçici olarak sıfırlayıp Renderer sınırını ölçer. " +
-            "Sonra Rotation aynen geri yüklenir. Böylece döndürme yüzünden X/Y/Z ölçüleri değişmez.",
+            "Bu değerler mesh'in kendi lokal bounds verisidir. " +
+            "Rotation'dan etkilenmez. Renderer.bounds kullanılmaz.",
             MessageType.Info
         );
     }
 
-    private static bool TryMeasureWithoutRootRotation(Transform root, out Vector3 size)
+    private static string FormatMeters(float value)
     {
-        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-        {
-            size = Vector3.zero;
-            return false;
-        }
-
-        Quaternion originalRotation = root.localRotation;
-        Vector3 originalPosition = root.localPosition;
-
-        // Sadece seçilen objenin root dönüşünü nötrleştiriyoruz.
-        // FBX içindeki child transformları ve modelin gerçek geometrisi değişmiyor.
-        root.localRotation = Quaternion.identity;
-
-        Physics.SyncTransforms();
-
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-            bounds.Encapsulate(renderers[i].bounds);
-
-        size = bounds.size;
-
-        root.localRotation = originalRotation;
-        root.localPosition = originalPosition;
-        Physics.SyncTransforms();
-
-        return true;
+        return $"{value:F4} m  ({value * 100f:F2} cm)";
     }
 }
