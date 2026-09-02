@@ -71,8 +71,7 @@ public class BookSpawner : MonoBehaviour
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
         Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
 
-        // Rastgele donus korunuyor. Kitabin model icindeki duzeltme rotasyonu
-        // prefab tarafinda uygulanir; spawn fiziğinin rastgeleligi degismez.
+        // Kitaplarin rastgele spawn donusu korunuyor.
         GameObject book = Instantiate(prefabToSpawn, pos, Random.rotation);
         BookItem bookItem = book.GetComponent<BookItem>();
 
@@ -85,6 +84,7 @@ public class BookSpawner : MonoBehaviour
 
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
+        bookItem.ApplyOrientationCorrection();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
