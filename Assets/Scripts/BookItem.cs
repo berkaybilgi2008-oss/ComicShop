@@ -97,6 +97,10 @@ public class BookItem : MonoBehaviour
 
     public void SetHighlight(bool on)
     {
+        // Rafta duran kitaplar asla highlight edilmez.
+        if (currentSlot != null)
+            on = false;
+
         if (outlineObject != null)
             outlineObject.SetActive(on);
     }
@@ -104,6 +108,9 @@ public class BookItem : MonoBehaviour
     public void SetHeld(bool held)
     {
         IsHeld = held;
+
+        if (held)
+            SetHighlight(false);
 
         Collider col = GetComponent<Collider>();
         if (col != null)
