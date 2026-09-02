@@ -19,8 +19,8 @@ public class PlayerInteraction : MonoBehaviour
     public LayerMask interactMask;
 
     [Header("Tusu")]
-    public KeyCode pickupKey = KeyCode.E;
-    public KeyCode dropKey = KeyCode.Q;
+    public KeyCode pickupKey = KeyCode.Mouse0;
+    public KeyCode dropKey = KeyCode.Mouse1;
 
     private readonly List<BookItem> heldBooks = new List<BookItem>();
     public IReadOnlyList<BookItem> HeldBooksList => heldBooks;
@@ -37,7 +37,7 @@ public class PlayerInteraction : MonoBehaviour
             HandlePickupPress();
 
         if (Input.GetKeyDown(dropKey))
-            DropTopBook();
+            HandleDropOrPlacePress();
     }
 
     void HandleLookDetection()
@@ -78,8 +78,6 @@ public class PlayerInteraction : MonoBehaviour
                 foundSlot = slot;
         }
 
-        // Raf bolmesine bakiliyorsa bolum her zaman onceliklidir.
-        // Boylece raftaki kitaplari tek tek secmek yerine bolumden sirayla aliriz.
         if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
         {
             lookedSlot = foundSlot;
@@ -99,23 +97,28 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandlePickupPress()
     {
-        // Elde kitap varsa E = baktigin raf bolmesine bir tane koy.
-        if (lookedSlot != null && heldBooks.Count > 0)
-        {
-            PlaceOneMatchingBook();
-            return;
-        }
-
-        // Elde kitap yoksa E = baktigin raf bolmesinden siradaki kitabi al.
+        // Sol mouse: sadece kitap alma.
         if (lookedSlot != null && heldBooks.Count == 0)
         {
             TakeFromShelf();
             return;
         }
 
-        // Raf degilse normal yerdeki kitabi al.
         if (lookedBook != null && heldBooks.Count < maxHeldBooks)
             PickUp(lookedBook);
+    }
+
+    void HandleDropOrPlacePress()
+    {
+        // Sag mouse: rafa bakiyorsak bir kitap yerlestir.
+        if (lookedSlot != null && heldBooks.Count > 0)
+        {
+            PlaceOneMatchingBook();
+            return;
+        }
+
+        // Raf yoksa kitabi elden birak.
+        DropTopBook();
     }
 
     void TakeFromShelf()
