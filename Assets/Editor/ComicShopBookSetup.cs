@@ -60,7 +60,6 @@ public static class ComicShopBookSetup
                 continue;
 
             root.name = $"Book_{i:00}_{modelName}";
-            root.transform.localScale = Vector3.one;
 
             MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>(true);
             foreach (MeshFilter filter in filters)
@@ -85,7 +84,6 @@ public static class ComicShopBookSetup
             visual.transform.SetParent(root.transform, false);
             visual.transform.localPosition = Vector3.zero;
             visual.transform.localRotation = Quaternion.identity;
-            visual.transform.localScale = Vector3.one;
 
             BookItem bookItem = root.GetComponent<BookItem>();
             Renderer coverRenderer = visual.GetComponentInChildren<Renderer>(true);
@@ -135,7 +133,7 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap modeli temiz Book prefab + fizik prefab'i olarak hazirlandi. Her kitaptan 10 kopya spawn edilecek.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap modeli, FBX'in Unity'deki mevcut boyutu korunarak hazirlandi. Her kitaptan 10 kopya spawn edilecek.");
     }
 
     private static Bounds CalculateWorldBounds(GameObject root)
