@@ -56,17 +56,31 @@ public static class ComicShopBookSetup
             AssetDatabase.DeleteAsset(dataPath);
 
             GameObject root = PrefabUtility.InstantiatePrefab(basePrefab) as GameObject;
+            if (root == null)
+                continue;
+
             root.name = $"Book_{i:00}_{modelName}";
             root.transform.localScale = Vector3.one;
 
-            MeshFilter oldFilter = root.GetComponent<MeshFilter>();
-            MeshRenderer oldRenderer = root.GetComponent<MeshRenderer>();
-            if (oldFilter != null)
-                UnityEngine.Object.DestroyImmediate(oldFilter);
-            if (oldRenderer != null)
-                UnityEngine.Object.DestroyImmediate(oldRenderer);
+            MeshFilter[] filters = root.GetComponentsInChildren<MeshFilter>(true);
+            foreach (MeshFilter filter in filters)
+                UnityEngine.Object.DestroyImmediate(filter);
+
+            MeshRenderer[] meshRenderers = root.GetComponentsInChildren<MeshRenderer>(true);
+            foreach (MeshRenderer renderer in meshRenderers)
+                UnityEngine.Object.DestroyImmediate(renderer);
+
+            SkinnedMeshRenderer[] skinnedRenderers = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (SkinnedMeshRenderer renderer in skinnedRenderers)
+                UnityEngine.Object.DestroyImmediate(renderer);
 
             GameObject visual = PrefabUtility.InstantiatePrefab(model) as GameObject;
+            if (visual == null)
+            {
+                UnityEngine.Object.DestroyImmediate(root);
+                continue;
+            }
+
             visual.name = modelName;
             visual.transform.SetParent(root.transform, false);
             visual.transform.localPosition = Vector3.zero;
@@ -74,26 +88,35 @@ public static class ComicShopBookSetup
             visual.transform.localScale = Vector3.one;
 
             BookItem bookItem = root.GetComponent<BookItem>();
-            Renderer coverRenderer = visual.GetComponentInChildren<Renderer>();
+            Renderer coverRenderer = visual.GetComponentInChildren<Renderer>(true);
+
+            if (bookItem == null || coverRenderer == null)
+            {
+                Debug.LogError($"ComicShop: '{modelName}' modelinde BookItem veya Renderer bulunamadi.");
+                UnityEngine.Object.DestroyImmediate(root);
+                continue;
+            }
+
             bookItem.bookID = i;
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
 
             BoxCollider collider = root.GetComponent<BoxCollider>();
-            if (collider != null && coverRenderer != null)
+            if (collider != null)
             {
-                Bounds bounds = coverRenderer.bounds;
+                Bounds bounds = CalculateWorldBounds(visual);
                 collider.center = root.transform.InverseTransformPoint(bounds.center);
                 collider.size = bounds.size;
             }
 
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
             UnityEngine.Object.DestroyImmediate(root);
 
+            GameObject savedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             BookData asset = ScriptableObject.CreateInstance<BookData>();
             asset.BookID = i;
             asset.BrandID = 0;
-            asset.bookPrefab = prefab;
+            asset.bookPrefab = savedPrefab;
             AssetDatabase.CreateAsset(asset, dataPath);
             data[i] = asset;
         }
@@ -101,7 +124,7 @@ public static class ComicShopBookSetup
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        BookSpawner spawner = UnityEngine.Object.FindFirstObjectByType<BookSpawner>();
+        BookSpawner spawner = UnityEngine.Object.FindAnyObjectByType<BookSpawner>();
         if (spawner != null)
         {
             spawner.bookTypes = data;
@@ -112,7 +135,20 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap modeli BookData + fizik prefab'i olarak hazirlandi. Her kitaptan 10 kopya spawn edilecek.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap modeli temiz Book prefab + fizik prefab'i olarak hazirlandi. Her kitaptan 10 kopya spawn edilecek.");
+    }
+
+    private static Bounds CalculateWorldBounds(GameObject root)
+    {
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+            return new Bounds(root.transform.position, Vector3.one);
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        return bounds;
     }
 
     private static void EnsureFolder(string parent, string child)
