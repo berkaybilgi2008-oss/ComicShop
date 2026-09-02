@@ -35,6 +35,9 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandleLookDetection()
     {
+        if (playerCamera == null)
+            return;
+
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
 
         if (lookedBook != null)
@@ -45,30 +48,45 @@ public class PlayerInteraction : MonoBehaviour
 
         lookedSlot = null;
 
-        // Book detection keeps using the configured interaction mask.
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask);
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
         bool canPickMore = heldBooks.Count < maxHeldBooks;
         BookItem foundBook = null;
         ShelfSlot foundSlot = null;
 
-        foreach (RaycastHit hit in hits)
+        // Kitaplar hangi Layer'a konmuş olursa olsun bulunabilsin.
+        // Önceden interactMask kullanıldığı için Book prefab'ının collider'ı
+        // maskede değilse oyuncu kitabı hiç göremiyordu.
+        if (canPickMore)
         {
-            BookItem book = hit.collider.GetComponentInParent<BookItem>();
-            if (book != null && canPickMore && !book.IsHeld)
+            RaycastHit[] bookHits = Physics.RaycastAll(
+                ray,
+                interactRange,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Collide
+            );
+
+            System.Array.Sort(bookHits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit hit in bookHits)
             {
-                foundBook = book;
-                break;
+                BookItem book = hit.collider.GetComponentInParent<BookItem>();
+                if (book != null && !book.IsHeld)
+                {
+                    foundBook = book;
+                    break;
+                }
             }
         }
 
-        // Shelf slots are detected separately from the interaction mask.
-        // This allows manually-created ShelfSlot colliders to work even if
-        // their layer is not included in the player's Book mask.
+        // Kitap bulunamadığında ve elde kitap varken raf bölmesini ara.
         if (foundBook == null && heldBooks.Count > 0)
         {
-            RaycastHit[] shelfHits = Physics.RaycastAll(ray, interactRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+            RaycastHit[] shelfHits = Physics.RaycastAll(
+                ray,
+                interactRange,
+                Physics.DefaultRaycastLayers,
+                QueryTriggerInteraction.Collide
+            );
+
             System.Array.Sort(shelfHits, (a, b) => a.distance.CompareTo(b.distance));
 
             foreach (RaycastHit hit in shelfHits)
@@ -116,8 +134,6 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null)
             return;
 
-        // Holding order does not matter. Find the first held book that this
-        // shelf accepts, then place exactly one book per interaction press.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -137,6 +153,9 @@ public class PlayerInteraction : MonoBehaviour
 
     void PickUp(BookItem book)
     {
+        if (book == null)
+            return;
+
         if (book.currentSlot != null)
             book.currentSlot.RemoveBook(book);
 
@@ -190,7 +209,6 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
-
         RepositionHeldBooks();
     }
 
