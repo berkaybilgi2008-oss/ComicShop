@@ -31,7 +31,9 @@ public class PlayerInteraction : MonoBehaviour
 
     void Awake()
     {
-        // Sahneye Crosshair eklenmemis olsa bile oyun baslarken mutlaka olustur.
+        if (playerCamera == null)
+            playerCamera = GetComponentInChildren<Camera>();
+
         if (FindFirstObjectByType<Crosshair>() == null)
             gameObject.AddComponent<Crosshair>();
     }
@@ -59,55 +61,51 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Collide);
+        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Ignore);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
-        BookItem foundBook = null;
-        ShelfSlot foundSlot = null;
 
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
             ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
 
-            if (slot != null && foundSlot == null)
-                foundSlot = slot;
+            if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null)
+            {
+                lookedBook = book;
+                break;
+            }
 
-            if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null && foundBook == null)
-                foundBook = book;
+            if (slot != null)
+            {
+                lookedSlot = slot;
+                break;
+            }
         }
 
-        if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
+        // Raf kitabi hedefleniyorsa sadece raf etkilesimi kullanilir.
+        if (lookedBook != null)
         {
-            lookedSlot = foundSlot;
-            return;
-        }
-
-        if (foundBook != null)
-        {
-            lookedBook = foundBook;
-            // Sadece elde alinabilir, yerde duran kitap parlayabilir.
+            lookedSlot = null;
             lookedBook.SetHighlight(true);
         }
     }
 
     void HandlePickupPress()
     {
-        // Sol mouse: raftan kitap al; raf bos ise yerdeki kitabi al.
-        if (lookedSlot != null && lookedSlot.FilledCount > 0 && heldBooks.Count < maxHeldBooks)
+        if (lookedBook != null && heldBooks.Count < maxHeldBooks)
         {
-            TakeFromShelf();
+            PickUp(lookedBook);
             return;
         }
 
-        if (lookedBook != null && heldBooks.Count < maxHeldBooks)
-            PickUp(lookedBook);
+        if (lookedSlot != null && lookedSlot.FilledCount > 0 && heldBooks.Count < maxHeldBooks)
+            TakeFromShelf();
     }
 
     void HandleDropOrPlacePress()
     {
-        // Sag mouse: uygun kitabi hedef rafa koy; raf yoksa eldeki son kitabi birak.
         if (lookedSlot != null && heldBooks.Count > 0)
         {
             PlaceOneMatchingBook();
