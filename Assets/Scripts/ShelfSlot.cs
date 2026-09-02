@@ -54,7 +54,6 @@ public class ShelfSlot : MonoBehaviour
 
         Transform point = placementPoints[index];
 
-        // Point'in world-space konumunu kullan; point'in parent scale'i kitaba aktarilmaz.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(point.position, point.rotation);
         book.transform.localScale = book.OriginalScale;
@@ -73,6 +72,31 @@ public class ShelfSlot : MonoBehaviour
         book.currentSlot = this;
         GameStats.RegisterPlacement(book.bookID);
         return true;
+    }
+
+    public BookItem TakeFirstBook()
+    {
+        if (placedBooks == null || FilledCount <= 0)
+            return null;
+
+        for (int i = 0; i < placedBooks.Length; i++)
+        {
+            BookItem book = placedBooks[i];
+            if (book == null)
+                continue;
+
+            placedBooks[i] = null;
+            FilledCount = Mathf.Max(0, FilledCount - 1);
+            GameStats.UnregisterPlacement(book.bookID);
+            book.currentSlot = null;
+
+            if (FilledCount == 0)
+                ownerBookID = -1;
+
+            return book;
+        }
+
+        return null;
     }
 
     public void RemoveBook(BookItem book)
