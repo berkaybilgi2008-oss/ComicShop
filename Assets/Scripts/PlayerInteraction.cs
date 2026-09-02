@@ -29,6 +29,13 @@ public class PlayerInteraction : MonoBehaviour
     private BookItem lookedBook;
     private ShelfSlot lookedSlot;
 
+    void Awake()
+    {
+        // Sahneye Crosshair eklenmemis olsa bile oyun baslarken mutlaka olustur.
+        if (FindFirstObjectByType<Crosshair>() == null)
+            gameObject.AddComponent<Crosshair>();
+    }
+
     void Update()
     {
         HandleLookDetection();
@@ -71,8 +78,6 @@ public class PlayerInteraction : MonoBehaviour
                 foundBook = book;
         }
 
-        // Raf collider'i hedefleniyorsa raf etkilesimi secilir.
-        // Bu, elde kitap varken baska raflardan da kitap almayi engellemez.
         if (foundSlot != null && (foundSlot.FilledCount > 0 || heldBooks.Count > 0))
         {
             lookedSlot = foundSlot;
@@ -82,13 +87,14 @@ public class PlayerInteraction : MonoBehaviour
         if (foundBook != null)
         {
             lookedBook = foundBook;
+            // Sadece elde alinabilir, yerde duran kitap parlayabilir.
             lookedBook.SetHighlight(true);
         }
     }
 
     void HandlePickupPress()
     {
-        // Sol mouse: once raftan kitap, yoksa yerden kitap al.
+        // Sol mouse: raftan kitap al; raf bos ise yerdeki kitabi al.
         if (lookedSlot != null && lookedSlot.FilledCount > 0 && heldBooks.Count < maxHeldBooks)
         {
             TakeFromShelf();
@@ -101,7 +107,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void HandleDropOrPlacePress()
     {
-        // Sag mouse: uygun kitabi hedeflenen rafa koy.
+        // Sag mouse: uygun kitabi hedef rafa koy; raf yoksa eldeki son kitabi birak.
         if (lookedSlot != null && heldBooks.Count > 0)
         {
             PlaceOneMatchingBook();
