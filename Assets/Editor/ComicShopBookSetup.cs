@@ -34,14 +34,14 @@ public static class ComicShopBookSetup
         }
 
         GameObject basePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BaseBookPrefabPath);
+        BookItem baseBookItem = basePrefab != null ? basePrefab.GetComponent<BookItem>() : null;
+        Rigidbody baseRigidbody = basePrefab != null ? basePrefab.GetComponent<Rigidbody>() : null;
+
         if (basePrefab == null)
         {
             Debug.LogError($"ComicShop: Temel kitap prefab'i bulunamadi: {BaseBookPrefabPath}");
             return;
         }
-
-        BookItem baseBookItem = basePrefab.GetComponent<BookItem>();
-        Rigidbody baseRigidbody = basePrefab.GetComponent<Rigidbody>();
 
         BookData[] data = new BookData[15];
 
@@ -58,33 +58,28 @@ public static class ComicShopBookSetup
             AssetDatabase.DeleteAsset(prefabPath);
             AssetDatabase.DeleteAsset(dataPath);
 
-            // Book.prefab'in cube gorunusunu miras almak yerine tamamen bos bir root olusturuyoruz.
-            // Boylece FBX'in kendi Unity import transform/hiyerarsisi oldugu gibi korunuyor.
-            GameObject root = new GameObject($"Book_{i:00}_{modelName}");
-
-            GameObject visual = PrefabUtility.InstantiatePrefab(model) as GameObject;
-            if (visual == null)
-            {
-                UnityEngine.Object.DestroyImmediate(root);
+            // FBX'i dogrudan prefab root olarak kullaniyoruz.
+            // Ekstra bos root eklenmedigi icin FBX'in Unity'deki mevcut
+            // root transformu, hiyerarsisi ve import scale'i korunur.
+            GameObject bookRoot = PrefabUtility.InstantiatePrefab(model) as GameObject;
+            if (bookRoot == null)
                 continue;
-            }
 
-            visual.name = modelName;
-            visual.transform.SetParent(root.transform, false);
-            visual.transform.localPosition = Vector3.zero;
-            visual.transform.localRotation = Quaternion.identity;
-            // IMPORTANT: FBX localScale'e dokunma. Unity'de gorunen mevcut boyut aynen korunur.
+            bookRoot.name = $"Book_{i:00}_{modelName}";
 
-            BookItem bookItem = root.AddComponent<BookItem>();
-            Renderer coverRenderer = visual.GetComponentInChildren<Renderer>(true);
+            Vector3 originalLocalScale = bookRoot.transform.localScale;
+            Quaternion originalLocalRotation = bookRoot.transform.localRotation;
+            Vector3 originalLocalPosition = bookRoot.transform.localPosition;
 
+            Renderer coverRenderer = bookRoot.GetComponentInChildren<Renderer>(true);
             if (coverRenderer == null)
             {
                 Debug.LogError($"ComicShop: '{modelName}' modelinde Renderer bulunamadi.");
-                UnityEngine.Object.DestroyImmediate(root);
+                UnityEngine.Object.DestroyImmediate(bookRoot);
                 continue;
             }
 
+            BookItem bookItem = bookRoot.AddComponent<BookItem>();
             bookItem.bookID = i;
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
@@ -95,12 +90,17 @@ public static class ComicShopBookSetup
                 bookItem.outlineScale = baseBookItem.outlineScale;
             }
 
-            BoxCollider collider = root.AddComponent<BoxCollider>();
-            Bounds bounds = CalculateLocalBounds(visual, root.transform);
+            // FBX'in root transformuna mudahale etmiyoruz.
+            bookRoot.transform.localPosition = originalLocalPosition;
+            bookRoot.transform.localRotation = originalLocalRotation;
+            bookRoot.transform.localScale = originalLocalScale;
+
+            BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
+            Bounds bounds = CalculateLocalBounds(bookRoot);
             collider.center = bounds.center;
             collider.size = bounds.size;
 
-            Rigidbody rb = root.AddComponent<Rigidbody>();
+            Rigidbody rb = bookRoot.AddComponent<Rigidbody>();
             if (baseRigidbody != null)
             {
                 rb.mass = baseRigidbody.mass;
@@ -118,8 +118,8 @@ public static class ComicShopBookSetup
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             }
 
-            PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
-            UnityEngine.Object.DestroyImmediate(root);
+            PrefabUtility.SaveAsPrefabAsset(bookRoot, prefabPath);
+            UnityEngine.Object.DestroyImmediate(bookRoot);
 
             GameObject savedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             BookData asset = ScriptableObject.CreateInstance<BookData>();
@@ -144,12 +144,12 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap modeli, FBX'in Unity'deki mevcut boyutu korunarak bos root prefab yapisinda hazirlandi. Her kitaptan 10 kopya spawn edilecek.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap, FBX dogrudan prefab root olarak kullanilarak hazirlandi. FBX'in Unity'deki mevcut boyutu korunuyor. Her kitaptan 10 kopya spawn edilecek.");
     }
 
-    private static Bounds CalculateLocalBounds(GameObject visual, Transform root)
+    private static Bounds CalculateLocalBounds(GameObject root)
     {
-        Renderer[] renderers = visual.GetComponentsInChildren<Renderer>(true);
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length == 0)
             return new Bounds(Vector3.zero, Vector3.one);
 
@@ -159,7 +159,6 @@ public static class ComicShopBookSetup
         foreach (Renderer renderer in renderers)
         {
             Bounds worldBounds = renderer.bounds;
-            Vector3 center = root.InverseTransformPoint(worldBounds.center);
             Vector3 extents = worldBounds.extents;
 
             Vector3[] corners =
@@ -176,7 +175,7 @@ public static class ComicShopBookSetup
 
             foreach (Vector3 corner in corners)
             {
-                Vector3 localPoint = root.InverseTransformPoint(worldBounds.center + corner);
+                Vector3 localPoint = root.transform.InverseTransformPoint(worldBounds.center + corner);
                 if (!initialized)
                 {
                     bounds = new Bounds(localPoint, Vector3.zero);
