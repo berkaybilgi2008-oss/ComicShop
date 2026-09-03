@@ -35,10 +35,10 @@ public class BookItem : MonoBehaviour
     public float sleepLinearVelocity = 0.08f;
     [Tooltip("Kitap bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa hareketi tamamen kilitlenir.")]
+    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa tamamen sabitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
-    private int physicsContactCount;
+    private bool hasPhysicsContact;
 
     void Awake()
     {
@@ -59,9 +59,8 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        // Kitabi ancak gercek bir fizik temasi varken sabitle.
-        // Boylece havada yavaslayan kitap zorla kilitlenmez.
-        if (physicsContactCount <= 0 || !movingSlowly)
+        // Kitap ancak gercek fizik temasi varken ve yeterince yavasken sabitlenir.
+        if (!hasPhysicsContact || !movingSlowly)
         {
             stillTimer = 0f;
             return;
@@ -74,9 +73,10 @@ public class BookItem : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
-        // Yerlesmis kitabi tamamen sabitle. Rigidbody Dynamic kalir; collider
-        // aktif oldugu icin baska kitaplar bu kitaba carpmaya devam edebilir.
-        rb.constraints = RigidbodyConstraints.FreezeAll;
+        // Kitabi kinematic yaparak yerlesmis pozisyonunu kesin olarak koru.
+        // Collider acik kalir; Dynamic kitaplar bu kitaba normal sekilde carpar.
+        // Yeni birakma geldiginde SetHeld(false) tekrar Dynamic'e cevirir.
+        rb.isKinematic = true;
         rb.Sleep();
         stillTimer = 0f;
     }
@@ -84,25 +84,19 @@ public class BookItem : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         if (!IsHeld)
-            physicsContactCount++;
+            hasPhysicsContact = true;
     }
 
     void OnCollisionStay(Collision collision)
     {
-        if (!IsHeld && physicsContactCount <= 0)
-            physicsContactCount = 1;
+        if (!IsHeld)
+            hasPhysicsContact = true;
     }
 
     void OnCollisionExit(Collision collision)
     {
-        if (physicsContactCount > 0)
-            physicsContactCount--;
-
-        if (physicsContactCount <= 0)
-        {
-            physicsContactCount = 0;
-            stillTimer = 0f;
-        }
+        hasPhysicsContact = false;
+        stillTimer = 0f;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -172,7 +166,7 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
-            physicsContactCount = 0;
+            hasPhysicsContact = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
@@ -181,7 +175,7 @@ public class BookItem : MonoBehaviour
 
             if (!held)
             {
-                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                 rb.WakeUp();
             }
         }
