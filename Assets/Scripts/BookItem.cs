@@ -35,7 +35,7 @@ public class BookItem : MonoBehaviour
     public float sleepLinearVelocity = 0.08f;
     [Tooltip("Kitap bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa fizik uykuya alinir.")]
+    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa hareketi tamamen kilitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
     private int physicsContactCount;
@@ -59,8 +59,8 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        // Kitap havada yavaslasa bile temas kurmadan zorla uyutma.
-        // Temas + dusuk hiz birlikte gercekten yerlestigini gosterir.
+        // Kitabi ancak gercek bir fizik temasi varken sabitle.
+        // Boylece havada yavaslayan kitap zorla kilitlenmez.
         if (physicsContactCount <= 0 || !movingSlowly)
         {
             stillTimer = 0f;
@@ -74,9 +74,9 @@ public class BookItem : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
-        // Constraint ile kitabi kilitlemiyoruz. Rigidbody Dynamic olarak kalir;
-        // Sleep yalnizca fizik motorunun dinlenme durumunu kullanir.
-        // Bir baska kitap carparsa Unity Rigidbody'yi tekrar uyandirabilir.
+        // Yerlesmis kitabi tamamen sabitle. Rigidbody Dynamic kalir; collider
+        // aktif oldugu icin baska kitaplar bu kitaba carpmaya devam edebilir.
+        rb.constraints = RigidbodyConstraints.FreezeAll;
         rb.Sleep();
         stillTimer = 0f;
     }
