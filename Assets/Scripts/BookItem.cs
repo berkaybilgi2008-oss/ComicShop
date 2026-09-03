@@ -35,10 +35,10 @@ public class BookItem : MonoBehaviour
     public float sleepLinearVelocity = 0.08f;
     [Tooltip("Kitap bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa hareketi tamamen kilitlenir.")]
+    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa fizik uykuya alinir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
-    private bool hasPhysicsContact;
+    private int physicsContactCount;
 
     void Awake()
     {
@@ -59,9 +59,9 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        // Havada kisa bir an icin hiz dusse bile kitabi sabitleme.
-        // Yalnizca gercek bir fizik temasindan sonra sabitle.
-        if (!hasPhysicsContact || !movingSlowly)
+        // Kitap havada yavaslasa bile temas kurmadan zorla uyutma.
+        // Temas + dusuk hiz birlikte gercekten yerlestigini gosterir.
+        if (physicsContactCount <= 0 || !movingSlowly)
         {
             stillTimer = 0f;
             return;
@@ -74,10 +74,9 @@ public class BookItem : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
-        // Kinematic'e gecmek yerine Dynamic Rigidbody'nin hareketini kilitle.
-        // Boylece kitap hala fizik sisteminin icinde kalir ve baska Dynamic
-        // kitaplar ona carpabilir; yeni kitaplar birbirinin icinden gecmez.
-        rb.constraints = RigidbodyConstraints.FreezeAll;
+        // Constraint ile kitabi kilitlemiyoruz. Rigidbody Dynamic olarak kalir;
+        // Sleep yalnizca fizik motorunun dinlenme durumunu kullanir.
+        // Bir baska kitap carparsa Unity Rigidbody'yi tekrar uyandirabilir.
         rb.Sleep();
         stillTimer = 0f;
     }
@@ -85,21 +84,25 @@ public class BookItem : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         if (!IsHeld)
-            hasPhysicsContact = true;
+            physicsContactCount++;
     }
 
     void OnCollisionStay(Collision collision)
     {
-        if (!IsHeld)
-            hasPhysicsContact = true;
+        if (!IsHeld && physicsContactCount <= 0)
+            physicsContactCount = 1;
     }
 
     void OnCollisionExit(Collision collision)
     {
-        // Baska bir temas hala varsa OnCollisionStay sonraki physics adiminda
-        // tekrar true yapar. Tek temasli bir kitap icin burada sayaci sifirla.
-        hasPhysicsContact = false;
-        stillTimer = 0f;
+        if (physicsContactCount > 0)
+            physicsContactCount--;
+
+        if (physicsContactCount <= 0)
+        {
+            physicsContactCount = 0;
+            stillTimer = 0f;
+        }
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -169,7 +172,7 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
-            hasPhysicsContact = false;
+            physicsContactCount = 0;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
@@ -178,8 +181,6 @@ public class BookItem : MonoBehaviour
 
             if (!held)
             {
-                // Speculative CCD, hizli hareket ve ozellikle donus sirasinda
-                // Dynamic kitaplarin birbirinin icinden gecmesini onlemeye daha uygundur.
                 rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                 rb.WakeUp();
             }
