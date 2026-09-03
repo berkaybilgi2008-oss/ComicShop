@@ -10,16 +10,15 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    [Tooltip("Kitaplar arasinda birakilacak minimum gorunur bosluk.")]
-    public float stackSpacing = 0.015f;
+    [Tooltip("Kitaplar arasinda birakilacak minimum bosluk.")]
+    public float stackSpacing = 0.005f;
+    [Tooltip("Kitaplarin eldeki stack icinde ne kadar ust uste binmesine izin verilecegi. 0 = hic overlap yok.")]
+    [Range(0f, 0.35f)] public float stackOverlap = 0.12f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
-    [Tooltip("Birakilan kitap baska bir collider ile ic iceyse en fazla bu kadar ayri iter.")]
-    [Min(0)] public int dropPenetrationPasses = 6;
-    [Tooltip("Penetration duzeltmesinin hassasiyeti.")]
-    [Min(0f)] public float dropPenetrationPadding = 0.002f;
-    [Tooltip("Oyuncu ile carpisma, kitap yere oturana kadar gecici olarak yok sayilir.")]
+    [Min(1)] public int dropPenetrationPasses = 8;
+    [Min(0f)] public float dropPenetrationPadding = 0.003f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
@@ -161,8 +160,7 @@ public class PlayerInteraction : MonoBehaviour
             return;
 
         Vector3 stackUp = rightHandPoint.up;
-        bool hasPreviousBook = false;
-        float previousMax = 0f;
+        float nextStackPosition = 0f;
 
         for (int i = 0; i < heldBooks.Count; i++)
         {
@@ -171,61 +169,49 @@ public class PlayerInteraction : MonoBehaviour
                 continue;
 
             book.transform.SetParent(rightHandPoint, false);
-
-            // Once kitabin sabit aralikla itilmesi yerine, gercek gorunen modelin
-            // yuksekligini olcerek bir sonraki kitabi onun hemen ustune koyuyoruz.
-            // Boylece farkli FBX boyutlari ve Base Rotation degerleri birbirinin
-            // icine girmiyor.
-            book.transform.localPosition = Vector3.zero;
             book.transform.localRotation = book.NativeRotation;
             book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
 
-            float minProjection;
-            float maxProjection;
-            GetVisualProjection(book, stackUp, out minProjection, out maxProjection);
+            // Onceki kitabin bitis noktasini bulup, yeni kitabi onun hemen arkasina
+            // yerlestiriyoruz. Stack overlap degeri kitaplarin tamamen ayrik durup
+            // elde gereksiz uzun bir kule olusturmasini engelliyor.
+            float halfHeight = GetColliderProjectedHalfHeight(book, stackUp);
+            float centerPosition = nextStackPosition + halfHeight;
+            book.transform.localPosition = stackUp * centerPosition;
 
-            if (hasPreviousBook)
-            {
-                float offsetAlongStack = previousMax + stackSpacing - minProjection;
-                book.transform.position += stackUp * offsetAlongStack;
-                minProjection += offsetAlongStack;
-                maxProjection += offsetAlongStack;
-            }
-
-            previousMax = maxProjection;
-            hasPreviousBook = true;
+            nextStackPosition = centerPosition + halfHeight;
+            nextStackPosition -= halfHeight * stackOverlap;
+            nextStackPosition += stackSpacing;
         }
     }
 
-    void GetVisualProjection(BookItem book, Vector3 axis, out float minProjection, out float maxProjection)
+    float GetColliderProjectedHalfHeight(BookItem book, Vector3 axis)
     {
-        Renderer[] renderers = book.GetComponentsInChildren<Renderer>(true);
+        Collider[] colliders = book.GetComponentsInChildren<Collider>(true);
         bool found = false;
-        minProjection = float.MaxValue;
-        maxProjection = float.MinValue;
+        float min = float.MaxValue;
+        float max = float.MinValue;
 
-        foreach (Renderer renderer in renderers)
+        foreach (Collider col in colliders)
         {
-            if (renderer == null || !renderer.enabled || renderer is ParticleSystemRenderer)
+            if (col == null || !col.enabled || col.isTrigger)
                 continue;
 
-            Bounds bounds = renderer.bounds;
-            float center = Vector3.Dot(bounds.center, axis);
-            float radius = Mathf.Abs(axis.x) * bounds.extents.x +
-                           Mathf.Abs(axis.y) * bounds.extents.y +
-                           Mathf.Abs(axis.z) * bounds.extents.z;
+            Bounds b = col.bounds;
+            float center = Vector3.Dot(b.center, axis);
+            float radius = Mathf.Abs(axis.x) * b.extents.x +
+                           Mathf.Abs(axis.y) * b.extents.y +
+                           Mathf.Abs(axis.z) * b.extents.z;
 
-            minProjection = Mathf.Min(minProjection, center - radius);
-            maxProjection = Mathf.Max(maxProjection, center + radius);
+            min = Mathf.Min(min, center - radius);
+            max = Mathf.Max(max, center + radius);
             found = true;
         }
 
         if (!found)
-        {
-            float center = Vector3.Dot(book.transform.position, axis);
-            minProjection = center;
-            maxProjection = center;
-        }
+            return 0.05f;
+
+        return Mathf.Max(0.001f, (max - min) * 0.5f);
     }
 
     void PlaceOneMatchingBook()
@@ -263,17 +249,16 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Collider'lari acmadan once oyuncu ile olan carpismayi kapatiyoruz.
-        // Boylece birakma aninda kitap oyuncunun collider'ina firlamiyor.
+        // Collider acilmadan once oyuncu ile carpismayi kapat.
         IgnorePlayerCollision(book, true);
-
         book.SetHeld(false);
 
-        // Kitap baska bir kitap/raf/zemin ile ilk anda ic ice kaldiysa, Rigidbody'yi
-        // dinamik yapmadan once sadece gerekli miktarda disari iteriz. Bu, ust uste
-        // ayni yere birakilan kitaplarin ic ice spawn olmasini engeller; kitap yine
-        // normal fizik ile asagi dusmeye devam eder.
+        // SetHeld collider'lari actigi icin Unity broadphase'i hemen guncelle.
+        // Aksi halde ayni noktadaki daha once birakilmis kitaplar OverlapSphere'da
+        // bir sonraki fizik adimina kadar gorunmeyebilir.
+        Physics.SyncTransforms();
         ResolveInitialPenetration(book);
+        Physics.SyncTransforms();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
@@ -318,14 +303,17 @@ public class PlayerInteraction : MonoBehaviour
         if (bookColliders.Length == 0)
             return;
 
-        Collider[] nearbyColliders = Physics.OverlapSphere(
-            book.transform.position,
-            GetBookBoundsRadius(book),
-            ~0,
-            QueryTriggerInteraction.Ignore);
-
         for (int pass = 0; pass < dropPenetrationPasses; pass++)
         {
+            Physics.SyncTransforms();
+
+            float radius = GetBookBoundsRadius(book);
+            Collider[] nearbyColliders = Physics.OverlapSphere(
+                book.transform.position,
+                radius,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
             bool moved = false;
 
             foreach (Collider bookCollider in bookColliders)
@@ -342,14 +330,12 @@ public class PlayerInteraction : MonoBehaviour
                     if (otherBook == book)
                         continue;
 
-                    // Oyuncu collider'larini burada duzeltmeye dahil etmiyoruz;
-                    // onlar zaten gecici olarak IgnoreCollision durumunda.
                     if (other.transform.IsChildOf(transform))
                         continue;
 
                     Vector3 direction;
                     float distance;
-                    if (Physics.ComputePenetration(
+                    if (!Physics.ComputePenetration(
                         bookCollider,
                         bookCollider.transform.position,
                         bookCollider.transform.rotation,
@@ -358,13 +344,14 @@ public class PlayerInteraction : MonoBehaviour
                         other.transform.rotation,
                         out direction,
                         out distance))
-                    {
-                        if (distance <= 0f)
-                            continue;
+                        continue;
 
-                        book.transform.position += direction * (distance + dropPenetrationPadding);
-                        moved = true;
-                    }
+                    if (distance <= 0f)
+                        continue;
+
+                    book.transform.position += direction * (distance + dropPenetrationPadding);
+                    moved = true;
+                    Physics.SyncTransforms();
                 }
             }
 
@@ -375,30 +362,30 @@ public class PlayerInteraction : MonoBehaviour
 
     float GetBookBoundsRadius(BookItem book)
     {
-        Renderer[] renderers = book.GetComponentsInChildren<Renderer>(true);
+        Collider[] colliders = book.GetComponentsInChildren<Collider>(true);
         Bounds bounds = new Bounds(book.transform.position, Vector3.zero);
         bool initialized = false;
 
-        foreach (Renderer renderer in renderers)
+        foreach (Collider col in colliders)
         {
-            if (renderer == null || !renderer.enabled)
+            if (col == null || !col.enabled || col.isTrigger)
                 continue;
 
             if (!initialized)
             {
-                bounds = renderer.bounds;
+                bounds = col.bounds;
                 initialized = true;
             }
             else
             {
-                bounds.Encapsulate(renderer.bounds);
+                bounds.Encapsulate(col.bounds);
             }
         }
 
         if (!initialized)
             return 0.5f;
 
-        return bounds.extents.magnitude + 0.1f;
+        return bounds.extents.magnitude + 0.05f;
     }
 
     IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
