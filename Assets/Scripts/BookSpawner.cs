@@ -110,7 +110,7 @@ public class BookSpawner : MonoBehaviour
                 {
                     rb.detectCollisions = true;
                     rb.isKinematic = false;
-                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                     rb.maxDepenetrationVelocity = 10f;
                     rb.solverIterations = 12;
                     rb.solverVelocityIterations = 12;
