@@ -59,7 +59,6 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        // Kitap ancak gercek fizik temasi varken ve yeterince yavasken sabitlenir.
         if (!hasPhysicsContact || !movingSlowly)
         {
             stillTimer = 0f;
@@ -73,9 +72,8 @@ public class BookItem : MonoBehaviour
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
-        // Kitabi kinematic yaparak yerlesmis pozisyonunu kesin olarak koru.
-        // Collider acik kalir; Dynamic kitaplar bu kitaba normal sekilde carpar.
-        // Yeni birakma geldiginde SetHeld(false) tekrar Dynamic'e cevirir.
+        // Sabitlenen kitap Collider'i acik tutarak fizik dunyasinda kalir.
+        // Yeni Dynamic kitaplar bu Collider'a carpmaya devam eder.
         rb.isKinematic = true;
         rb.Sleep();
         stillTimer = 0f;
@@ -175,7 +173,14 @@ public class BookItem : MonoBehaviour
 
             if (!held)
             {
+                // Tum serbest kitaplarda ayni CCD modu kullanilir. Boylece
+                // yeni birakilan kitap da mevcut Dynamic kitaplara karsi CCD ile
+                // fiziksel olarak carpabilir; arada mod uyumsuzlugu kalmaz.
+                rb.detectCollisions = true;
                 rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                rb.maxDepenetrationVelocity = 10f;
+                rb.solverIterations = 12;
+                rb.solverVelocityIterations = 12;
                 rb.WakeUp();
             }
         }
