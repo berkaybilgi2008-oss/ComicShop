@@ -185,8 +185,6 @@ public class PlayerInteraction : MonoBehaviour
 
             if (lookedSlot.PlaceBook(book))
             {
-                // Raf kitabi oyuncuyla tekrar etkilesebilir hale getirir.
-                IgnorePlayerCollision(book, false);
                 heldBooks.RemoveAt(i);
                 RepositionHeldBooks();
             }
@@ -211,9 +209,6 @@ public class PlayerInteraction : MonoBehaviour
 
         RepositionHeldBooks();
 
-        // SetHeld(false) tek yerde collider'i acar, Rigidbody'yi Dynamic yapar
-        // ve kitap-kitap CCD modunu ayarlar. Burada sadece oyuncu ile olan
-        // collision'i kapatip firlatma kuvvetini veriyoruz.
         book.SetHeld(false);
         Physics.SyncTransforms();
         IgnorePlayerCollision(book, true);
