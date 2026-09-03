@@ -107,13 +107,11 @@ public class BookSpawner : MonoBehaviour
                 if (rb != null)
                 {
                     rb.detectCollisions = true;
-                    // Unity'nin sweep CCD'sinde hizli kitap ContinuousDynamic,
-                    // onun carpacagi diger dynamic kitaplar Continuous olmalidir.
                     rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
                     rb.isKinematic = false;
                     rb.maxDepenetrationVelocity = 10f;
-                    rb.solverIterations = 12;
-                    rb.solverVelocityIterations = 12;
+                    rb.solverIterations = 20;
+                    rb.solverVelocityIterations = 20;
                     rb.WakeUp();
                     rb.AddTorque(Random.insideUnitSphere * 2f, ForceMode.Impulse);
                 }
