@@ -126,15 +126,13 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
-        // Kitabin kendi collider'lari her zaman aktif kalir.
-        // Oyuncuyla carpismayi PlayerInteraction, Physics.IgnoreCollision
-        // ile yonetir. Boylece eldeki kitaplar birbirleriyle fiziksel olarak
-        // etkilesmeye devam eder ve ic ice girmeleri onlenir.
+        // Elde fiziksel collider kapali kalir; kitap elden birakilinca
+        // SetHeld(false) ile tekrar aktif olur.
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
             if (col != null)
-                col.enabled = true;
+                col.enabled = !held;
         }
 
         Rigidbody rb = GetComponent<Rigidbody>();
