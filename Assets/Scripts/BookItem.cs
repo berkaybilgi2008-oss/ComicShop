@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BookItem : MonoBehaviour
@@ -80,6 +81,14 @@ public class BookItem : MonoBehaviour
 
     bool HasPhysicalSupport()
     {
+        return HasPhysicalSupport(new HashSet<BookItem>());
+    }
+
+    bool HasPhysicalSupport(HashSet<BookItem> visited)
+    {
+        if (!visited.Add(this))
+            return false;
+
         Bounds bounds = GetCombinedColliderBounds();
         Vector3 center = bounds.center;
         float bottomY = bounds.min.y;
@@ -97,41 +106,69 @@ public class BookItem : MonoBehaviour
             new Vector3(center.x + halfX, startY, center.z + halfZ)
         };
 
-        int ignoredLayers = 0;
-        Collider[] ownColliders = GetComponentsInChildren<Collider>(true);
-        foreach (Collider ownCollider in ownColliders)
-        {
-            if (ownCollider != null)
-                ignoredLayers |= 1 << ownCollider.gameObject.layer;
-        }
-
-        int mask = ~ignoredLayers;
         int supportHits = 0;
 
         foreach (Vector3 origin in origins)
         {
-            if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, distance, mask, QueryTriggerInteraction.Ignore))
-                continue;
+            // Tum kitaplar ayni layer'da oldugu icin layer mask kullanmiyoruz.
+            // Onceki yaklasim kitap layer'ini komple maskeleyip kitap-ustune-kitap
+            // destegini fiziksel olarak gormeyi imkansiz hale getiriyordu.
+            RaycastHit[] hits = Physics.RaycastAll(
+                origin,
+                Vector3.down,
+                distance,
+                ~0,
+                QueryTriggerInteraction.Ignore);
 
-            BookItem otherBook = hit.collider.GetComponentInParent<BookItem>();
-            if (otherBook != null)
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            bool originSupported = false;
+            foreach (RaycastHit hit in hits)
             {
+                if (hit.collider == null || hit.normal.y < 0.2f)
+                    continue;
+
+                BookItem otherBook = hit.collider.GetComponentInParent<BookItem>();
                 if (otherBook == this)
                     continue;
 
-                // Alttaki kitap fiziksel olarak hala hareket ediyorsa onu
-                // destek kabul etmiyoruz. Sabitlenmis kitap veya fizik motorunun
-                // uykuya aldigi kitap guvenilir bir temel olabilir.
-                Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
-                if (otherRb != null && !otherRb.isKinematic && !otherRb.IsSleeping())
+                // Oyuncu ile kitap arasindaki fiziksel ignore durumunu raycast ile
+                // yanlislikla destek kabul etmiyoruz.
+                if (hit.collider.GetComponentInParent<PlayerInteraction>() != null)
                     continue;
+
+                if (otherBook != null)
+                {
+                    Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
+                    if (otherRb == null)
+                        continue;
+
+                    // Alt kitap zaten sabitse dogrudan fiziksel temel kabul edilir.
+                    // Dinamik ama yavaslamis bir alt kitap icin de zinciri takip et:
+                    // onun altinda gercek bir zemin/raf veya sabit kitap varsa destek
+                    // gercekten fiziksel bir zincire dayanir.
+                    if (otherRb.isKinematic || otherRb.IsSleeping() ||
+                        otherBook.HasPhysicalSupport(visited))
+                    {
+                        originSupported = true;
+                        break;
+                    }
+
+                    // Ilk dinamik kitap destek degilse onun arkasindaki nesneyi
+                    // ayni ray uzerinde aramaya devam ediyoruz.
+                    continue;
+                }
+
+                // Kitap olmayan collider, yukaridan gelen bir temas yuzeyi ise
+                // zemin/raf gibi fiziksel destek sayilir.
+                originSupported = true;
+                break;
             }
 
-            supportHits++;
+            if (originSupported)
+                supportHits++;
         }
 
-        // Tek bir kenar noktasinin zemine degmesi yerine tabanin birden fazla
-        // noktasinin desteklenmesini isteriz. Bu, havada kalan yan temaslari azaltir.
         return supportHits >= 2;
     }
 
