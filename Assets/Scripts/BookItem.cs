@@ -38,7 +38,7 @@ public class BookItem : MonoBehaviour
     [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa tamamen sabitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
-    private bool hasPhysicsContact;
+    private int physicsContactCount;
 
     void Awake()
     {
@@ -59,7 +59,7 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        if (!hasPhysicsContact || !movingSlowly)
+        if (physicsContactCount <= 0 || !movingSlowly)
         {
             stillTimer = 0f;
             return;
@@ -79,19 +79,25 @@ public class BookItem : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         if (!IsHeld)
-            hasPhysicsContact = true;
+            physicsContactCount++;
     }
 
     void OnCollisionStay(Collision collision)
     {
-        if (!IsHeld)
-            hasPhysicsContact = true;
+        if (!IsHeld && physicsContactCount <= 0)
+            physicsContactCount = 1;
     }
 
     void OnCollisionExit(Collision collision)
     {
-        hasPhysicsContact = false;
-        stillTimer = 0f;
+        if (physicsContactCount > 0)
+            physicsContactCount--;
+
+        if (physicsContactCount <= 0)
+        {
+            physicsContactCount = 0;
+            stillTimer = 0f;
+        }
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -161,7 +167,7 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
-            hasPhysicsContact = false;
+            physicsContactCount = 0;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
@@ -173,8 +179,8 @@ public class BookItem : MonoBehaviour
                 rb.detectCollisions = true;
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
                 rb.maxDepenetrationVelocity = 10f;
-                rb.solverIterations = 12;
-                rb.solverVelocityIterations = 12;
+                rb.solverIterations = 20;
+                rb.solverVelocityIterations = 20;
                 rb.WakeUp();
             }
         }
