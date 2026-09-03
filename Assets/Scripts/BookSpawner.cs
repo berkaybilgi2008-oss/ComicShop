@@ -96,7 +96,6 @@ public class BookSpawner : MonoBehaviour
             Rigidbody rb = book.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                // Aday kitap, fizik aktif edilmeden once kontrol ediliyor.
                 rb.isKinematic = true;
                 rb.detectCollisions = false;
             }
@@ -108,7 +107,9 @@ public class BookSpawner : MonoBehaviour
                 if (rb != null)
                 {
                     rb.detectCollisions = true;
-                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                    // Unity'nin sweep CCD'sinde hizli kitap ContinuousDynamic,
+                    // onun carpacagi diger dynamic kitaplar Continuous olmalidir.
+                    rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
                     rb.isKinematic = false;
                     rb.maxDepenetrationVelocity = 10f;
                     rb.solverIterations = 12;
