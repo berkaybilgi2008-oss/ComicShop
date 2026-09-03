@@ -60,7 +60,9 @@ public class BookItem : MonoBehaviour
             {
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
-                rb.isKinematic = true;
+                // Kitabi kinematic yapma. Dynamic Rigidbody olarak uyutmak,
+                // baska kitaplarla temasinin korunmasini saglar.
+                rb.Sleep();
                 stillTimer = 0f;
             }
         }
@@ -126,14 +128,11 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
-        // Collider her durumda aktif kalir. Elde iken oyuncuyla carpismayi
-        // PlayerInteraction, Physics.IgnoreCollision ile kapatir.
-        // Boylece eldeki kitaplar da birbirleriyle fiziksel olarak etkilesir.
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
             if (col != null)
-                col.enabled = true;
+                col.enabled = !held;
         }
 
         Rigidbody rb = GetComponent<Rigidbody>();
