@@ -39,17 +39,64 @@ public class BookItem : MonoBehaviour
     private float stillTimer;
 
     [Header("Destek Kontrolu")]
-    [Tooltip("Kitabin altinda destek kabul etmek icin kullanilan yerel ray yuksekligi.")]
-    public float supportRayHeight = 0.03f;
-    [Tooltip("Destek yuzeyi ile kitap arasinda kabul edilen maksimum mesafe.")]
-    public float supportRayDistance = 0.08f;
-    [Tooltip("Destek raylarinin kitap genisligine gore yatay yaricapi.")]
-    [Range(0.1f, 0.9f)] public float supportProbeHalfWidth = 0.75f;
+    [Tooltip("Bir temas yuzeyinin destek sayilmasi icin gereken minimum yukari normal.")]
+    [Range(0.1f, 0.9f)] public float supportNormalY = 0.35f;
+    [Tooltip("Kitabin fiziksel destek kazanmasi icin gereken temas sayisi.")]
+    [Min(1)] public int requiredSupportContacts = 1;
+
+    // Bu liste raycast yerine dogrudan Physics collision contact'larindan tutulur.
+    // Boylece sadece gercekten temas eden yuzeyler destek kabul edilir.
+    private readonly HashSet<BookItem> supportedByBooks = new HashSet<BookItem>();
+    private bool supportedByWorld;
 
     void Awake()
     {
         originalScale = transform.localScale;
         CreateOutlineObjects();
+    }
+
+    void FixedUpdate()
+    {
+        // OnCollisionStay bir sonraki fizik adiminda yeniden doldurulacak.
+        supportedByBooks.Clear();
+        supportedByWorld = false;
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        if (collision == null || collision.collider == null)
+            return;
+
+        // PlayerInteraction ile kitap arasinda IgnoreCollision kullaniliyor.
+        // Yine de oyuncuyu fiziksel destek olarak asla kabul etmiyoruz.
+        if (collision.collider.GetComponentInParent<PlayerInteraction>() != null)
+            return;
+
+        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
+        bool hasUpwardSupport = false;
+
+        ContactPoint[] contacts = collision.contacts;
+        for (int i = 0; i < contacts.Length; i++)
+        {
+            if (contacts[i].normal.y >= supportNormalY)
+            {
+                hasUpwardSupport = true;
+                break;
+            }
+        }
+
+        if (!hasUpwardSupport)
+            return;
+
+        if (otherBook != null && otherBook != this)
+        {
+            supportedByBooks.Add(otherBook);
+        }
+        else if (otherBook == null)
+        {
+            // Zemin, raf veya baska statik/dinamik olmayan fizik yuzeyi.
+            supportedByWorld = true;
+        }
     }
 
     void Update()
@@ -70,6 +117,7 @@ public class BookItem : MonoBehaviour
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
                 rb.isKinematic = true;
+                rb.Sleep();
                 stillTimer = 0f;
             }
         }
@@ -89,112 +137,26 @@ public class BookItem : MonoBehaviour
         if (!visited.Add(this))
             return false;
 
-        Bounds bounds = GetCombinedColliderBounds();
-        Vector3 center = bounds.center;
-        float bottomY = bounds.min.y;
-        float halfX = Mathf.Max(0.01f, bounds.extents.x * supportProbeHalfWidth);
-        float halfZ = Mathf.Max(0.01f, bounds.extents.z * supportProbeHalfWidth);
-        float startY = bottomY + supportRayHeight;
-        float distance = Mathf.Max(supportRayDistance, supportRayHeight + 0.02f);
+        // En az bir gercek yukari temas zemine/rafa bagli fiziksel temel olabilir.
+        if (supportedByWorld)
+            return true;
 
-        Vector3[] origins =
+        // Kitabin altinda baska kitap varsa, o kitap sabitlenmis olmali veya
+        // kendi temas zinciriyle fiziksel olarak destekleniyor olmali.
+        foreach (BookItem otherBook in supportedByBooks)
         {
-            new Vector3(center.x, startY, center.z),
-            new Vector3(center.x - halfX, startY, center.z - halfZ),
-            new Vector3(center.x - halfX, startY, center.z + halfZ),
-            new Vector3(center.x + halfX, startY, center.z - halfZ),
-            new Vector3(center.x + halfX, startY, center.z + halfZ)
-        };
-
-        int supportHits = 0;
-
-        foreach (Vector3 origin in origins)
-        {
-            // Tum kitaplar ayni layer'da oldugu icin layer mask kullanmiyoruz.
-            // Onceki yaklasim kitap layer'ini komple maskeleyip kitap-ustune-kitap
-            // destegini fiziksel olarak gormeyi imkansiz hale getiriyordu.
-            RaycastHit[] hits = Physics.RaycastAll(
-                origin,
-                Vector3.down,
-                distance,
-                ~0,
-                QueryTriggerInteraction.Ignore);
-
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-            bool originSupported = false;
-            foreach (RaycastHit hit in hits)
-            {
-                if (hit.collider == null || hit.normal.y < 0.2f)
-                    continue;
-
-                BookItem otherBook = hit.collider.GetComponentInParent<BookItem>();
-                if (otherBook == this)
-                    continue;
-
-                // Oyuncu ile kitap arasindaki fiziksel ignore durumunu raycast ile
-                // yanlislikla destek kabul etmiyoruz.
-                if (hit.collider.GetComponentInParent<PlayerInteraction>() != null)
-                    continue;
-
-                if (otherBook != null)
-                {
-                    Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
-                    if (otherRb == null)
-                        continue;
-
-                    // Alt kitap zaten sabitse dogrudan fiziksel temel kabul edilir.
-                    // Dinamik ama yavaslamis bir alt kitap icin de zinciri takip et:
-                    // onun altinda gercek bir zemin/raf veya sabit kitap varsa destek
-                    // gercekten fiziksel bir zincire dayanir.
-                    if (otherRb.isKinematic || otherRb.IsSleeping() ||
-                        otherBook.HasPhysicalSupport(visited))
-                    {
-                        originSupported = true;
-                        break;
-                    }
-
-                    // Ilk dinamik kitap destek degilse onun arkasindaki nesneyi
-                    // ayni ray uzerinde aramaya devam ediyoruz.
-                    continue;
-                }
-
-                // Kitap olmayan collider, yukaridan gelen bir temas yuzeyi ise
-                // zemin/raf gibi fiziksel destek sayilir.
-                originSupported = true;
-                break;
-            }
-
-            if (originSupported)
-                supportHits++;
-        }
-
-        return supportHits >= 2;
-    }
-
-    Bounds GetCombinedColliderBounds()
-    {
-        Collider[] colliders = GetComponentsInChildren<Collider>(true);
-        bool hasBounds = false;
-        Bounds combined = new Bounds(transform.position, Vector3.zero);
-
-        foreach (Collider col in colliders)
-        {
-            if (col == null || !col.enabled)
+            if (otherBook == null)
                 continue;
 
-            if (!hasBounds)
-            {
-                combined = col.bounds;
-                hasBounds = true;
-            }
-            else
-            {
-                combined.Encapsulate(col.bounds);
-            }
+            Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
+            if (otherRb == null)
+                continue;
+
+            if (otherRb.isKinematic || otherRb.IsSleeping() || otherBook.HasPhysicalSupport(visited))
+                return true;
         }
 
-        return hasBounds ? combined : new Bounds(transform.position, Vector3.zero);
+        return false;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -267,6 +229,8 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
+            supportedByBooks.Clear();
+            supportedByWorld = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = held;
