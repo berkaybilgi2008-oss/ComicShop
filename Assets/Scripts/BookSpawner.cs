@@ -86,10 +86,21 @@ public class BookSpawner : MonoBehaviour
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
 
+        // Kitaplar birbirleriyle de hareket halindeyken surekli carpisma
+        // algilamasi kullansin. Yeni birakilan kitaplar da ayni CCD rejiminde
+        // kalan eski kitaplara karsi tutarli davranir.
+        Rigidbody rb = book.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            rb.maxDepenetrationVelocity = 10f;
+            rb.solverIterations = 12;
+            rb.solverVelocityIterations = 12;
+        }
+
         Quaternion randomSpawnRotation = Random.rotation;
         book.transform.rotation = randomSpawnRotation * bookItem.NativeRotation;
 
-        Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
             rb.AddTorque(Random.insideUnitSphere * 2f, ForceMode.Impulse);
     }
