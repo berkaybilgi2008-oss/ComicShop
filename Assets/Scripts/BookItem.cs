@@ -31,13 +31,14 @@ public class BookItem : MonoBehaviour
     public Quaternion NativeRotation => Quaternion.Euler(baseRotationEuler);
 
     [Header("Birakma Fizigi")]
-    [Tooltip("Kitabin bu hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
+    [Tooltip("Kitap bu hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepLinearVelocity = 0.08f;
-    [Tooltip("Kitabin bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
+    [Tooltip("Kitap bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap bu kadar sure yeterince yavas kalirsa fiziksel olarak sabitlenir.")]
+    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa hareketi tamamen kilitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
+    private bool hasPhysicsContact;
 
     void Awake()
     {
@@ -45,7 +46,7 @@ public class BookItem : MonoBehaviour
         CreateOutlineObjects();
     }
 
-    void Update()
+    void FixedUpdate()
     {
         if (IsHeld)
             return;
@@ -58,24 +59,46 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        if (!movingSlowly)
+        // Havada kisa bir an icin hiz dusse bile kitabi sabitleme.
+        // Yalnizca gercek bir fizik temasindan sonra sabitle.
+        if (!hasPhysicsContact || !movingSlowly)
         {
             stillTimer = 0f;
             return;
         }
 
-        stillTimer += Time.deltaTime;
+        stillTimer += Time.fixedDeltaTime;
         if (stillTimer < sleepDelay)
             return;
 
-        // Kitap yeterince uzun sure yerlesmis durumda kaldiktan sonra onu
-        // kinematic yaparak fiziksel olarak kesin sekilde sabitle.
-        // Bu noktada artik dusme/yerlesme bitmistir; yeni dynamic kitaplar
-        // kinematic kitaba normal sekilde carpisabilir.
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
-        rb.isKinematic = true;
+
+        // Kinematic'e gecmek yerine Dynamic Rigidbody'nin hareketini kilitle.
+        // Boylece kitap hala fizik sisteminin icinde kalir ve baska Dynamic
+        // kitaplar ona carpabilir; yeni kitaplar birbirinin icinden gecmez.
+        rb.constraints = RigidbodyConstraints.FreezeAll;
         rb.Sleep();
+        stillTimer = 0f;
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (!IsHeld)
+            hasPhysicsContact = true;
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        if (!IsHeld)
+            hasPhysicsContact = true;
+    }
+
+    void OnCollisionExit(Collision collision)
+    {
+        // Baska bir temas hala varsa OnCollisionStay sonraki physics adiminda
+        // tekrar true yapar. Tek temasli bir kitap icin burada sayaci sifirla.
+        hasPhysicsContact = false;
         stillTimer = 0f;
     }
 
@@ -146,8 +169,10 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
+            hasPhysicsContact = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.constraints = RigidbodyConstraints.None;
             rb.isKinematic = held;
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
 
