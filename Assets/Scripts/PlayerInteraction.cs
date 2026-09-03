@@ -44,8 +44,6 @@ public class PlayerInteraction : MonoBehaviour
     {
         HandleLookDetection();
 
-        // Etkilesim tuslari kesin olarak mouse sol/sag olsun.
-        // Sahne prefabinda eski E/Q degerleri serialize edilmis olsa bile kullanilmaz.
         if (Input.GetKeyDown(KeyCode.Mouse0))
             HandlePickupPress();
 
@@ -159,7 +157,10 @@ public class PlayerInteraction : MonoBehaviour
             BookItem book = heldBooks[i];
             book.transform.SetParent(rightHandPoint, false);
             book.transform.localPosition = new Vector3(0f, i * stackSpacing, 0f);
-            book.transform.localRotation = book.OrientationCorrection;
+
+            // FBX'in Unity'de sahneye suruklendigindeki native rotasyonu kullan.
+            // Spawn'daki Random.rotation burada kesinlikle kullanilmaz.
+            book.transform.localRotation = book.NativeRotation;
 
             Vector3 baseScale = book.OriginalScale * heldScaleMultiplier;
             book.transform.localScale = new Vector3(
