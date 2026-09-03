@@ -44,6 +44,19 @@ public static class ComicShopBookSetup
             return;
         }
 
+        GameObject[] oldPrefabs = AssetDatabase.FindAssets("t:Prefab", new[] { OutputPrefabFolder })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .ToArray();
+        foreach (string oldPrefab in oldPrefabs)
+            AssetDatabase.DeleteAsset(oldPrefab);
+
+        BookData[] oldData = AssetDatabase.FindAssets("t:BookData", new[] { OutputDataFolder })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .ToArray();
+        foreach (string oldAsset in oldData)
+            AssetDatabase.DeleteAsset(oldAsset);
+
+        GameObject[] dataAssets = new GameObject[15];
         BookData[] data = new BookData[15];
 
         for (int i = 0; i < modelPaths.Length; i++)
@@ -55,9 +68,6 @@ public static class ComicShopBookSetup
             string modelName = Path.GetFileNameWithoutExtension(modelPaths[i]);
             string prefabPath = $"{OutputPrefabFolder}/Book_{i:00}_{Sanitize(modelName)}.prefab";
             string dataPath = $"{OutputDataFolder}/BookData_{i:00}_{Sanitize(modelName)}.asset";
-
-            AssetDatabase.DeleteAsset(prefabPath);
-            AssetDatabase.DeleteAsset(dataPath);
 
             GameObject bookRoot = PrefabUtility.InstantiatePrefab(model) as GameObject;
             if (bookRoot == null)
@@ -83,6 +93,7 @@ public static class ComicShopBookSetup
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
             bookItem.nativeRotation = nativeRotation;
+            bookItem.baseRotationEuler = nativeRotation.eulerAngles;
 
             if (baseBookItem != null)
             {
@@ -144,7 +155,7 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX native rotasyonlari korunuyor; rastgele spawn rotasyonu ayridir.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. Her prefab'in Base Rotation alani FBX native rotasyonundan baslatildi.");
     }
 
     private static Bounds CalculateExactLocalBounds(GameObject root)
