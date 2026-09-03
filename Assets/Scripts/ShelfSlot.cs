@@ -54,13 +54,12 @@ public class ShelfSlot : MonoBehaviour
 
         Transform point = placementPoints[index];
 
-        // Raf noktasinin rotasyonu kitabin nihai raf yonudur.
-        // Point'leri Unity'de elle ayarladigin icin burada ekstra rotasyon uygulanmaz.
         book.transform.SetParent(null, true);
-        book.transform.SetPositionAndRotation(
-            point.position,
-            point.rotation
-        );
+        book.transform.position = point.position;
+
+        // Point'in yonu rafin yonunu belirler; kitabin kendi FBX native rotasyonu
+        // bu yonun uzerine uygulanir. Spawn'daki Random.rotation kullanilmaz.
+        book.transform.rotation = point.rotation * book.NativeRotation;
         book.transform.localScale = book.OriginalScale;
         book.SetHeld(false);
 
