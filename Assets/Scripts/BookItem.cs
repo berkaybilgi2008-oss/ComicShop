@@ -15,9 +15,12 @@ public class BookItem : MonoBehaviour
     [Header("Kapak Gorseli")]
     public Renderer coverRenderer;
 
-    [Header("Model Yonu")]
-    [Tooltip("FBX modelinin ince eksenini yatay kitapta yukariya hizalar. Olcegi degistirmez.")]
-    public Quaternion orientationCorrection = Quaternion.identity;
+    [Header("Kitap Model Rotasyonu")]
+    [Tooltip("FBX modelinin Unity'de sahneye suruklendiginde sahip oldugu temel rotasyon. Rastgele spawn rotasyonu degildir.")]
+    public Quaternion nativeRotation = Quaternion.identity;
+
+    // Eski alan geriye uyumluluk icin tutuluyor; artik yon hesabinda kullanilmiyor.
+    [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
     private GameObject[] outlineObjects;
     private Vector3 originalScale;
@@ -25,7 +28,7 @@ public class BookItem : MonoBehaviour
     public ShelfSlot currentSlot;
     public bool IsHeld { get; private set; }
     public Vector3 OriginalScale => originalScale;
-    public Quaternion OrientationCorrection => orientationCorrection;
+    public Quaternion NativeRotation => nativeRotation;
 
     [Header("Birakma Fizigi")]
     public float sleepLinearVelocity = 0.03f;
@@ -37,11 +40,6 @@ public class BookItem : MonoBehaviour
     {
         originalScale = transform.localScale;
         CreateOutlineObjects();
-    }
-
-    public void ApplyOrientationCorrection()
-    {
-        transform.rotation = transform.rotation * orientationCorrection;
     }
 
     void Update()
@@ -107,7 +105,6 @@ public class BookItem : MonoBehaviour
 
     public void SetHighlight(bool on)
     {
-        // Rafta duran veya elde tutulan kitaplar asla highlight edilmez.
         if (currentSlot != null || IsHeld)
             on = false;
 
