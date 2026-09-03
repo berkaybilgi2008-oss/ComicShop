@@ -21,11 +21,6 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int testBookTypeCount = 15;
 
-    [Header("Spawn Cakisma Koruması")]
-    [Tooltip("Kitap fizik sistemine girmeden once baska bir kitapla cakismadigi konumu bulmak icin denenecek maksimum konum sayisi.")]
-    [Min(1)]
-    public int maxSpawnAttempts = 40;
-
     void Start()
     {
         int bookTypeCount = bookTypes != null && bookTypes.Length > 0
@@ -72,92 +67,31 @@ public class BookSpawner : MonoBehaviour
             return;
         }
 
-        for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
+        float x = Random.Range(-areaSize.x / 2f, areaSize.x / 2f);
+        float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
+        Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
+
+        // Prefab'in root rotasyonunu Instantiate ile ezme.
+        // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
+        GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
+        BookItem bookItem = book.GetComponent<BookItem>();
+
+        if (bookItem == null)
         {
-            float x = Random.Range(-areaSize.x / 2f, areaSize.x / 2f);
-            float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
-            Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
-            Quaternion randomSpawnRotation = Random.rotation;
-
-            GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
-            BookItem bookItem = book.GetComponent<BookItem>();
-
-            if (bookItem == null)
-            {
-                Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookData BookID {bookID}.");
-                Destroy(book);
-                return;
-            }
-
-            bookItem.bookID = bookID;
-            bookItem.brandID = brandID;
-            book.transform.rotation = randomSpawnRotation * bookItem.NativeRotation;
-
-            Rigidbody rb = book.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.isKinematic = true;
-                rb.detectCollisions = false;
-            }
-
-            Physics.SyncTransforms();
-
-            if (!OverlapsExistingBook(book))
-            {
-                if (rb != null)
-                {
-                    rb.detectCollisions = true;
-                    rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-                    rb.isKinematic = false;
-                    rb.maxDepenetrationVelocity = 10f;
-                    rb.solverIterations = 20;
-                    rb.solverVelocityIterations = 20;
-                    rb.WakeUp();
-                    rb.AddTorque(Random.insideUnitSphere * 2f, ForceMode.Impulse);
-                }
-
-                return;
-            }
-
+            Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookData BookID {bookID}.");
             Destroy(book);
+            return;
         }
 
-        Debug.LogWarning($"BookSpawner: BookID {bookID} icin {maxSpawnAttempts} denemede bos spawn noktasi bulunamadi. Kitap spawn edilmedi.");
-    }
+        bookItem.bookID = bookID;
+        bookItem.brandID = brandID;
 
-    bool OverlapsExistingBook(GameObject candidate)
-    {
-        if (candidate == null)
-            return true;
+        Quaternion randomSpawnRotation = Random.rotation;
+        book.transform.rotation = randomSpawnRotation * bookItem.NativeRotation;
 
-        Collider[] candidateColliders = candidate.GetComponentsInChildren<Collider>(true);
-        int bookLayerMask = 1 << 8;
-
-        foreach (Collider candidateCollider in candidateColliders)
-        {
-            if (candidateCollider == null || !candidateCollider.enabled)
-                continue;
-
-            Bounds bounds = candidateCollider.bounds;
-            Collider[] overlaps = Physics.OverlapBox(
-                bounds.center,
-                bounds.extents,
-                Quaternion.identity,
-                bookLayerMask,
-                QueryTriggerInteraction.Ignore);
-
-            foreach (Collider otherCollider in overlaps)
-            {
-                if (otherCollider == null)
-                    continue;
-
-                BookItem otherBook = otherCollider.GetComponentInParent<BookItem>();
-                if (otherBook != null && otherBook.gameObject != candidate)
-                    return true;
-            }
-        }
-
-        return false;
+        Rigidbody rb = book.GetComponent<Rigidbody>();
+        if (rb != null)
+            rb.AddTorque(Random.insideUnitSphere * 2f, ForceMode.Impulse);
     }
 
     int GetBrandID(int bookID)
