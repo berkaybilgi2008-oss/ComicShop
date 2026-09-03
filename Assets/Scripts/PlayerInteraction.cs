@@ -18,7 +18,6 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float dropForwardForce = 2.5f;
     [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
     [Min(0f)] public float dropUpwardForce = 0.75f;
-    [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
@@ -160,7 +159,6 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
-        // Kitaplar sadece el noktasinin local Y ekseninde yukari dogru dizilir.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -187,6 +185,7 @@ public class PlayerInteraction : MonoBehaviour
 
             if (lookedSlot.PlaceBook(book))
             {
+                // Raf kitabi tekrar oyuncuyla etkilesebilir hale getirir.
                 IgnorePlayerCollision(book, false);
                 heldBooks.RemoveAt(i);
                 RepositionHeldBooks();
@@ -210,6 +209,9 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
+        // Yere birakilan kitap oyuncuya hicbir zaman geri carpmasin.
+        // Bu IgnoreCollision durumu kitap tekrar ele alinana veya rafa
+        // yerlestirilene kadar korunur.
         IgnorePlayerCollision(book, true);
         RepositionHeldBooks();
 
@@ -238,8 +240,6 @@ public class PlayerInteraction : MonoBehaviour
                 ForceMode.VelocityChange);
             rb.WakeUp();
         }
-
-        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
@@ -261,21 +261,5 @@ public class PlayerInteraction : MonoBehaviour
                     Physics.IgnoreCollision(bookCollider, playerCollider, ignore);
             }
         }
-    }
-
-    IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
-    {
-        Rigidbody rb = book != null ? book.GetComponent<Rigidbody>() : null;
-
-        // Kitap artik kinematic'e cevrilmedigi icin coroutine'i isKinematic'e
-        // baglama. Birakma anindaki oyuncu carpismasi icin kisa ve belirli bir
-        // sure yeterli; kitap sonradan Sleep olsa bile dynamic kalir.
-        if (playerCollisionRestoreDelay > 0f)
-            yield return new WaitForSeconds(playerCollisionRestoreDelay);
-
-        if (book == null)
-            yield break;
-
-        IgnorePlayerCollision(book, false);
     }
 }
