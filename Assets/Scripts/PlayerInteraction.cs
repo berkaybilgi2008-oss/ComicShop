@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.16f;
+    public float stackSpacing = 0.18f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -200,6 +200,7 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
+        // Kitap tam elden ciktigi konumdan baslar. Ileriye teleport edilmez.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
@@ -208,10 +209,6 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.localScale = book.OriginalScale;
 
         IgnorePlayerCollision(book, true);
-
-        // Once kinematic hale getirip transformu fizik sistemine senkronize
-        // ediyoruz. Boylece kitap oyuncudan ayrildigi anda dogru konumdan
-        // fiziksel olarak firlar; ileriye teleport edilmez.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
@@ -221,10 +218,19 @@ public class PlayerInteraction : MonoBehaviour
             rb.isKinematic = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            Vector3 forward = playerCamera != null ? playerCamera.transform.forward : transform.forward;
-            Vector3 throwDirection = forward.normalized;
-            rb.AddForce(throwDirection * dropForwardForce + Vector3.up * dropUpwardForce, ForceMode.VelocityChange);
+            // Kameranin baktigi yonden sadece yatay ileri akis veriyoruz;
+            // ayri yukari hizi sayesinde kitap hafif bir yay cizerek duser.
+            Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+            throwDirection.y = 0f;
+            if (throwDirection.sqrMagnitude < 0.0001f)
+                throwDirection = transform.forward;
+            throwDirection.Normalize();
+
+            rb.AddForce(
+                throwDirection * dropForwardForce + Vector3.up * dropUpwardForce,
+                ForceMode.VelocityChange);
             rb.WakeUp();
         }
 
