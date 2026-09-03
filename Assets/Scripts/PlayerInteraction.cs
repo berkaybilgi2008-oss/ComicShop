@@ -215,8 +215,16 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         RepositionHeldBooks();
 
+        // Elde kalan kitaplar kinematic olsa bile collider'lari aktiftir.
+        // Birakilan kitabi dinamik yapmadan hemen once tum kitap-kitap
+        // collider ciftlerinin collision state'ini acikca sifirliyoruz.
+        // Boylece daha once herhangi bir Physics.IgnoreCollision durumu
+        // olustuysa bile bu kitap, diger kitaplarla ilk physics step'inden
+        // itibaren carpismaya acik olur.
+        RestoreBookToBookCollisions(book);
+
         // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
-        // SetHeld(false), kitabin collider'larini tekrar aktif eder.
+        // SetHeld(false), kitabin collider'larini aktif tutar.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
@@ -244,6 +252,37 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
+    }
+
+    void RestoreBookToBookCollisions(BookItem releasedBook)
+    {
+        if (releasedBook == null)
+            return;
+
+        Collider[] releasedColliders = releasedBook.GetComponentsInChildren<Collider>(true);
+        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+
+        foreach (BookItem otherBook in allBooks)
+        {
+            if (otherBook == null || otherBook == releasedBook)
+                continue;
+
+            Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
+
+            foreach (Collider releasedCollider in releasedColliders)
+            {
+                if (releasedCollider == null || !releasedCollider.enabled)
+                    continue;
+
+                foreach (Collider otherCollider in otherColliders)
+                {
+                    if (otherCollider == null || !otherCollider.enabled || releasedCollider == otherCollider)
+                        continue;
+
+                    Physics.IgnoreCollision(releasedCollider, otherCollider, false);
+                }
+            }
+        }
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
