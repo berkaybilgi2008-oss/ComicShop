@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.18f;
+    public float stackSpacing = 0.20f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -200,7 +200,7 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        // Kitap tam elden ciktigi konumdan baslar. Ileriye teleport edilmez.
+        // Kitap elden ciktigi ayni konumdan fiziksel olarak firlatilir.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
@@ -208,6 +208,8 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
+        // Kitabin colliderlarini kapatmiyoruz. Sadece oyuncuyla carpismasini
+        // gecici olarak etkisizlestiriyoruz; diger kitaplarla fiziksel olarak carpisabilir.
         IgnorePlayerCollision(book, true);
         book.SetHeld(false);
         Physics.SyncTransforms();
@@ -220,8 +222,6 @@ public class PlayerInteraction : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            // Kameranin baktigi yonden sadece yatay ileri akis veriyoruz;
-            // ayri yukari hizi sayesinde kitap hafif bir yay cizerek duser.
             Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
             throwDirection.y = 0f;
             if (throwDirection.sqrMagnitude < 0.0001f)
