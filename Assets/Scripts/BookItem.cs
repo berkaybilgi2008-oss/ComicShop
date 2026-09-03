@@ -32,9 +32,12 @@ public class BookItem : MonoBehaviour
     public Quaternion NativeRotation => Quaternion.Euler(baseRotationEuler);
 
     [Header("Birakma Fizigi")]
-    public float sleepLinearVelocity = 0.03f;
-    public float sleepAngularVelocity = 0.03f;
-    public float sleepDelay = 0.25f;
+    [Tooltip("Kitabin bu hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
+    public float sleepLinearVelocity = 0.08f;
+    [Tooltip("Kitabin bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
+    public float sleepAngularVelocity = 0.08f;
+    [Tooltip("Kitap bu kadar sure yeterince yavas kalirsa Dynamic Rigidbody olarak uyutulur.")]
+    public float sleepDelay = 0.35f;
     private float stillTimer;
 
     void Awake()
@@ -52,16 +55,19 @@ public class BookItem : MonoBehaviour
         if (rb == null || rb.isKinematic)
             return;
 
-        if (rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
-            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
+        bool movingSlowly =
+            rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
+            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
+
+        if (movingSlowly)
         {
             stillTimer += Time.deltaTime;
             if (stillTimer >= sleepDelay)
             {
+                // Dynamic Rigidbody olarak uyut. Boylece kitap yerde sabit kalir,
+                // ancak collider'i ve kitap-kitap fiziksel etkilesimi kaybolmaz.
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
-                // Kitabi kinematic yapma. Dynamic Rigidbody olarak uyutmak,
-                // baska kitaplarla temasinin korunmasini saglar.
                 rb.Sleep();
                 stillTimer = 0f;
             }
