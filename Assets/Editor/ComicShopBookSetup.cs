@@ -44,7 +44,7 @@ public static class ComicShopBookSetup
             return;
         }
 
-        GameObject[] oldPrefabs = AssetDatabase.FindAssets("t:Prefab", new[] { OutputPrefabFolder })
+        string[] oldPrefabs = AssetDatabase.FindAssets("t:Prefab", new[] { OutputPrefabFolder })
             .Select(AssetDatabase.GUIDToAssetPath)
             .ToArray();
         foreach (string oldPrefab in oldPrefabs)
