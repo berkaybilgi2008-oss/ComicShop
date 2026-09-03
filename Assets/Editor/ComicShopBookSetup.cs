@@ -50,13 +50,12 @@ public static class ComicShopBookSetup
         foreach (string oldPrefab in oldPrefabs)
             AssetDatabase.DeleteAsset(oldPrefab);
 
-        BookData[] oldData = AssetDatabase.FindAssets("t:BookData", new[] { OutputDataFolder })
+        string[] oldData = AssetDatabase.FindAssets("t:BookData", new[] { OutputDataFolder })
             .Select(AssetDatabase.GUIDToAssetPath)
             .ToArray();
         foreach (string oldAsset in oldData)
             AssetDatabase.DeleteAsset(oldAsset);
 
-        GameObject[] dataAssets = new GameObject[15];
         BookData[] data = new BookData[15];
 
         for (int i = 0; i < modelPaths.Length; i++)
@@ -68,6 +67,9 @@ public static class ComicShopBookSetup
             string modelName = Path.GetFileNameWithoutExtension(modelPaths[i]);
             string prefabPath = $"{OutputPrefabFolder}/Book_{i:00}_{Sanitize(modelName)}.prefab";
             string dataPath = $"{OutputDataFolder}/BookData_{i:00}_{Sanitize(modelName)}.asset";
+
+            AssetDatabase.DeleteAsset(prefabPath);
+            AssetDatabase.DeleteAsset(dataPath);
 
             GameObject bookRoot = PrefabUtility.InstantiatePrefab(model) as GameObject;
             if (bookRoot == null)
