@@ -187,6 +187,7 @@ public class PlayerInteraction : MonoBehaviour
 
             if (lookedSlot.PlaceBook(book))
             {
+                IgnorePlayerCollision(book, false);
                 heldBooks.RemoveAt(i);
                 RepositionHeldBooks();
             }
@@ -216,7 +217,7 @@ public class PlayerInteraction : MonoBehaviour
         RepositionHeldBooks();
 
         // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
-        // SetHeld(false), kitabin collider'larini tekrar aktif eder.
+        // SetHeld(false), kitabin collider'larini aktif tutar.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
