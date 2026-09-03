@@ -50,13 +50,33 @@ public class BookItem : MonoBehaviour
         CreateOutlineObjects();
     }
 
-    void FixedUpdate()
+    void OnCollisionEnter(Collision collision)
     {
-        supportedByBooks.Clear();
-        supportedByWorld = false;
+        RegisterSupportCollision(collision);
     }
 
     void OnCollisionStay(Collision collision)
+    {
+        RegisterSupportCollision(collision);
+    }
+
+    void OnCollisionExit(Collision collision)
+    {
+        if (collision == null || collision.collider == null)
+            return;
+
+        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
+        if (otherBook != null && otherBook != this)
+        {
+            supportedByBooks.Remove(otherBook);
+            return;
+        }
+
+        if (collision.collider.GetComponentInParent<PlayerInteraction>() == null)
+            RecheckWorldSupport();
+    }
+
+    void RegisterSupportCollision(Collision collision)
     {
         if (collision == null || collision.collider == null)
             return;
@@ -64,9 +84,7 @@ public class BookItem : MonoBehaviour
         if (collision.collider.GetComponentInParent<PlayerInteraction>() != null)
             return;
 
-        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
         bool hasUpwardSupport = false;
-
         ContactPoint[] contacts = collision.contacts;
         for (int i = 0; i < contacts.Length; i++)
         {
@@ -80,10 +98,50 @@ public class BookItem : MonoBehaviour
         if (!hasUpwardSupport)
             return;
 
+        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
         if (otherBook != null && otherBook != this)
             supportedByBooks.Add(otherBook);
-        else if (otherBook == null)
+        else
             supportedByWorld = true;
+    }
+
+    void RecheckWorldSupport()
+    {
+        supportedByWorld = false;
+
+        Collider[] ownColliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider ownCollider in ownColliders)
+        {
+            if (ownCollider == null || !ownCollider.enabled)
+                continue;
+
+            Collider[] nearby = Physics.OverlapBox(
+                ownCollider.bounds.center,
+                ownCollider.bounds.extents + Vector3.one * 0.02f,
+                ownCollider.transform.rotation,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
+            foreach (Collider otherCollider in nearby)
+            {
+                if (otherCollider == null || otherCollider == ownCollider)
+                    continue;
+
+                if (otherCollider.transform.IsChildOf(transform))
+                    continue;
+
+                if (otherCollider.GetComponentInParent<PlayerInteraction>() != null)
+                    continue;
+
+                Vector3 closestPoint = otherCollider.ClosestPoint(ownCollider.bounds.center);
+                Vector3 directionFromOther = transform.position - closestPoint;
+                if (directionFromOther.y <= 0f)
+                    continue;
+
+                supportedByWorld = true;
+                return;
+            }
+        }
     }
 
     void Update()
@@ -136,17 +194,51 @@ public class BookItem : MonoBehaviour
             if (otherRb == null)
                 continue;
 
-            // KRITIK: elde tutulan kitap kinematic'tir ama fiziksel temel degildir.
-            // Aksi halde havada elde duran kitap, birakilan kitabi havada dondurebilir.
+            // Elde duran kinematic kitap fiziksel destek degildir.
             if (otherBook.IsHeld)
                 continue;
 
-            // Kinematic kitap ancak gercekten sabitlenmis bir kitap olabilir.
-            if (otherRb.isKinematic || otherRb.IsSleeping() || otherBook.HasPhysicalSupport(visited))
+            // Kinematic veya sleeping kitap ancak kendisi destek zincirine
+            // bagliysa ustundeki kitabi destekleyebilir.
+            if (otherRb.isKinematic || otherRb.IsSleeping())
+            {
+                if (otherBook.HasPhysicalSupport(visited))
+                    return true;
+            }
+            else if (otherBook.HasPhysicalSupport(visited))
+            {
                 return true;
+            }
         }
 
         return false;
+    }
+
+    void WakeBooksDependingOnThis()
+    {
+        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+
+        foreach (BookItem otherBook in allBooks)
+        {
+            if (otherBook == null || otherBook == this || !otherBook.supportedByBooks.Contains(this))
+                continue;
+
+            otherBook.supportedByBooks.Remove(this);
+
+            if (otherBook.IsHeld)
+                continue;
+
+            Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
+            if (otherRb == null)
+                continue;
+
+            if (!otherBook.HasPhysicalSupport())
+            {
+                otherRb.isKinematic = false;
+                otherRb.WakeUp();
+                otherBook.stillTimer = 0f;
+            }
+        }
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -200,6 +292,9 @@ public class BookItem : MonoBehaviour
 
     public void SetHeld(bool held)
     {
+        if (held && !IsHeld)
+            WakeBooksDependingOnThis();
+
         IsHeld = held;
 
         if (held)
