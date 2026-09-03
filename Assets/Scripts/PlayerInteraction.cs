@@ -10,15 +10,12 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    [Tooltip("Kitaplar arasinda birakilacak minimum bosluk.")]
-    public float stackSpacing = 0.005f;
-    [Tooltip("Kitaplarin eldeki stack icinde ne kadar ust uste binmesine izin verilecegi. 0 = hic overlap yok.")]
-    [Range(0f, 0.35f)] public float stackOverlap = 0.12f;
+    public float stackSpacing = 0.07f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
-    [Min(1)] public int dropPenetrationPasses = 8;
-    [Min(0f)] public float dropPenetrationPadding = 0.003f;
+    [Min(1)] public int dropResolvePasses = 8;
+    [Min(0f)] public float dropStackGap = 0.005f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
@@ -159,9 +156,9 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
-        Vector3 stackUp = rightHandPoint.up;
-        float nextStackPosition = 0f;
-
+        // Ilk sistemdeki gibi sabit, duz ve yukari dogru ilerleyen stack.
+        // Sadece spacing biraz artirildi; modellerin bounds/collider hesaplari
+        // burada pozisyonu saga-sola veya rastgele yonlere cekemez.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -169,49 +166,10 @@ public class PlayerInteraction : MonoBehaviour
                 continue;
 
             book.transform.SetParent(rightHandPoint, false);
+            book.transform.localPosition = new Vector3(0f, i * stackSpacing, 0f);
             book.transform.localRotation = book.NativeRotation;
             book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
-
-            // Onceki kitabin bitis noktasini bulup, yeni kitabi onun hemen arkasina
-            // yerlestiriyoruz. Stack overlap degeri kitaplarin tamamen ayrik durup
-            // elde gereksiz uzun bir kule olusturmasini engelliyor.
-            float halfHeight = GetColliderProjectedHalfHeight(book, stackUp);
-            float centerPosition = nextStackPosition + halfHeight;
-            book.transform.localPosition = stackUp * centerPosition;
-
-            nextStackPosition = centerPosition + halfHeight;
-            nextStackPosition -= halfHeight * stackOverlap;
-            nextStackPosition += stackSpacing;
         }
-    }
-
-    float GetColliderProjectedHalfHeight(BookItem book, Vector3 axis)
-    {
-        Collider[] colliders = book.GetComponentsInChildren<Collider>(true);
-        bool found = false;
-        float min = float.MaxValue;
-        float max = float.MinValue;
-
-        foreach (Collider col in colliders)
-        {
-            if (col == null || !col.enabled || col.isTrigger)
-                continue;
-
-            Bounds b = col.bounds;
-            float center = Vector3.Dot(b.center, axis);
-            float radius = Mathf.Abs(axis.x) * b.extents.x +
-                           Mathf.Abs(axis.y) * b.extents.y +
-                           Mathf.Abs(axis.z) * b.extents.z;
-
-            min = Mathf.Min(min, center - radius);
-            max = Mathf.Max(max, center + radius);
-            found = true;
-        }
-
-        if (!found)
-            return 0.05f;
-
-        return Mathf.Max(0.001f, (max - min) * 0.5f);
     }
 
     void PlaceOneMatchingBook()
@@ -249,15 +207,16 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Collider acilmadan once oyuncu ile carpismayi kapat.
+        // Birakma aninda oyuncuya carpmasin.
         IgnorePlayerCollision(book, true);
         book.SetHeld(false);
-
-        // SetHeld collider'lari actigi icin Unity broadphase'i hemen guncelle.
-        // Aksi halde ayni noktadaki daha once birakilmis kitaplar OverlapSphere'da
-        // bir sonraki fizik adimina kadar gorunmeyebilir.
         Physics.SyncTransforms();
-        ResolveInitialPenetration(book);
+
+        // Onceki cozumde ComputePenetration yonunu dogrudan kullanmak kitabi saga,
+        // sola veya geriye firlatabiliyordu. Burada ayni noktaya birakilan kitaplari
+        // sadece Y ekseninde yukari tasiyoruz. Boylece ilk sistemdeki duz hareket
+        // korunuyor ve kitaplar birbirinin icine giremiyor.
+        ResolveDropVertically(book);
         Physics.SyncTransforms();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
@@ -271,6 +230,93 @@ public class PlayerInteraction : MonoBehaviour
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
         RepositionHeldBooks();
+    }
+
+    void ResolveDropVertically(BookItem book)
+    {
+        if (book == null || dropResolvePasses <= 0)
+            return;
+
+        Collider[] bookColliders = book.GetComponentsInChildren<Collider>(true);
+        if (bookColliders.Length == 0)
+            return;
+
+        for (int pass = 0; pass < dropResolvePasses; pass++)
+        {
+            Physics.SyncTransforms();
+            Bounds bookBounds = GetCombinedColliderBounds(bookColliders);
+            Collider[] nearby = Physics.OverlapBox(
+                bookBounds.center,
+                bookBounds.extents + Vector3.one * 0.02f,
+                Quaternion.identity,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
+            float highestRequiredY = book.transform.position.y;
+            bool needsMove = false;
+
+            foreach (Collider other in nearby)
+            {
+                if (other == null || !other.enabled)
+                    continue;
+
+                BookItem otherBook = other.GetComponentInParent<BookItem>();
+                if (otherBook == book)
+                    continue;
+
+                if (other.transform.IsChildOf(transform))
+                    continue;
+
+                // Sadece gercekten yatay olarak ust uste gelen objeleri dikkate al.
+                Bounds otherBounds = other.bounds;
+                bool horizontalOverlap = bookBounds.min.x < otherBounds.max.x &&
+                                         bookBounds.max.x > otherBounds.min.x &&
+                                         bookBounds.min.z < otherBounds.max.z &&
+                                         bookBounds.max.z > otherBounds.min.z;
+
+                if (!horizontalOverlap)
+                    continue;
+
+                if (bookBounds.min.y < otherBounds.max.y && bookBounds.max.y > otherBounds.min.y)
+                {
+                    float requiredY = otherBounds.max.y - bookBounds.min.y + dropStackGap;
+                    highestRequiredY = Mathf.Max(highestRequiredY, book.transform.position.y + requiredY);
+                    needsMove = true;
+                }
+            }
+
+            if (!needsMove)
+                break;
+
+            book.transform.position = new Vector3(
+                book.transform.position.x,
+                highestRequiredY,
+                book.transform.position.z);
+        }
+    }
+
+    Bounds GetCombinedColliderBounds(Collider[] colliders)
+    {
+        Bounds bounds = new Bounds(bookPositionFallback: Vector3.zero, size: Vector3.zero);
+        bool initialized = false;
+
+        foreach (Collider col in colliders)
+        {
+            if (col == null || !col.enabled || col.isTrigger)
+                continue;
+
+            if (!initialized)
+            {
+                bounds = col.bounds;
+                initialized = true;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        return initialized ? bounds : new Bounds(Vector3.zero, Vector3.zero);
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
@@ -292,100 +338,6 @@ public class PlayerInteraction : MonoBehaviour
                     Physics.IgnoreCollision(bookCollider, playerCollider, ignore);
             }
         }
-    }
-
-    void ResolveInitialPenetration(BookItem book)
-    {
-        if (book == null || dropPenetrationPasses <= 0)
-            return;
-
-        Collider[] bookColliders = book.GetComponentsInChildren<Collider>(true);
-        if (bookColliders.Length == 0)
-            return;
-
-        for (int pass = 0; pass < dropPenetrationPasses; pass++)
-        {
-            Physics.SyncTransforms();
-
-            float radius = GetBookBoundsRadius(book);
-            Collider[] nearbyColliders = Physics.OverlapSphere(
-                book.transform.position,
-                radius,
-                ~0,
-                QueryTriggerInteraction.Ignore);
-
-            bool moved = false;
-
-            foreach (Collider bookCollider in bookColliders)
-            {
-                if (bookCollider == null || !bookCollider.enabled)
-                    continue;
-
-                foreach (Collider other in nearbyColliders)
-                {
-                    if (other == null || other == bookCollider || !other.enabled)
-                        continue;
-
-                    BookItem otherBook = other.GetComponentInParent<BookItem>();
-                    if (otherBook == book)
-                        continue;
-
-                    if (other.transform.IsChildOf(transform))
-                        continue;
-
-                    Vector3 direction;
-                    float distance;
-                    if (!Physics.ComputePenetration(
-                        bookCollider,
-                        bookCollider.transform.position,
-                        bookCollider.transform.rotation,
-                        other,
-                        other.transform.position,
-                        other.transform.rotation,
-                        out direction,
-                        out distance))
-                        continue;
-
-                    if (distance <= 0f)
-                        continue;
-
-                    book.transform.position += direction * (distance + dropPenetrationPadding);
-                    moved = true;
-                    Physics.SyncTransforms();
-                }
-            }
-
-            if (!moved)
-                break;
-        }
-    }
-
-    float GetBookBoundsRadius(BookItem book)
-    {
-        Collider[] colliders = book.GetComponentsInChildren<Collider>(true);
-        Bounds bounds = new Bounds(book.transform.position, Vector3.zero);
-        bool initialized = false;
-
-        foreach (Collider col in colliders)
-        {
-            if (col == null || !col.enabled || col.isTrigger)
-                continue;
-
-            if (!initialized)
-            {
-                bounds = col.bounds;
-                initialized = true;
-            }
-            else
-            {
-                bounds.Encapsulate(col.bounds);
-            }
-        }
-
-        if (!initialized)
-            return 0.5f;
-
-        return bounds.extents.magnitude + 0.05f;
     }
 
     IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
