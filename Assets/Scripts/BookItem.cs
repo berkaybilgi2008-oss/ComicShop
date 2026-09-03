@@ -20,7 +20,6 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bu kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in Unity'de sahneye suruklendigindeki acisindan baslar; buradan elle degistirebilirsin.")]
     public Vector3 baseRotationEuler;
 
-    // Eski alan geriye uyumluluk icin tutuluyor.
     [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
@@ -41,11 +40,7 @@ public class BookItem : MonoBehaviour
     [Header("Destek Kontrolu")]
     [Tooltip("Bir temas yuzeyinin destek sayilmasi icin gereken minimum yukari normal.")]
     [Range(0.1f, 0.9f)] public float supportNormalY = 0.35f;
-    [Tooltip("Kitabin fiziksel destek kazanmasi icin gereken temas sayisi.")]
-    [Min(1)] public int requiredSupportContacts = 1;
 
-    // Bu liste raycast yerine dogrudan Physics collision contact'larindan tutulur.
-    // Boylece sadece gercekten temas eden yuzeyler destek kabul edilir.
     private readonly HashSet<BookItem> supportedByBooks = new HashSet<BookItem>();
     private bool supportedByWorld;
 
@@ -57,7 +52,6 @@ public class BookItem : MonoBehaviour
 
     void FixedUpdate()
     {
-        // OnCollisionStay bir sonraki fizik adiminda yeniden doldurulacak.
         supportedByBooks.Clear();
         supportedByWorld = false;
     }
@@ -67,8 +61,6 @@ public class BookItem : MonoBehaviour
         if (collision == null || collision.collider == null)
             return;
 
-        // PlayerInteraction ile kitap arasinda IgnoreCollision kullaniliyor.
-        // Yine de oyuncuyu fiziksel destek olarak asla kabul etmiyoruz.
         if (collision.collider.GetComponentInParent<PlayerInteraction>() != null)
             return;
 
@@ -89,14 +81,9 @@ public class BookItem : MonoBehaviour
             return;
 
         if (otherBook != null && otherBook != this)
-        {
             supportedByBooks.Add(otherBook);
-        }
         else if (otherBook == null)
-        {
-            // Zemin, raf veya baska statik/dinamik olmayan fizik yuzeyi.
             supportedByWorld = true;
-        }
     }
 
     void Update()
@@ -137,21 +124,24 @@ public class BookItem : MonoBehaviour
         if (!visited.Add(this))
             return false;
 
-        // En az bir gercek yukari temas zemine/rafa bagli fiziksel temel olabilir.
         if (supportedByWorld)
             return true;
 
-        // Kitabin altinda baska kitap varsa, o kitap sabitlenmis olmali veya
-        // kendi temas zinciriyle fiziksel olarak destekleniyor olmali.
         foreach (BookItem otherBook in supportedByBooks)
         {
-            if (otherBook == null)
+            if (otherBook == null || otherBook == this)
                 continue;
 
             Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
             if (otherRb == null)
                 continue;
 
+            // KRITIK: elde tutulan kitap kinematic'tir ama fiziksel temel degildir.
+            // Aksi halde havada elde duran kitap, birakilan kitabi havada dondurebilir.
+            if (otherBook.IsHeld)
+                continue;
+
+            // Kinematic kitap ancak gercekten sabitlenmis bir kitap olabilir.
             if (otherRb.isKinematic || otherRb.IsSleeping() || otherBook.HasPhysicalSupport(visited))
                 return true;
         }
@@ -217,7 +207,6 @@ public class BookItem : MonoBehaviour
 
         // Collider her durumda aktif kalir. Elde iken oyuncuyla carpismayi
         // PlayerInteraction, Physics.IgnoreCollision ile kapatir.
-        // Boylece eldeki kitaplar da birbirleriyle fiziksel olarak etkilesir.
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
