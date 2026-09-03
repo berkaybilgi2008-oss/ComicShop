@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BookItem : MonoBehaviour
@@ -37,10 +38,22 @@ public class BookItem : MonoBehaviour
     public float sleepDelay = 0.25f;
     private float stillTimer;
 
+    // Kitap havada yavasladiginda sabitlenmemeli. Sabitlenmesi icin
+    // gercekten zemine/rafa veya desteklenen baska bir kitaba temas etmesi gerekir.
+    private bool directSupportContact;
+    private readonly HashSet<BookItem> supportedBookContacts = new HashSet<BookItem>();
+
     void Awake()
     {
         originalScale = transform.localScale;
         CreateOutlineObjects();
+    }
+
+    void FixedUpdate()
+    {
+        // Collision callback'leri bu physics adiminda yeniden doldurur.
+        directSupportContact = false;
+        supportedBookContacts.Clear();
     }
 
     void Update()
@@ -56,7 +69,11 @@ public class BookItem : MonoBehaviour
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
         {
             stillTimer += Time.deltaTime;
-            if (stillTimer >= sleepDelay)
+
+            // Dusme hareketi bitmis olsa bile havadaysa sabitleme yapma.
+            // Baska bir kitabin ustundeyse o kitabin da gercekten destekleniyor
+            // olmasini kontrol ediyoruz; boylece havadaki kitap zinciri donup kalmaz.
+            if (stillTimer >= sleepDelay && IsPhysicallySupported())
             {
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
@@ -68,6 +85,57 @@ public class BookItem : MonoBehaviour
         {
             stillTimer = 0f;
         }
+    }
+
+    bool IsPhysicallySupported()
+    {
+        return IsPhysicallySupported(new HashSet<BookItem>());
+    }
+
+    bool IsPhysicallySupported(HashSet<BookItem> visited)
+    {
+        if (!visited.Add(this))
+            return false;
+
+        if (directSupportContact)
+            return true;
+
+        foreach (BookItem otherBook in supportedBookContacts)
+        {
+            if (otherBook != null && otherBook.IsPhysicallySupported(visited))
+                return true;
+        }
+
+        return false;
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        if (IsHeld || collision == null)
+            return;
+
+        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
+        bool hasUpwardSupport = false;
+
+        ContactPoint[] contacts = collision.contacts;
+        for (int i = 0; i < contacts.Length; i++)
+        {
+            // Normal, diger yuzeyden bu kitaba dogru oldugu icin yukari bakan
+            // bir normal, kitabin altindan destek aldigini gosterir.
+            if (contacts[i].normal.y > 0.2f)
+            {
+                hasUpwardSupport = true;
+                break;
+            }
+        }
+
+        if (!hasUpwardSupport)
+            return;
+
+        if (otherBook != null && otherBook != this)
+            supportedBookContacts.Add(otherBook);
+        else
+            directSupportContact = true;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -140,6 +208,8 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
+            directSupportContact = false;
+            supportedBookContacts.Clear();
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = held;
