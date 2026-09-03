@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.32f;
+    public float stackSpacing = 0.4f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -132,6 +132,7 @@ public class PlayerInteraction : MonoBehaviour
             return;
 
         book.SetHighlight(false);
+        IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
         RepositionHeldBooks();
@@ -147,6 +148,7 @@ public class PlayerInteraction : MonoBehaviour
             book.currentSlot.RemoveBook(book);
 
         book.SetHighlight(false);
+        IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
         RepositionHeldBooks();
