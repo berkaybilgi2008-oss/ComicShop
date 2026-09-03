@@ -225,7 +225,7 @@ public class PlayerInteraction : MonoBehaviour
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
-            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            // CCD modu BookItem.SetHeld(false) tarafinda merkezi olarak ayarlaniyor.
             rb.maxDepenetrationVelocity = 10f;
             rb.solverIterations = 12;
             rb.solverVelocityIterations = 12;
