@@ -19,7 +19,6 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bu kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in Unity'de sahneye suruklendigindeki acisindan baslar; buradan elle degistirebilirsin.")]
     public Vector3 baseRotationEuler;
 
-    // Eski alan geriye uyumluluk icin tutuluyor.
     [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
@@ -36,7 +35,7 @@ public class BookItem : MonoBehaviour
     public float sleepLinearVelocity = 0.08f;
     [Tooltip("Kitabin bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
     public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap bu kadar sure yeterince yavas kalirsa Dynamic Rigidbody olarak uyutulur.")]
+    [Tooltip("Kitap bu kadar sure yeterince yavas kalirsa fiziksel olarak sabitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
 
@@ -59,23 +58,25 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        if (movingSlowly)
-        {
-            stillTimer += Time.deltaTime;
-            if (stillTimer >= sleepDelay)
-            {
-                // Dynamic Rigidbody olarak uyut. Boylece kitap yerde sabit kalir,
-                // ancak collider'i ve kitap-kitap fiziksel etkilesimi kaybolmaz.
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
-                rb.Sleep();
-                stillTimer = 0f;
-            }
-        }
-        else
+        if (!movingSlowly)
         {
             stillTimer = 0f;
+            return;
         }
+
+        stillTimer += Time.deltaTime;
+        if (stillTimer < sleepDelay)
+            return;
+
+        // Kitap yeterince uzun sure yerlesmis durumda kaldiktan sonra onu
+        // kinematic yaparak fiziksel olarak kesin sekilde sabitle.
+        // Bu noktada artik dusme/yerlesme bitmistir; yeni dynamic kitaplar
+        // kinematic kitaba normal sekilde carpisabilir.
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        rb.isKinematic = true;
+        rb.Sleep();
+        stillTimer = 0f;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -149,6 +150,9 @@ public class BookItem : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = held;
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
+
+            if (!held)
+                rb.WakeUp();
         }
     }
 }
