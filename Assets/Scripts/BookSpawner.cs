@@ -71,8 +71,9 @@ public class BookSpawner : MonoBehaviour
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
         Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
 
-        // Rastgele dunya donusu korunuyor. Kitabin prefab icindeki native FBX rotasyonu buna dokunulmaz.
-        GameObject book = Instantiate(prefabToSpawn, pos, Random.rotation);
+        // Prefab'in root rotasyonunu Instantiate ile ezme.
+        // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
+        GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
         BookItem bookItem = book.GetComponent<BookItem>();
 
         if (bookItem == null)
@@ -84,6 +85,9 @@ public class BookSpawner : MonoBehaviour
 
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
+
+        Quaternion randomSpawnRotation = Random.rotation;
+        book.transform.rotation = randomSpawnRotation * bookItem.NativeRotation;
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
