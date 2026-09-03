@@ -156,9 +156,9 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
-        // Ilk sistemdeki gibi sabit, duz ve yukari dogru ilerleyen stack.
-        // Sadece spacing biraz artirildi; modellerin bounds/collider hesaplari
-        // burada pozisyonu saga-sola veya rastgele yonlere cekemez.
+        // Orijinal sistemdeki davranisi koruyoruz: kitaplar X/Z'de oynamaz,
+        // sadece rightHandPoint'in local Y ekseni boyunca yukari cikar.
+        // 0.07, onceki 0.06 degerinden sadece biraz daha fazla aralik verir.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -207,15 +207,14 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Birakma aninda oyuncuya carpmasin.
+        // Oyuncuya birakma aninda carpmasin.
         IgnorePlayerCollision(book, true);
         book.SetHeld(false);
         Physics.SyncTransforms();
 
-        // Onceki cozumde ComputePenetration yonunu dogrudan kullanmak kitabi saga,
-        // sola veya geriye firlatabiliyordu. Burada ayni noktaya birakilan kitaplari
-        // sadece Y ekseninde yukari tasiyoruz. Boylece ilk sistemdeki duz hareket
-        // korunuyor ve kitaplar birbirinin icine giremiyor.
+        // Kitabi saga/sola itmek yerine sadece yukari kaldir.
+        // Boylece ayni noktaya tekrar tekrar birakmak kitaplari ic ice sokmaz,
+        // ayni zamanda ilk sistemdeki duz davranis korunur.
         ResolveDropVertically(book);
         Physics.SyncTransforms();
 
@@ -267,7 +266,6 @@ public class PlayerInteraction : MonoBehaviour
                 if (other.transform.IsChildOf(transform))
                     continue;
 
-                // Sadece gercekten yatay olarak ust uste gelen objeleri dikkate al.
                 Bounds otherBounds = other.bounds;
                 bool horizontalOverlap = bookBounds.min.x < otherBounds.max.x &&
                                          bookBounds.max.x > otherBounds.min.x &&
@@ -297,7 +295,7 @@ public class PlayerInteraction : MonoBehaviour
 
     Bounds GetCombinedColliderBounds(Collider[] colliders)
     {
-        Bounds bounds = new Bounds(bookPositionFallback: Vector3.zero, size: Vector3.zero);
+        Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
         bool initialized = false;
 
         foreach (Collider col in colliders)
