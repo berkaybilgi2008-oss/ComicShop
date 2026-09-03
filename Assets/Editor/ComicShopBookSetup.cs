@@ -59,16 +59,27 @@ public static class ComicShopBookSetup
             AssetDatabase.DeleteAsset(prefabPath);
             AssetDatabase.DeleteAsset(dataPath);
 
-            GameObject bookRoot = PrefabUtility.InstantiatePrefab(model) as GameObject;
-            if (bookRoot == null)
+            GameObject modelInstance = PrefabUtility.InstantiatePrefab(model) as GameObject;
+            if (modelInstance == null)
                 continue;
 
-            bookRoot.name = $"Book_{i:00}_{modelName}";
+            Vector3 originalLocalPosition = modelInstance.transform.localPosition;
+            Quaternion originalLocalRotation = modelInstance.transform.localRotation;
+            Vector3 originalLocalScale = modelInstance.transform.localScale;
+
+            Bounds sourceBounds = CalculateExactLocalBounds(modelInstance);
+            Quaternion orientationCorrection = CalculateFlatOrientationCorrection(sourceBounds);
+
+            // FBX'in importtan gelen -90 gibi root rotasyonunu BookItem'in runtime
+            // correction sistemine birakmak yerine prefab icindeki modele bake ediyoruz.
+            // Boylece BookItem root'u 0,0,0 olur; elde ve rafta ayni temel yon kullanilir.
+            GameObject bookRoot = new GameObject($"Book_{i:00}_{modelName}");
             bookRoot.layer = BookLayer;
 
-            Vector3 originalLocalScale = bookRoot.transform.localScale;
-            Quaternion originalLocalRotation = bookRoot.transform.localRotation;
-            Vector3 originalLocalPosition = bookRoot.transform.localPosition;
+            modelInstance.transform.SetParent(bookRoot.transform, false);
+            modelInstance.transform.localPosition = originalLocalPosition;
+            modelInstance.transform.localRotation = originalLocalRotation * orientationCorrection;
+            modelInstance.transform.localScale = originalLocalScale;
 
             Renderer coverRenderer = bookRoot.GetComponentInChildren<Renderer>(true);
             if (coverRenderer == null)
@@ -82,6 +93,7 @@ public static class ComicShopBookSetup
             bookItem.bookID = i;
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
+            bookItem.orientationCorrection = Quaternion.identity;
 
             if (baseBookItem != null)
             {
@@ -89,12 +101,7 @@ public static class ComicShopBookSetup
                 bookItem.outlineScale = baseBookItem.outlineScale;
             }
 
-            bookRoot.transform.localPosition = originalLocalPosition;
-            bookRoot.transform.localRotation = originalLocalRotation;
-            bookRoot.transform.localScale = originalLocalScale;
-
             Bounds bounds = CalculateExactLocalBounds(bookRoot);
-            bookItem.orientationCorrection = CalculateFlatOrientationCorrection(bounds);
 
             BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
             collider.center = bounds.center;
@@ -144,7 +151,7 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri ve Point'ler korunuyor; kitaplar etilesim icin Book layer 8'e alindi.");
+        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri ve Point'ler korunuyor; FBX root yonleri prefab icine bake edildi ve BookItem root rotasyonu 0,0,0 yapildi.");
     }
 
     private static Quaternion CalculateFlatOrientationCorrection(Bounds bounds)
