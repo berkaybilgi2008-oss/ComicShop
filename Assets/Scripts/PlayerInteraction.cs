@@ -18,10 +18,6 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float dropForwardForce = 2.5f;
     [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
     [Min(0f)] public float dropUpwardForce = 0.75f;
-    [Tooltip("Bırakma noktasi doluysa, kitap fizik sistemine girmeden once bu mesafe boyunca ileri dogru bos nokta aranir.")]
-    [Min(0f)] public float dropClearanceDistance = 2f;
-    [Tooltip("Bos birakma noktasi ararken kullanilan adim mesafesi.")]
-    [Min(0.01f)] public float dropClearanceStep = 0.05f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
@@ -204,61 +200,25 @@ public class PlayerInteraction : MonoBehaviour
             return;
 
         BookItem book = heldBooks[heldBooks.Count - 1];
-        Transform originalParent = book.transform.parent;
-        Vector3 originalLocalPosition = book.transform.localPosition;
-        Quaternion originalLocalRotation = book.transform.localRotation;
-        Vector3 originalLocalScale = book.transform.localScale;
+        heldBooks.RemoveAt(heldBooks.Count - 1);
 
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
-        Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
-        throwDirection.y = 0f;
-        if (throwDirection.sqrMagnitude < 0.0001f)
-            throwDirection = transform.forward;
-        throwDirection.Normalize();
-
-        // Kitap eldeyken collider kapali ve Rigidbody kinematic/detectCollisions=false.
-        // Once collider'lari sadece geometrik birakma noktasi kontrolu icin aciyoruz.
-        // Fizik henuz devreye girmiyor; ComputePenetration veya sonradan itme yok.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        Rigidbody rb = book.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.isKinematic = true;
-            rb.detectCollisions = false;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.constraints = RigidbodyConstraints.None;
-        }
-
-        SetBookCollidersEnabled(book, true);
-        Physics.SyncTransforms();
-
-        if (!TryFindClearDropPosition(book, worldPosition, throwDirection, out Vector3 clearPosition))
-        {
-            // Bos nokta bulunamadiysa kitabi zorla birakip baska bir kitabin icine sokma.
-            // Kitap oldugu eldeki konuma aynen geri doner.
-            SetBookCollidersEnabled(book, false);
-            RestoreHeldBookTransform(book, originalParent, originalLocalPosition, originalLocalRotation, originalLocalScale);
-            return;
-        }
-
-        book.transform.position = clearPosition;
-        Physics.SyncTransforms();
-
-        heldBooks.RemoveAt(heldBooks.Count - 1);
         RepositionHeldBooks();
 
-        // Gercek fizik tam olarak clearPosition'da basliyor.
+        // SetHeld(false) tek yerde collider'i acar, Rigidbody'yi Dynamic yapar
+        // ve kitap-kitap CCD modunu ayarlar. Burada sadece oyuncu ile olan
+        // collision'i kapatip firlatma kuvvetini veriyoruz.
         book.SetHeld(false);
         Physics.SyncTransforms();
         IgnorePlayerCollision(book, true);
 
-        rb = book.GetComponent<Rigidbody>();
+        Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -266,114 +226,21 @@ public class PlayerInteraction : MonoBehaviour
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
-            // CCD modu BookItem.SetHeld(false) tarafinda merkezi olarak ayarlaniyor.
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             rb.maxDepenetrationVelocity = 10f;
             rb.solverIterations = 12;
             rb.solverVelocityIterations = 12;
+
+            Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+            throwDirection.y = 0f;
+            if (throwDirection.sqrMagnitude < 0.0001f)
+                throwDirection = transform.forward;
+            throwDirection.Normalize();
 
             rb.AddForce(
                 throwDirection * dropForwardForce + Vector3.up * dropUpwardForce,
                 ForceMode.VelocityChange);
             rb.WakeUp();
-        }
-    }
-
-    bool TryFindClearDropPosition(BookItem book, Vector3 startPosition, Vector3 direction, out Vector3 clearPosition)
-    {
-        clearPosition = startPosition;
-
-        Collider[] bookColliders = book.GetComponentsInChildren<Collider>(true);
-        if (bookColliders.Length == 0)
-            return true;
-
-        int bookLayerMask = 1 << 8;
-        float step = Mathf.Max(0.01f, dropClearanceStep);
-        float maxDistance = Mathf.Max(0f, dropClearanceDistance);
-
-        for (float distance = 0f; distance <= maxDistance + 0.0001f; distance += step)
-        {
-            Vector3 candidatePosition = startPosition + direction * distance;
-            bool blocked = false;
-
-            foreach (Collider bookCollider in bookColliders)
-            {
-                if (bookCollider == null || !bookCollider.enabled)
-                    continue;
-
-                Bounds bounds = bookCollider.bounds;
-                Vector3 center = bounds.center + (candidatePosition - startPosition);
-                Vector3 extents = bounds.extents + Vector3.one * 0.01f;
-
-                Collider[] overlaps = Physics.OverlapBox(
-                    center,
-                    extents,
-                    Quaternion.identity,
-                    bookLayerMask,
-                    QueryTriggerInteraction.Ignore);
-
-                foreach (Collider otherCollider in overlaps)
-                {
-                    if (otherCollider == null)
-                        continue;
-
-                    BookItem otherBook = otherCollider.GetComponentInParent<BookItem>();
-                    if (otherBook != null && otherBook != book && !otherBook.IsHeld)
-                    {
-                        blocked = true;
-                        break;
-                    }
-                }
-
-                if (blocked)
-                    break;
-            }
-
-            if (!blocked)
-            {
-                clearPosition = candidatePosition;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    void SetBookCollidersEnabled(BookItem book, bool enabled)
-    {
-        if (book == null)
-            return;
-
-        Collider[] colliders = book.GetComponentsInChildren<Collider>(true);
-        foreach (Collider col in colliders)
-        {
-            if (col != null)
-                col.enabled = enabled;
-        }
-    }
-
-    void RestoreHeldBookTransform(
-        BookItem book,
-        Transform originalParent,
-        Vector3 originalLocalPosition,
-        Quaternion originalLocalRotation,
-        Vector3 originalLocalScale)
-    {
-        if (book == null)
-            return;
-
-        book.transform.SetParent(originalParent, false);
-        book.transform.localPosition = originalLocalPosition;
-        book.transform.localRotation = originalLocalRotation;
-        book.transform.localScale = originalLocalScale;
-
-        Rigidbody rb = book.GetComponent<Rigidbody>();
-        if (rb != null)
-        {
-            rb.isKinematic = true;
-            rb.detectCollisions = false;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.constraints = RigidbodyConstraints.None;
         }
     }
 
