@@ -38,7 +38,7 @@ public class BookItem : MonoBehaviour
     [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa tamamen sabitlenir.")]
     public float sleepDelay = 0.35f;
     private float stillTimer;
-    private int physicsContactCount;
+    private bool hasPhysicsContact;
 
     void Awake()
     {
@@ -59,7 +59,7 @@ public class BookItem : MonoBehaviour
             rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
 
-        if (physicsContactCount <= 0 || !movingSlowly)
+        if (!hasPhysicsContact || !movingSlowly)
         {
             stillTimer = 0f;
             return;
@@ -79,25 +79,19 @@ public class BookItem : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         if (!IsHeld)
-            physicsContactCount++;
+            hasPhysicsContact = true;
     }
 
     void OnCollisionStay(Collision collision)
     {
-        if (!IsHeld && physicsContactCount <= 0)
-            physicsContactCount = 1;
+        if (!IsHeld)
+            hasPhysicsContact = true;
     }
 
     void OnCollisionExit(Collision collision)
     {
-        if (physicsContactCount > 0)
-            physicsContactCount--;
-
-        if (physicsContactCount <= 0)
-        {
-            physicsContactCount = 0;
-            stillTimer = 0f;
-        }
+        hasPhysicsContact = false;
+        stillTimer = 0f;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -156,24 +150,20 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
-        Collider[] colliders = GetComponentsInChildren<Collider>(true);
-        foreach (Collider col in colliders)
-        {
-            if (col != null)
-                col.enabled = !held;
-        }
-
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             stillTimer = 0f;
-            physicsContactCount = 0;
+            hasPhysicsContact = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints.None;
             rb.isKinematic = held;
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
 
+            // Collider HICBIR ZAMAN kapatilmiyor. Elde tasinan kitap da fizik
+            // dunyasinda kendi collider'iyla kalir; oyuncuyla temas ise
+            // PlayerInteraction tarafinda Physics.IgnoreCollision ile yonetilir.
             if (!held)
             {
                 rb.detectCollisions = true;
@@ -181,6 +171,11 @@ public class BookItem : MonoBehaviour
                 rb.maxDepenetrationVelocity = 10f;
                 rb.solverIterations = 20;
                 rb.solverVelocityIterations = 20;
+                rb.WakeUp();
+            }
+            else
+            {
+                rb.detectCollisions = true;
                 rb.WakeUp();
             }
         }
