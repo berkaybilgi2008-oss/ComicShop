@@ -185,7 +185,7 @@ public class PlayerInteraction : MonoBehaviour
 
             if (lookedSlot.PlaceBook(book))
             {
-                // Raf kitabi tekrar oyuncuyla etkilesebilir hale getirir.
+                // Raf kitabi oyuncuyla tekrar etkilesebilir hale getirir.
                 IgnorePlayerCollision(book, false);
                 heldBooks.RemoveAt(i);
                 RepositionHeldBooks();
@@ -209,14 +209,14 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Yere birakilan kitap oyuncuya hicbir zaman geri carpmasin.
-        // Bu IgnoreCollision durumu kitap tekrar ele alinana veya rafa
-        // yerlestirilene kadar korunur.
-        IgnorePlayerCollision(book, true);
         RepositionHeldBooks();
 
+        // SetHeld(false) collider'i tekrar aciyor. IgnoreCollision, collider
+        // kapaliyken uygulanirsa bu durum kalici olmayabilir; bu yuzden once
+        // fiziksel collider'i acip sonra oyuncu ile carpismayi kapatiyoruz.
         book.SetHeld(false);
         Physics.SyncTransforms();
+        IgnorePlayerCollision(book, true);
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
