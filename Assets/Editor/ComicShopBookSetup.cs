@@ -67,7 +67,7 @@ public static class ComicShopBookSetup
             bookRoot.layer = BookLayer;
 
             Vector3 originalLocalScale = bookRoot.transform.localScale;
-            Quaternion originalLocalRotation = bookRoot.transform.localRotation;
+            Quaternion nativeRotation = bookRoot.transform.localRotation;
             Vector3 originalLocalPosition = bookRoot.transform.localPosition;
 
             Renderer coverRenderer = bookRoot.GetComponentInChildren<Renderer>(true);
@@ -82,6 +82,7 @@ public static class ComicShopBookSetup
             bookItem.bookID = i;
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
+            bookItem.nativeRotation = nativeRotation;
 
             if (baseBookItem != null)
             {
@@ -90,11 +91,10 @@ public static class ComicShopBookSetup
             }
 
             bookRoot.transform.localPosition = originalLocalPosition;
-            bookRoot.transform.localRotation = originalLocalRotation;
+            bookRoot.transform.localRotation = nativeRotation;
             bookRoot.transform.localScale = originalLocalScale;
 
             Bounds bounds = CalculateExactLocalBounds(bookRoot);
-            bookItem.orientationCorrection = CalculateFlatOrientationCorrection(bounds);
 
             BoxCollider collider = bookRoot.AddComponent<BoxCollider>();
             collider.center = bounds.center;
@@ -144,21 +144,7 @@ public static class ComicShopBookSetup
             EditorSceneManager.SaveOpenScenes();
         }
 
-        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX olcekleri ve Point'ler korunuyor; kitaplar etilesim icin Book layer 8'e alindi.");
-    }
-
-    private static Quaternion CalculateFlatOrientationCorrection(Bounds bounds)
-    {
-        Vector3 size = bounds.size;
-
-        int thinAxis = 0;
-        if (size.y < size.x && size.y <= size.z)
-            thinAxis = 1;
-        else if (size.z < size.x && size.z < size.y)
-            thinAxis = 2;
-
-        Vector3 localAxis = thinAxis == 0 ? Vector3.right : thinAxis == 1 ? Vector3.up : Vector3.forward;
-        return Quaternion.FromToRotation(localAxis, Vector3.up);
+        Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. FBX native rotasyonlari korunuyor; rastgele spawn rotasyonu ayridir.");
     }
 
     private static Bounds CalculateExactLocalBounds(GameObject root)
