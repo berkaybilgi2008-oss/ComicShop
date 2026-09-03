@@ -267,9 +267,9 @@ public class PlayerInteraction : MonoBehaviour
     {
         Rigidbody rb = book != null ? book.GetComponent<Rigidbody>() : null;
 
-        while (book != null && rb != null && !rb.isKinematic)
-            yield return null;
-
+        // Kitap artik kinematic'e cevrilmedigi icin coroutine'i isKinematic'e
+        // baglama. Birakma anindaki oyuncu carpismasi icin kisa ve belirli bir
+        // sure yeterli; kitap sonradan Sleep olsa bile dynamic kalir.
         if (playerCollisionRestoreDelay > 0f)
             yield return new WaitForSeconds(playerCollisionRestoreDelay);
 
