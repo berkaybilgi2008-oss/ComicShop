@@ -10,10 +10,12 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.07f;
+    public float stackSpacing = 0.09f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
+    [Tooltip("Kitap elden birakilinca oyuncunun onune dogru ne kadar ileri gider.")]
+    [Min(0f)] public float dropForwardDistance = 0.35f;
     [Min(0f)] public float dropStackGap = 0.01f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
@@ -201,19 +203,27 @@ public class PlayerInteraction : MonoBehaviour
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
+        // Kitabi elden ciktigi yukseklikte birakiyoruz. Onceki sistemdeki
+        // "yukariya teleport etme" yok; kitap normal fizik ile serbest duser.
+        // Hafif ileri atmak oyuncuya carpmasini ve eldeki yiginin altina
+        // girmesini de azaltir.
+        Vector3 forward = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude > 0.0001f)
+            forward.Normalize();
+        else
+            forward = transform.forward;
+
+        worldPosition += forward * dropForwardDistance;
+
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Once collider'lar acilmadan oyuncuyla carpismayi kapatiyoruz.
+        // Oyuncuyla carpismayi gecici olarak kapat; kitap kendi fiziksel
+        // dususunu ve diger kitaplarla carpisma/stack davranisini Physics'e birak.
         IgnorePlayerCollision(book, true);
         book.SetHeld(false);
-        Physics.SyncTransforms();
-
-        // Sadece DIGER KITAPLARIN ustune cikiyoruz. Zemin, raf veya oyuncu
-        // kitabi saga/sola/geriye itmez. Boylece ayni noktaya tekrar birakmak
-        // her zaman duz bir kitap yigininin bir ust katina gider.
-        StackAboveNearbyBooks(book);
         Physics.SyncTransforms();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
@@ -227,66 +237,6 @@ public class PlayerInteraction : MonoBehaviour
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
         RepositionHeldBooks();
-    }
-
-    void StackAboveNearbyBooks(BookItem droppedBook)
-    {
-        if (droppedBook == null)
-            return;
-
-        Collider[] droppedColliders = droppedBook.GetComponentsInChildren<Collider>(true);
-        Bounds droppedBounds = GetCombinedColliderBounds(droppedColliders);
-        if (droppedBounds.size == Vector3.zero)
-            return;
-
-        // Bir kitabin yatay kapsama alanini kullan. Birbirinden uzakta duran
-        // kitaplar bu yigin hesabina dahil edilmez.
-        Collider[] nearby = Physics.OverlapBox(
-            droppedBounds.center,
-            droppedBounds.extents + new Vector3(0.01f, 0.5f, 0.01f),
-            Quaternion.identity,
-            ~0,
-            QueryTriggerInteraction.Ignore);
-
-        float highestBookTop = float.MinValue;
-        bool foundBook = false;
-
-        foreach (Collider other in nearby)
-        {
-            if (other == null || !other.enabled)
-                continue;
-
-            BookItem otherBook = other.GetComponentInParent<BookItem>();
-            if (otherBook == null || otherBook == droppedBook)
-                continue;
-
-            Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
-            Bounds otherBounds = GetCombinedColliderBounds(otherColliders);
-            if (otherBounds.size == Vector3.zero)
-                continue;
-
-            bool horizontalOverlap = droppedBounds.min.x < otherBounds.max.x &&
-                                     droppedBounds.max.x > otherBounds.min.x &&
-                                     droppedBounds.min.z < otherBounds.max.z &&
-                                     droppedBounds.max.z > otherBounds.min.z;
-
-            if (!horizontalOverlap)
-                continue;
-
-            highestBookTop = Mathf.Max(highestBookTop, otherBounds.max.y);
-            foundBook = true;
-        }
-
-        if (!foundBook)
-            return;
-
-        float targetBottom = highestBookTop + dropStackGap;
-        float moveUp = targetBottom - droppedBounds.min.y;
-
-        if (moveUp > 0f)
-        {
-            droppedBook.transform.position += Vector3.up * moveUp;
-        }
     }
 
     Bounds GetCombinedColliderBounds(Collider[] colliders)
