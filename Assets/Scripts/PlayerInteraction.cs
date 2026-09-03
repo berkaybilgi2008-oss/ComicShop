@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 3f;
+    public float stackSpacing = 10f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -203,12 +203,9 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        // Kitabin elden ciktigi dunya konumunu ve acisini koruyoruz.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
-        // Once kalan kitaplari asagi indiriyoruz. Boylece birakilan kitap,
-        // tam boyuta dondugunde alttaki kitapla baslangicta ic ice girmez.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
@@ -216,8 +213,6 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         RepositionHeldBooks();
 
-        // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
-        // SetHeld(false), kitabin collider'larini aktif tutar.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
