@@ -177,7 +177,12 @@ public class BookItem : MonoBehaviour
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
 
             if (!held)
+            {
+                // Speculative CCD, hizli hareket ve ozellikle donus sirasinda
+                // Dynamic kitaplarin birbirinin icinden gecmesini onlemeye daha uygundur.
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                 rb.WakeUp();
+            }
         }
     }
 }
