@@ -10,13 +10,14 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.09f;
+    public float stackSpacing = 0.16f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
-    [Tooltip("Kitap elden birakilinca oyuncunun onune dogru ne kadar ileri gider.")]
-    [Min(0f)] public float dropForwardDistance = 0.35f;
-    [Min(0f)] public float dropStackGap = 0.01f;
+    [Tooltip("Kitabin elden birakildiginda ileri dogru kazanacagi hiz.")]
+    [Min(0f)] public float dropForwardForce = 2.5f;
+    [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
+    [Min(0f)] public float dropUpwardForce = 0.75f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
@@ -157,8 +158,7 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
-        // Ilk calisan sistemdeki gibi: X/Z hic degismez, kitaplar sadece
-        // rightHandPoint'in local Y ekseninde yukari dogru cikar.
+        // Kitaplar sadece el noktasinin local Y ekseninde yukari dogru dizilir.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -203,64 +203,33 @@ public class PlayerInteraction : MonoBehaviour
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
-        // Kitabi elden ciktigi yukseklikte birakiyoruz. Onceki sistemdeki
-        // "yukariya teleport etme" yok; kitap normal fizik ile serbest duser.
-        // Hafif ileri atmak oyuncuya carpmasini ve eldeki yiginin altina
-        // girmesini de azaltir.
-        Vector3 forward = playerCamera != null ? playerCamera.transform.forward : transform.forward;
-        forward.y = 0f;
-        if (forward.sqrMagnitude > 0.0001f)
-            forward.Normalize();
-        else
-            forward = transform.forward;
-
-        worldPosition += forward * dropForwardDistance;
-
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Oyuncuyla carpismayi gecici olarak kapat; kitap kendi fiziksel
-        // dususunu ve diger kitaplarla carpisma/stack davranisini Physics'e birak.
         IgnorePlayerCollision(book, true);
+
+        // Once kinematic hale getirip transformu fizik sistemine senkronize
+        // ediyoruz. Boylece kitap oyuncudan ayrildigi anda dogru konumdan
+        // fiziksel olarak firlar; ileriye teleport edilmez.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
         {
+            rb.isKinematic = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
-            rb.isKinematic = false;
+
+            Vector3 forward = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+            Vector3 throwDirection = forward.normalized;
+            rb.AddForce(throwDirection * dropForwardForce + Vector3.up * dropUpwardForce, ForceMode.VelocityChange);
             rb.WakeUp();
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
         RepositionHeldBooks();
-    }
-
-    Bounds GetCombinedColliderBounds(Collider[] colliders)
-    {
-        Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
-        bool initialized = false;
-
-        foreach (Collider col in colliders)
-        {
-            if (col == null || !col.enabled || col.isTrigger)
-                continue;
-
-            if (!initialized)
-            {
-                bounds = col.bounds;
-                initialized = true;
-            }
-            else
-            {
-                bounds.Encapsulate(col.bounds);
-            }
-        }
-
-        return initialized ? bounds : new Bounds(Vector3.zero, Vector3.zero);
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
