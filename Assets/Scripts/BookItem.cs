@@ -71,6 +71,11 @@ public class BookItem : MonoBehaviour
         if (stillTimer < sleepDelay)
             return;
 
+        // Kitabi FreezeAll ile kilitlemeden hemen once son kez kontrol et.
+        // Aksi halde kitap cok az bile diger bir kitabin icine girmisse,
+        // overlap'i koruyarak fiziksel olarak kilitlenebilir.
+        ResolveBookOverlaps();
+
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
 
@@ -100,6 +105,58 @@ public class BookItem : MonoBehaviour
         // tekrar true yapar. Tek temasli bir kitap icin burada sayaci sifirla.
         hasPhysicsContact = false;
         stillTimer = 0f;
+    }
+
+    void ResolveBookOverlaps()
+    {
+        Collider[] ownColliders = GetComponentsInChildren<Collider>(true);
+        if (ownColliders.Length == 0)
+            return;
+
+        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+
+        for (int pass = 0; pass < 4; pass++)
+        {
+            bool foundOverlap = false;
+
+            foreach (BookItem otherBook in allBooks)
+            {
+                if (otherBook == null || otherBook == this || otherBook.IsHeld)
+                    continue;
+
+                Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
+
+                foreach (Collider ownCollider in ownColliders)
+                {
+                    if (ownCollider == null || !ownCollider.enabled)
+                        continue;
+
+                    foreach (Collider otherCollider in otherColliders)
+                    {
+                        if (otherCollider == null || !otherCollider.enabled)
+                            continue;
+
+                        if (!Physics.ComputePenetration(
+                                ownCollider,
+                                ownCollider.transform.position,
+                                ownCollider.transform.rotation,
+                                otherCollider,
+                                otherCollider.transform.position,
+                                otherCollider.transform.rotation,
+                                out Vector3 direction,
+                                out float distance))
+                            continue;
+
+                        foundOverlap = true;
+                        transform.position += direction * (distance + 0.002f);
+                        Physics.SyncTransforms();
+                    }
+                }
+            }
+
+            if (!foundOverlap)
+                break;
+        }
     }
 
     public void SetCoverMaterial(Material coverMaterial)
