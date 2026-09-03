@@ -19,6 +19,7 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bu kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in Unity'de sahneye suruklendigindeki acisindan baslar; buradan elle degistirebilirsin.")]
     public Vector3 baseRotationEuler;
 
+    // Eski alan geriye uyumluluk icin tutuluyor.
     [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
@@ -31,14 +32,10 @@ public class BookItem : MonoBehaviour
     public Quaternion NativeRotation => Quaternion.Euler(baseRotationEuler);
 
     [Header("Birakma Fizigi")]
-    [Tooltip("Kitap bu hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
-    public float sleepLinearVelocity = 0.08f;
-    [Tooltip("Kitap bu acisal hizdan daha yavas oldugunda sabitlenme sayaci baslar.")]
-    public float sleepAngularVelocity = 0.08f;
-    [Tooltip("Kitap temas halinde bu kadar sure sakin kalirsa tamamen sabitlenir.")]
-    public float sleepDelay = 0.35f;
+    public float sleepLinearVelocity = 0.03f;
+    public float sleepAngularVelocity = 0.03f;
+    public float sleepDelay = 0.25f;
     private float stillTimer;
-    private bool hasPhysicsContact;
 
     void Awake()
     {
@@ -46,7 +43,7 @@ public class BookItem : MonoBehaviour
         CreateOutlineObjects();
     }
 
-    void FixedUpdate()
+    void Update()
     {
         if (IsHeld)
             return;
@@ -55,43 +52,22 @@ public class BookItem : MonoBehaviour
         if (rb == null || rb.isKinematic)
             return;
 
-        bool movingSlowly =
-            rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
-            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity;
-
-        if (!hasPhysicsContact || !movingSlowly)
+        if (rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
+            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
+        {
+            stillTimer += Time.deltaTime;
+            if (stillTimer >= sleepDelay)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = true;
+                stillTimer = 0f;
+            }
+        }
+        else
         {
             stillTimer = 0f;
-            return;
         }
-
-        stillTimer += Time.fixedDeltaTime;
-        if (stillTimer < sleepDelay)
-            return;
-
-        rb.linearVelocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
-        rb.isKinematic = true;
-        rb.Sleep();
-        stillTimer = 0f;
-    }
-
-    void OnCollisionEnter(Collision collision)
-    {
-        if (!IsHeld)
-            hasPhysicsContact = true;
-    }
-
-    void OnCollisionStay(Collision collision)
-    {
-        if (!IsHeld)
-            hasPhysicsContact = true;
-    }
-
-    void OnCollisionExit(Collision collision)
-    {
-        hasPhysicsContact = false;
-        stillTimer = 0f;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -150,34 +126,24 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
+        // Collider her durumda aktif kalir. Elde iken oyuncuyla carpismayi
+        // PlayerInteraction, Physics.IgnoreCollision ile kapatir.
+        // Boylece eldeki kitaplar da birbirleriyle fiziksel olarak etkilesir.
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider col in colliders)
+        {
+            if (col != null)
+                col.enabled = true;
+        }
+
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             stillTimer = 0f;
-            hasPhysicsContact = false;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
-            rb.constraints = RigidbodyConstraints.None;
             rb.isKinematic = held;
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
-
-            // Collider HICBIR ZAMAN kapatilmiyor. Elde tasinan kitap da fizik
-            // dunyasinda kendi collider'iyla kalir; oyuncuyla temas ise
-            // PlayerInteraction tarafinda Physics.IgnoreCollision ile yonetilir.
-            if (!held)
-            {
-                rb.detectCollisions = true;
-                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-                rb.maxDepenetrationVelocity = 10f;
-                rb.solverIterations = 20;
-                rb.solverVelocityIterations = 20;
-                rb.WakeUp();
-            }
-            else
-            {
-                rb.detectCollisions = true;
-                rb.WakeUp();
-            }
         }
     }
 }
