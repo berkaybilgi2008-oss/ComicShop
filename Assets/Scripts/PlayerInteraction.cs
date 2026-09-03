@@ -12,7 +12,6 @@ public class PlayerInteraction : MonoBehaviour
     [Min(1)] public int maxHeldBooks = 10;
     public float stackSpacing = 0.06f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
-    [Range(0.2f, 1f)] public float heldThicknessMultiplier = 0.8f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
@@ -162,12 +161,10 @@ public class PlayerInteraction : MonoBehaviour
             // Spawn'daki Random.rotation burada kesinlikle kullanilmaz.
             book.transform.localRotation = book.NativeRotation;
 
-            Vector3 baseScale = book.OriginalScale * heldScaleMultiplier;
-            book.transform.localScale = new Vector3(
-                baseScale.x,
-                baseScale.y * heldThicknessMultiplier,
-                baseScale.z
-            );
+            // Tum kitaplar, kendi local X/Y/Z eksenlerinden bagimsiz olarak
+            // ayni oranda kuculsun. Eski sistem Y eksenine ayri bir multiplier
+            // uyguladigi icin dikey duran kitaplar farkli boyutta gorunebiliyordu.
+            book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
         }
     }
 
