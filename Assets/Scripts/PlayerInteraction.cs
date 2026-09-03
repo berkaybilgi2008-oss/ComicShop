@@ -14,8 +14,7 @@ public class PlayerInteraction : MonoBehaviour
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
-    [Min(1)] public int dropResolvePasses = 8;
-    [Min(0f)] public float dropStackGap = 0.005f;
+    [Min(0f)] public float dropStackGap = 0.01f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
@@ -156,9 +155,8 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
-        // Orijinal sistemdeki davranisi koruyoruz: kitaplar X/Z'de oynamaz,
-        // sadece rightHandPoint'in local Y ekseni boyunca yukari cikar.
-        // 0.07, onceki 0.06 degerinden sadece biraz daha fazla aralik verir.
+        // Ilk calisan sistemdeki gibi: X/Z hic degismez, kitaplar sadece
+        // rightHandPoint'in local Y ekseninde yukari dogru cikar.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -207,15 +205,15 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
-        // Oyuncuya birakma aninda carpmasin.
+        // Once collider'lar acilmadan oyuncuyla carpismayi kapatiyoruz.
         IgnorePlayerCollision(book, true);
         book.SetHeld(false);
         Physics.SyncTransforms();
 
-        // Kitabi saga/sola itmek yerine sadece yukari kaldir.
-        // Boylece ayni noktaya tekrar tekrar birakmak kitaplari ic ice sokmaz,
-        // ayni zamanda ilk sistemdeki duz davranis korunur.
-        ResolveDropVertically(book);
+        // Sadece DIGER KITAPLARIN ustune cikiyoruz. Zemin, raf veya oyuncu
+        // kitabi saga/sola/geriye itmez. Boylece ayni noktaya tekrar birakmak
+        // her zaman duz bir kitap yigininin bir ust katina gider.
+        StackAboveNearbyBooks(book);
         Physics.SyncTransforms();
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
@@ -231,65 +229,63 @@ public class PlayerInteraction : MonoBehaviour
         RepositionHeldBooks();
     }
 
-    void ResolveDropVertically(BookItem book)
+    void StackAboveNearbyBooks(BookItem droppedBook)
     {
-        if (book == null || dropResolvePasses <= 0)
+        if (droppedBook == null)
             return;
 
-        Collider[] bookColliders = book.GetComponentsInChildren<Collider>(true);
-        if (bookColliders.Length == 0)
+        Collider[] droppedColliders = droppedBook.GetComponentsInChildren<Collider>(true);
+        Bounds droppedBounds = GetCombinedColliderBounds(droppedColliders);
+        if (droppedBounds.size == Vector3.zero)
             return;
 
-        for (int pass = 0; pass < dropResolvePasses; pass++)
+        // Bir kitabin yatay kapsama alanini kullan. Birbirinden uzakta duran
+        // kitaplar bu yigin hesabina dahil edilmez.
+        Collider[] nearby = Physics.OverlapBox(
+            droppedBounds.center,
+            droppedBounds.extents + new Vector3(0.01f, 0.5f, 0.01f),
+            Quaternion.identity,
+            ~0,
+            QueryTriggerInteraction.Ignore);
+
+        float highestBookTop = float.MinValue;
+        bool foundBook = false;
+
+        foreach (Collider other in nearby)
         {
-            Physics.SyncTransforms();
-            Bounds bookBounds = GetCombinedColliderBounds(bookColliders);
-            Collider[] nearby = Physics.OverlapBox(
-                bookBounds.center,
-                bookBounds.extents + Vector3.one * 0.02f,
-                Quaternion.identity,
-                ~0,
-                QueryTriggerInteraction.Ignore);
+            if (other == null || !other.enabled)
+                continue;
 
-            float highestRequiredY = book.transform.position.y;
-            bool needsMove = false;
+            BookItem otherBook = other.GetComponentInParent<BookItem>();
+            if (otherBook == null || otherBook == droppedBook)
+                continue;
 
-            foreach (Collider other in nearby)
-            {
-                if (other == null || !other.enabled)
-                    continue;
+            Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
+            Bounds otherBounds = GetCombinedColliderBounds(otherColliders);
+            if (otherBounds.size == Vector3.zero)
+                continue;
 
-                BookItem otherBook = other.GetComponentInParent<BookItem>();
-                if (otherBook == book)
-                    continue;
+            bool horizontalOverlap = droppedBounds.min.x < otherBounds.max.x &&
+                                     droppedBounds.max.x > otherBounds.min.x &&
+                                     droppedBounds.min.z < otherBounds.max.z &&
+                                     droppedBounds.max.z > otherBounds.min.z;
 
-                if (other.transform.IsChildOf(transform))
-                    continue;
+            if (!horizontalOverlap)
+                continue;
 
-                Bounds otherBounds = other.bounds;
-                bool horizontalOverlap = bookBounds.min.x < otherBounds.max.x &&
-                                         bookBounds.max.x > otherBounds.min.x &&
-                                         bookBounds.min.z < otherBounds.max.z &&
-                                         bookBounds.max.z > otherBounds.min.z;
+            highestBookTop = Mathf.Max(highestBookTop, otherBounds.max.y);
+            foundBook = true;
+        }
 
-                if (!horizontalOverlap)
-                    continue;
+        if (!foundBook)
+            return;
 
-                if (bookBounds.min.y < otherBounds.max.y && bookBounds.max.y > otherBounds.min.y)
-                {
-                    float requiredY = otherBounds.max.y - bookBounds.min.y + dropStackGap;
-                    highestRequiredY = Mathf.Max(highestRequiredY, book.transform.position.y + requiredY);
-                    needsMove = true;
-                }
-            }
+        float targetBottom = highestBookTop + dropStackGap;
+        float moveUp = targetBottom - droppedBounds.min.y;
 
-            if (!needsMove)
-                break;
-
-            book.transform.position = new Vector3(
-                book.transform.position.x,
-                highestRequiredY,
-                book.transform.position.z);
+        if (moveUp > 0f)
+        {
+            droppedBook.transform.position += Vector3.up * moveUp;
         }
     }
 
