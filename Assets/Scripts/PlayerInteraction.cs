@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 0.4f;
+    public float stackSpacing = 0.8f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -216,6 +216,7 @@ public class PlayerInteraction : MonoBehaviour
         RepositionHeldBooks();
 
         // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
+        // SetHeld(false), kitabin collider'larini tekrar aktif eder.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
