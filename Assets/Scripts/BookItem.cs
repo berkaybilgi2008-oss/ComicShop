@@ -69,11 +69,15 @@ public class BookItem : MonoBehaviour
         if (otherBook != null && otherBook != this)
         {
             supportedByBooks.Remove(otherBook);
+            WakeIfUnsupported();
             return;
         }
 
         if (collision.collider.GetComponentInParent<PlayerInteraction>() == null)
+        {
             supportedByWorldColliders.Remove(collision.collider);
+            WakeIfUnsupported();
+        }
     }
 
     void RegisterSupportCollision(Collision collision)
@@ -176,6 +180,25 @@ public class BookItem : MonoBehaviour
         return false;
     }
 
+    void WakeIfUnsupported()
+    {
+        if (IsHeld)
+            return;
+
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb == null || !rb.isKinematic)
+            return;
+
+        if (HasPhysicalSupport())
+            return;
+
+        rb.isKinematic = false;
+        rb.WakeUp();
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+        stillTimer = 0f;
+    }
+
     void WakeBooksDependingOnThis()
     {
         BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
@@ -193,8 +216,6 @@ public class BookItem : MonoBehaviour
             if (otherBook == null || otherBook == this || !otherBook.supportedByBooks.Contains(this))
                 continue;
 
-            // Bu destek artik gecerli degil. Kitabin yeni temaslarla kendi
-            // destek zincirini yeniden kurmasina izin ver.
             otherBook.supportedByBooks.Remove(this);
 
             if (otherBook.IsHeld)
