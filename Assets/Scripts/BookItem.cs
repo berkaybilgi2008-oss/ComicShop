@@ -15,11 +15,12 @@ public class BookItem : MonoBehaviour
     [Header("Kapak Gorseli")]
     public Renderer coverRenderer;
 
-    [Header("Kitap Model Rotasyonu")]
-    [Tooltip("FBX modelinin Unity'de sahneye suruklendiginde sahip oldugu temel rotasyon. Rastgele spawn rotasyonu degildir.")]
-    public Quaternion nativeRotation = Quaternion.identity;
+    [Header("Kitap Temel Rotasyonu")]
+    [Tooltip("Bu kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in Unity'de sahneye suruklendigindeki acisindan baslar; buradan elle degistirebilirsin.")]
+    public Vector3 baseRotationEuler;
 
-    // Eski alan geriye uyumluluk icin tutuluyor; artik yon hesabinda kullanilmiyor.
+    // Eski alan geriye uyumluluk icin tutuluyor.
+    [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
     private GameObject[] outlineObjects;
@@ -28,7 +29,7 @@ public class BookItem : MonoBehaviour
     public ShelfSlot currentSlot;
     public bool IsHeld { get; private set; }
     public Vector3 OriginalScale => originalScale;
-    public Quaternion NativeRotation => nativeRotation;
+    public Quaternion NativeRotation => Quaternion.Euler(baseRotationEuler);
 
     [Header("Birakma Fizigi")]
     public float sleepLinearVelocity = 0.03f;
