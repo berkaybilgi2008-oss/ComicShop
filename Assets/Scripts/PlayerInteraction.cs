@@ -211,9 +211,8 @@ public class PlayerInteraction : MonoBehaviour
 
         RepositionHeldBooks();
 
-        // SetHeld(false) collider'i tekrar aciyor. IgnoreCollision, collider
-        // kapaliyken uygulanirsa bu durum kalici olmayabilir; bu yuzden once
-        // fiziksel collider'i acip sonra oyuncu ile carpismayi kapatiyoruz.
+        // Collider'i tekrar acip Physics'e yeniden dahil ediyoruz. IgnoreCollision
+        // collider aktif olduktan sonra uygulanmali; aksi halde bu ayar kaybolabilir.
         book.SetHeld(false);
         Physics.SyncTransforms();
         IgnorePlayerCollision(book, true);
@@ -222,12 +221,19 @@ public class PlayerInteraction : MonoBehaviour
         if (rb != null)
         {
             rb.isKinematic = false;
+            rb.detectCollisions = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.constraints = RigidbodyConstraints.None;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             rb.maxDepenetrationVelocity = 10f;
             rb.solverIterations = 12;
             rb.solverVelocityIterations = 12;
+
+            // Kitap elden birakildigi anda baska bir kitabin collider'inin
+            // icinde baslayabilir. Physics.ComputePenetration ile once mevcut
+            // kitaplardan fiziksel olarak ayir, sonra kuvvet uygula.
+            ResolveBookOverlaps(book);
 
             Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
             throwDirection.y = 0f;
@@ -239,6 +245,62 @@ public class PlayerInteraction : MonoBehaviour
                 throwDirection * dropForwardForce + Vector3.up * dropUpwardForce,
                 ForceMode.VelocityChange);
             rb.WakeUp();
+        }
+    }
+
+    void ResolveBookOverlaps(BookItem droppedBook)
+    {
+        if (droppedBook == null)
+            return;
+
+        Collider[] droppedColliders = droppedBook.GetComponentsInChildren<Collider>(true);
+        if (droppedColliders.Length == 0)
+            return;
+
+        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+
+        // Birden fazla kitap ust uste geldiyse birkac ayri gecis gerekebilir.
+        // Her geciste ComputePenetration, kitabi en kisa yoldan disari tasir.
+        for (int pass = 0; pass < 8; pass++)
+        {
+            bool foundOverlap = false;
+
+            foreach (BookItem otherBook in allBooks)
+            {
+                if (otherBook == null || otherBook == droppedBook)
+                    continue;
+
+                Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
+                foreach (Collider droppedCollider in droppedColliders)
+                {
+                    if (droppedCollider == null || !droppedCollider.enabled)
+                        continue;
+
+                    foreach (Collider otherCollider in otherColliders)
+                    {
+                        if (otherCollider == null || !otherCollider.enabled)
+                            continue;
+
+                        if (!Physics.ComputePenetration(
+                                droppedCollider,
+                                droppedCollider.transform.position,
+                                droppedCollider.transform.rotation,
+                                otherCollider,
+                                otherCollider.transform.position,
+                                otherCollider.transform.rotation,
+                                out Vector3 direction,
+                                out float distance))
+                            continue;
+
+                        foundOverlap = true;
+                        droppedBook.transform.position += direction * (distance + 0.002f);
+                        Physics.SyncTransforms();
+                    }
+                }
+            }
+
+            if (!foundOverlap)
+                break;
         }
     }
 
