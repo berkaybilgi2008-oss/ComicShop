@@ -10,7 +10,7 @@ public class PlayerInteraction : MonoBehaviour
 
     [Header("Tasima Ayarlari")]
     [Min(1)] public int maxHeldBooks = 10;
-    public float stackSpacing = 10f;
+    public float stackSpacing = 3f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
     [Header("Birakma Ayarlari")]
@@ -18,6 +18,7 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float dropForwardForce = 2.5f;
     [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
     [Min(0f)] public float dropUpwardForce = 0.75f;
+    [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
@@ -159,6 +160,7 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
+        // Kitaplar sadece el noktasinin local Y ekseninde yukari dogru dizilir.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -200,27 +202,30 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
+        // Kitabin elden ciktigi dunya konumunu ve acisini koruyoruz.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
+        // Once kalan kitaplari asagi indiriyoruz. Boylece birakilan kitap,
+        // tam boyuta dondugunde alttaki kitapla baslangicta ic ice girmez.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
+        IgnorePlayerCollision(book, true);
         RepositionHeldBooks();
 
+        // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
+        // SetHeld(false), kitabin collider'larini tekrar aktif eder.
         book.SetHeld(false);
         Physics.SyncTransforms();
-        IgnorePlayerCollision(book, true);
 
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = false;
-            rb.detectCollisions = true;
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
-            rb.constraints = RigidbodyConstraints.None;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             rb.maxDepenetrationVelocity = 10f;
             rb.solverIterations = 12;
@@ -237,6 +242,8 @@ public class PlayerInteraction : MonoBehaviour
                 ForceMode.VelocityChange);
             rb.WakeUp();
         }
+
+        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
@@ -258,5 +265,21 @@ public class PlayerInteraction : MonoBehaviour
                     Physics.IgnoreCollision(bookCollider, playerCollider, ignore);
             }
         }
+    }
+
+    IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
+    {
+        Rigidbody rb = book != null ? book.GetComponent<Rigidbody>() : null;
+
+        while (book != null && rb != null && !rb.isKinematic)
+            yield return null;
+
+        if (playerCollisionRestoreDelay > 0f)
+            yield return new WaitForSeconds(playerCollisionRestoreDelay);
+
+        if (book == null)
+            yield break;
+
+        IgnorePlayerCollision(book, false);
     }
 }
