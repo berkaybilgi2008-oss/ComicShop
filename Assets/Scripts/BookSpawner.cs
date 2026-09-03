@@ -96,8 +96,7 @@ public class BookSpawner : MonoBehaviour
             Rigidbody rb = book.GetComponent<Rigidbody>();
             if (rb != null)
             {
-                // Kitabi henuz fizik dunyasina sokma. Once aday pozisyonunun
-                // mevcut kitaplarla cakismadigini kontrol et.
+                // Aday kitap, fizik aktif edilmeden once kontrol ediliyor.
                 rb.isKinematic = true;
                 rb.detectCollisions = false;
             }
@@ -109,8 +108,8 @@ public class BookSpawner : MonoBehaviour
                 if (rb != null)
                 {
                     rb.detectCollisions = true;
+                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                     rb.isKinematic = false;
-                    rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
                     rb.maxDepenetrationVelocity = 10f;
                     rb.solverIterations = 12;
                     rb.solverVelocityIterations = 12;
