@@ -31,7 +31,11 @@ public class ShelfSlot : MonoBehaviour
         if (book == null || book.brandID != brandID || !IsAvailable)
             return false;
 
-        return !IsClaimed || book.bookID == ownerBookID;
+        if (IsClaimed)
+            return book.bookID == ownerBookID;
+
+        // Ayni BookID baska bir bolmede sahiplenilmisse bu bolme onu alamaz.
+        return !IsBookIDClaimedByAnotherSlot(book.bookID);
     }
 
     public Transform GetNextPlacementPoint()
@@ -131,6 +135,22 @@ public class ShelfSlot : MonoBehaviour
 
         if (FilledCount == 0)
             ownerBookID = -1;
+    }
+
+    private bool IsBookIDClaimedByAnotherSlot(int bookID)
+    {
+        ShelfSlot[] allSlots = FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None);
+
+        foreach (ShelfSlot slot in allSlots)
+        {
+            if (slot == null || slot == this || !slot.IsClaimed)
+                continue;
+
+            if (slot.OwnerBookID == bookID)
+                return true;
+        }
+
+        return false;
     }
 
     private int FindFreeIndex()
