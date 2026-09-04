@@ -24,6 +24,7 @@ public class PlayerInteraction : MonoBehaviour
     private readonly List<BookItem> heldBooks = new List<BookItem>();
     public IReadOnlyList<BookItem> HeldBooksList => heldBooks;
     public int MaxHeldBooks => maxHeldBooks;
+    public int ActiveHeldIndex => heldBooks.Count > 0 ? heldBooks.Count - 1 : -1;
 
     private BookItem lookedBook;
     private ShelfSlot lookedSlot;
@@ -57,9 +58,6 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-
-        // Interaction is intentionally not coupled to the UI crosshair.
-        // Search every physics layer, then decide from the actual component hit.
         RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, ~0, QueryTriggerInteraction.Ignore);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
@@ -181,7 +179,6 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || heldBooks.Count == 0)
             return;
 
-        // Preserve the previous prototype rule: the first matching held book is placed.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
