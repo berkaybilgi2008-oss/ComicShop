@@ -1421,7 +1421,22 @@ MonoBehaviour:
   bookPrefab: {fileID: 5900836606748428891, guid: c7f97661a1ac6ff4b82bebc4b5130bc7, type: 3}
   areaSize: {x: 10, y: 10}
   spawnHeight: 1.5
-  bookTypes: []
+  bookTypes:
+  - {fileID: 11400000, guid: 43da3ebacb6098447a88c67020ca4021, type: 2}
+  - {fileID: 11400000, guid: 8e443873d2df7eb49aff43781b7389a1, type: 2}
+  - {fileID: 11400000, guid: 16aa96c74fb829444b6bbc57b6031f73, type: 2}
+  - {fileID: 11400000, guid: 5dbd242c18a15be469aeafb831feab87, type: 2}
+  - {fileID: 11400000, guid: c0a3067d6753c2345aad65fd666cdd04, type: 2}
+  - {fileID: 11400000, guid: 4b38931104ff18247a2314f48420f183, type: 2}
+  - {fileID: 11400000, guid: 27a1ca4ed499116459b7ac272fd1294b, type: 2}
+  - {fileID: 11400000, guid: 38e3215f0ca8dfc4d90e2bf3eaf620dc, type: 2}
+  - {fileID: 11400000, guid: a704d3e3916d77f469d7742709980c00, type: 2}
+  - {fileID: 11400000, guid: 05e1576a4760ecf4da7e91c2c75b4604, type: 2}
+  - {fileID: 11400000, guid: 56bdcc8e953ba8c459227464a8520e63, type: 2}
+  - {fileID: 11400000, guid: 84d74420397e81d409778ee95f00487e, type: 2}
+  - {fileID: 11400000, guid: 6e44829c1805ac4489e9a7bdf4cb487b, type: 2}
+  - {fileID: 11400000, guid: 1961f535d3713a84e96955ec04b74f71, type: 2}
+  - {fileID: 11400000, guid: ee705879ccd469e42b37e5db0dbfdb92, type: 2}
   copiesPerBook: 10
   testBookTypeCount: 15
 --- !u!4 &899125251
@@ -2540,11 +2555,49 @@ MonoBehaviour:
   maxHeldBooks: 10
   stackSpacing: 0.05
   heldScaleMultiplier: 0.7
-  heldThicknessMultiplier: 0.6
+  bookMoveDuration: 0.22
+  bookMoveCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  dropForwardForce: 2.5
+  dropUpwardForce: 0.75
+  playerCollisionRestoreDelay: 0.1
+  chargeStartDelay: 2
+  chargeTransitionDuration: 0.35
+  maxChargeDistance: 1.15
+  maxChargeBuildDuration: 1.8
+  minChargeThrowForce: 2.5
+  maxChargeThrowForce: 14
+  maxChargeUpwardForce: 2
+  chargeSideOffset: 0.7
+  chargeForwardOffset: 0.15
   interactRange: 3
   interactMask:
     serializedVersion: 2
     m_Bits: 768
+  pickupKey: 323
+  dropKey: 324
 --- !u!1 &1962727975
 GameObject:
   m_ObjectHideFlags: 0

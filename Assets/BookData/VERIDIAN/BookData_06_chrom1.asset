@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87ffec3f72b400a4c839de76cedf5da5, type: 3}
+  m_Name: BookData_06_chrom1
+  m_EditorClassIdentifier: Assembly-CSharp::BookData
+  BookID: 6
+  BrandID: 0
+  bookPrefab: {fileID: 4032409084158853223, guid: cb45093027ade1a4eb181d0dca2db630, type: 3}
