@@ -18,11 +18,31 @@ public class PlayerInteraction : MonoBehaviour
     public AnimationCurve bookMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("Birakma Ayarlari")]
-    [Tooltip("Kitabin elden birakildiginda ileri dogru kazanacagi hiz.")]
+    [Tooltip("Kitabin normal birakildiginda ileri dogru kazanacagi hiz.")]
     [Min(0f)] public float dropForwardForce = 2.5f;
-    [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
+    [Tooltip("Kitabin normal birakildiginda yukari dogru kazanacagi hiz.")]
     [Min(0f)] public float dropUpwardForce = 0.75f;
     [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
+
+    [Header("Sarjli Atis")]
+    [Tooltip("Sag tusa bu kadar sure basmadan normal birakma/yerlestirme yapilmaz.")]
+    [Min(0.1f)] public float chargeStartDelay = 2f;
+    [Tooltip("Kitabin sag elden sol tarafa gecis animasyon suresi.")]
+    [Min(0.01f)] public float chargeTransitionDuration = 0.35f;
+    [Tooltip("Sol tarafa gecince kitabın ne kadar arkaya cekilebilecegi.")]
+    [Min(0f)] public float maxChargeDistance = 1.15f;
+    [Tooltip("2 saniyeyi gectikten sonra maksimum gerilmeye ulasma suresi.")]
+    [Min(0.01f)] public float maxChargeBuildDuration = 1.8f;
+    [Tooltip("Sarjli atisin minimum ileri hizidir. 2 saniyede serbest birakilirsa bu kullanilir.")]
+    [Min(0f)] public float minChargeThrowForce = 2.5f;
+    [Tooltip("Tam sarjli atisin maksimum ileri hizidir.")]
+    [Min(0f)] public float maxChargeThrowForce = 14f;
+    [Tooltip("Tam sarjli atista kullanilacak yukari hizidir.")]
+    [Min(0f)] public float maxChargeUpwardForce = 2f;
+    [Tooltip("Kitabin sol el tarafinda duracagi yatay mesafe.")]
+    [Min(0f)] public float chargeSideOffset = 0.7f;
+    [Tooltip("Kitabin oyuncuya gore hafif onde baslayacagi mesafe.")]
+    public float chargeForwardOffset = 0.15f;
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
@@ -43,6 +63,16 @@ public class PlayerInteraction : MonoBehaviour
     private ShelfSlot lookedSlot;
     private bool isBookAnimating;
 
+    private bool rightMouseHeld;
+    private float rightMouseDownTime;
+    private bool isChargingThrow;
+    private bool chargeTransitionFinished;
+    private float chargeAmount;
+    private BookItem chargingBook;
+    private Vector3 chargeStartPosition;
+    private Quaternion chargeStartRotation;
+    private Coroutine chargeTransitionCoroutine;
+
     void Awake()
     {
         if (playerCamera == null)
@@ -57,15 +87,19 @@ public class PlayerInteraction : MonoBehaviour
     void Update()
     {
         HandleLookDetection();
+        HandleRightMouseInput();
+
+        if (isChargingThrow)
+        {
+            UpdateChargeMotion();
+            return;
+        }
 
         if (isBookAnimating)
             return;
 
         if (Input.GetKeyDown(pickupKey))
             HandlePickupPress();
-
-        if (Input.GetKeyDown(dropKey))
-            HandleDropOrPlacePress();
 
         float wheel = Input.mouseScrollDelta.y;
         if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
@@ -85,29 +119,32 @@ public class PlayerInteraction : MonoBehaviour
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
+        ShelfSlot nearestSlot = null;
 
+        // Once shelf colliders became children of ShelfSlot, a shelf collider can be
+        // encountered before the actual book collider. Always prefer a valid free book.
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
-            ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-
             if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null)
             {
                 lookedBook = book;
                 break;
             }
 
-            if (slot != null)
-            {
-                lookedSlot = slot;
-                break;
-            }
+            ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
+            if (slot != null && nearestSlot == null)
+                nearestSlot = slot;
         }
 
         if (lookedBook != null)
         {
             lookedSlot = null;
             lookedBook.SetHighlight(true);
+        }
+        else
+        {
+            lookedSlot = nearestSlot;
         }
     }
 
@@ -121,6 +158,174 @@ public class PlayerInteraction : MonoBehaviour
 
         if (lookedSlot != null && lookedSlot.FilledCount > 0 && heldBooks.Count < maxHeldBooks)
             TakeFromShelf();
+    }
+
+    void HandleRightMouseInput()
+    {
+        if (Input.GetKeyDown(dropKey))
+        {
+            rightMouseHeld = true;
+            rightMouseDownTime = Time.time;
+            isChargingThrow = false;
+            chargeTransitionFinished = false;
+            chargeAmount = 0f;
+            chargingBook = null;
+            return;
+        }
+
+        if (!rightMouseHeld)
+            return;
+
+        if (Input.GetKey(dropKey))
+        {
+            if (!isChargingThrow && heldBooks.Count > 0 && Time.time - rightMouseDownTime >= chargeStartDelay)
+                BeginChargeThrow();
+
+            return;
+        }
+
+        if (Input.GetKeyUp(dropKey))
+        {
+            float heldDuration = Time.time - rightMouseDownTime;
+            rightMouseHeld = false;
+
+            if (isChargingThrow)
+            {
+                ReleaseChargedThrow();
+            }
+            else if (heldDuration < chargeStartDelay && !isBookAnimating)
+            {
+                HandleDropOrPlacePress();
+            }
+        }
+    }
+
+    void BeginChargeThrow()
+    {
+        BookItem book = ActiveHeldBook;
+        if (book == null || rightHandPoint == null)
+            return;
+
+        chargingBook = book;
+        isChargingThrow = true;
+        chargeTransitionFinished = false;
+        chargeAmount = 0f;
+        chargeStartPosition = book.transform.position;
+        chargeStartRotation = book.transform.rotation;
+
+        if (chargeTransitionCoroutine != null)
+            StopCoroutine(chargeTransitionCoroutine);
+
+        chargeTransitionCoroutine = StartCoroutine(AnimateBookToChargeStart(book));
+    }
+
+    IEnumerator AnimateBookToChargeStart(BookItem book)
+    {
+        if (book == null)
+            yield break;
+
+        Vector3 startPosition = book.transform.position;
+        Quaternion startRotation = book.transform.rotation;
+        Vector3 targetPosition = GetChargeStartPosition();
+        Quaternion targetRotation = book.NativeRotation;
+
+        float duration = Mathf.Max(0.01f, chargeTransitionDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration && isChargingThrow && chargingBook == book)
+        {
+            elapsed += Time.deltaTime;
+            float t = EvaluateBookMoveCurve(elapsed / duration);
+            book.transform.position = Vector3.LerpUnclamped(startPosition, targetPosition, t);
+            book.transform.rotation = Quaternion.SlerpUnclamped(startRotation, targetRotation, t);
+            yield return null;
+        }
+
+        if (!isChargingThrow || chargingBook != book || book == null)
+            yield break;
+
+        book.transform.position = targetPosition;
+        book.transform.rotation = targetRotation;
+        chargeStartPosition = targetPosition;
+        chargeStartRotation = targetRotation;
+        chargeTransitionFinished = true;
+        chargeTransitionCoroutine = null;
+    }
+
+    void UpdateChargeMotion()
+    {
+        if (chargingBook == null)
+        {
+            isChargingThrow = false;
+            return;
+        }
+
+        if (!chargeTransitionFinished)
+            return;
+
+        float heldAfterDelay = Mathf.Max(0f, Time.time - rightMouseDownTime - chargeStartDelay);
+        chargeAmount = Mathf.Clamp01(heldAfterDelay / Mathf.Max(0.01f, maxChargeBuildDuration));
+
+        Vector3 backwardDirection = GetFlatForward();
+        Vector3 targetPosition = chargeStartPosition - backwardDirection * (maxChargeDistance * chargeAmount);
+        chargingBook.transform.position = targetPosition;
+        chargingBook.transform.rotation = chargeStartRotation;
+    }
+
+    Vector3 GetChargeStartPosition()
+    {
+        Vector3 forward = GetFlatForward();
+        Vector3 left = -GetFlatRight();
+        Vector3 up = transform.up;
+
+        return rightHandPoint.position +
+               left * chargeSideOffset +
+               forward * chargeForwardOffset +
+               up * 0.02f;
+    }
+
+    Vector3 GetFlatForward()
+    {
+        Vector3 forward = playerCamera != null ? playerCamera.transform.forward : transform.forward;
+        forward.y = 0f;
+
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = transform.forward;
+
+        return forward.normalized;
+    }
+
+    Vector3 GetFlatRight()
+    {
+        Vector3 right = playerCamera != null ? playerCamera.transform.right : transform.right;
+        right.y = 0f;
+
+        if (right.sqrMagnitude < 0.0001f)
+            right = transform.right;
+
+        return right.normalized;
+    }
+
+    void ReleaseChargedThrow()
+    {
+        if (chargeTransitionCoroutine != null)
+        {
+            StopCoroutine(chargeTransitionCoroutine);
+            chargeTransitionCoroutine = null;
+        }
+
+        BookItem book = chargingBook;
+        float finalCharge = chargeAmount;
+
+        isChargingThrow = false;
+        chargeTransitionFinished = false;
+        chargingBook = null;
+        chargeAmount = 0f;
+
+        if (book == null || !heldBooks.Contains(book))
+            return;
+
+        ThrowBook(book, finalCharge);
     }
 
     void HandleDropOrPlacePress()
@@ -183,7 +388,7 @@ public class PlayerInteraction : MonoBehaviour
         Vector3 startScale = book.transform.lossyScale;
 
         book.transform.SetParent(rightHandPoint, true);
-        Vector3 targetLocalPosition = GetHeldLocalPosition(heldBooks.Count - 1);
+        Vector3 targetLocalPosition = GetHeldLocalPosition(GetDisplayIndexForBook(book));
         Quaternion targetLocalRotation = book.NativeRotation;
         Vector3 targetLocalScale = book.OriginalScale * heldScaleMultiplier;
 
@@ -224,8 +429,6 @@ public class PlayerInteraction : MonoBehaviour
         if (activeHeldIndex < 0 || activeHeldIndex >= heldBooks.Count)
             activeHeldIndex = heldBooks.Count - 1;
 
-        // Asagidan yukariya giderken index +1, yukaridan asagiya giderken -1.
-        // Dongu sonunda tekrar baslangica doner.
         activeHeldIndex += direction;
         if (activeHeldIndex < 0)
             activeHeldIndex = heldBooks.Count - 1;
@@ -317,6 +520,15 @@ public class PlayerInteraction : MonoBehaviour
             order.Add(activeHeldIndex);
 
         return order;
+    }
+
+    int GetDisplayIndexForBook(BookItem book)
+    {
+        int heldIndex = heldBooks.IndexOf(book);
+        if (heldIndex < 0)
+            return Mathf.Max(0, heldBooks.Count - 1);
+
+        return GetDisplayOrder().IndexOf(heldIndex);
     }
 
     Vector3 GetHeldLocalPosition(int index)
@@ -429,6 +641,16 @@ public class PlayerInteraction : MonoBehaviour
         else
             activeHeldIndex = Mathf.Clamp(removedIndex, 0, heldBooks.Count - 1);
 
+        ThrowBook(book, 0f);
+    }
+
+    void ThrowBook(BookItem book, float charge)
+    {
+        if (book == null)
+            return;
+
+        charge = Mathf.Clamp01(charge);
+
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
@@ -454,14 +676,12 @@ public class PlayerInteraction : MonoBehaviour
             rb.solverIterations = 12;
             rb.solverVelocityIterations = 12;
 
-            Vector3 throwDirection = playerCamera != null ? playerCamera.transform.forward : transform.forward;
-            throwDirection.y = 0f;
-            if (throwDirection.sqrMagnitude < 0.0001f)
-                throwDirection = transform.forward;
-            throwDirection.Normalize();
+            Vector3 throwDirection = GetFlatForward();
+            float forwardForce = Mathf.Lerp(minChargeThrowForce, maxChargeThrowForce, charge);
+            float upwardForce = Mathf.Lerp(dropUpwardForce, maxChargeUpwardForce, charge);
 
             rb.AddForce(
-                throwDirection * dropForwardForce + Vector3.up * dropUpwardForce,
+                throwDirection * forwardForce + Vector3.up * upwardForce,
                 ForceMode.VelocityChange);
             rb.WakeUp();
         }
