@@ -51,7 +51,8 @@ public class BookItem : MonoBehaviour
     void Awake()
     {
         originalScale = transform.localScale;
-        CreateOutlineObjects();
+        // Outline objeleri artik olusturulmuyor. Highlight sistemi tamamen kapali.
+        outlineObjects = null;
     }
 
     void Update()
@@ -70,9 +71,6 @@ public class BookItem : MonoBehaviour
 
             SupportState supportState = GetSupportState();
 
-            // Kitap ancak gercek bir fiziksel destege sahipse sabitlenir.
-            // Destek zinciri eldeki kitaba ulasiyorsa sabitlenmez. Desteksiz
-            // dinamik kitap da havada sabitlenmez.
             if (stillTimer >= sleepDelay && supportState == SupportState.Stable)
             {
                 rb.linearVelocity = Vector3.zero;
@@ -99,7 +97,6 @@ public class BookItem : MonoBehaviour
         if (book == null || !visited.Add(book))
             return SupportState.None;
 
-        // Bu kitap eldeyse, yukaridaki kitap icin zincirin sonu Held'dir.
         if (book.IsHeld)
             return SupportState.Held;
 
@@ -169,11 +166,9 @@ public class BookItem : MonoBehaviour
             if (candidate.GetComponentInParent<PlayerInteraction>() != null)
                 continue;
 
-            // Raf/zemin gibi dunya collider'i dogrudan stabil destek kabul edilir.
             return SupportState.Stable;
         }
 
-        // Dinamik/desteksiz bir kitap ustteki kitabi havada sabitleyemez.
         if (foundUnstableBookSupport)
             return SupportState.None;
 
@@ -186,47 +181,9 @@ public class BookItem : MonoBehaviour
             coverRenderer.material = coverMaterial;
     }
 
-    void CreateOutlineObjects()
-    {
-        if (outlineMaterial == null)
-            return;
-
-        MeshFilter[] sourceMeshes = GetComponentsInChildren<MeshFilter>(true);
-        outlineObjects = new GameObject[sourceMeshes.Length];
-
-        for (int i = 0; i < sourceMeshes.Length; i++)
-        {
-            MeshFilter source = sourceMeshes[i];
-            if (source.sharedMesh == null)
-                continue;
-
-            GameObject outline = new GameObject("Outline_" + i);
-            outline.transform.SetParent(source.transform, false);
-            outline.transform.localScale = Vector3.one * outlineScale;
-
-            MeshFilter mf = outline.AddComponent<MeshFilter>();
-            mf.sharedMesh = source.sharedMesh;
-
-            MeshRenderer mr = outline.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = outlineMaterial;
-            outline.SetActive(false);
-            outlineObjects[i] = outline;
-        }
-    }
-
     public void SetHighlight(bool on)
     {
-        if (currentSlot != null || IsHeld)
-            on = false;
-
-        if (outlineObjects == null)
-            return;
-
-        foreach (GameObject outline in outlineObjects)
-        {
-            if (outline != null)
-                outline.SetActive(on);
-        }
+        // Outline highlight sistemi kaldirildi.
     }
 
     public void SetHeld(bool held)
@@ -236,8 +193,6 @@ public class BookItem : MonoBehaviour
         if (held)
             SetHighlight(false);
 
-        // Collider her durumda aktif kalir. Elde iken oyuncuyla carpismayi
-        // PlayerInteraction, Physics.IgnoreCollision ile kapatir.
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
         {
