@@ -26,9 +26,19 @@ public class GameHUD : MonoBehaviour
         sb.Append("\n");
 
         sb.Append("<size=70%>");
-        foreach (BookItem book in playerInteraction.HeldBooksList)
+        int activeIndex = playerInteraction.ActiveHeldIndex;
+        for (int i = 0; i < playerInteraction.HeldBooksList.Count; i++)
         {
-            sb.Append("_").Append(book.DisplayName).Append("\n");
+            BookItem book = playerInteraction.HeldBooksList[i];
+            if (i == activeIndex)
+                sb.Append("<color=#FFFF00>");
+
+            sb.Append("_").Append(book.DisplayName);
+
+            if (i == activeIndex)
+                sb.Append("</color>");
+
+            sb.Append("\n");
         }
         sb.Append("</size>");
 
