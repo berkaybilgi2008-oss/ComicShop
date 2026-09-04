@@ -160,6 +160,62 @@ public static class ComicShopBookSetup
         Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. Her prefab'in Base Rotation alani FBX native rotasyonundan baslatildi.");
     }
 
+    [MenuItem("ComicShop/Apply VERIDIAN Book Rotations")]
+    public static void ApplyVeridianBookRotations()
+    {
+        string[] prefabPaths = AssetDatabase.FindAssets("t:Prefab", new[] { OutputPrefabFolder })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Where(path => path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        int changed = 0;
+
+        foreach (string prefabPath in prefabPaths)
+        {
+            GameObject prefabRoot = PrefabUtility.LoadPrefabContents(prefabPath);
+            if (prefabRoot == null)
+                continue;
+
+            BookItem bookItem = prefabRoot.GetComponent<BookItem>();
+            if (bookItem == null || bookItem.brandID != 0)
+            {
+                PrefabUtility.UnloadPrefabContents(prefabRoot);
+                continue;
+            }
+
+            Vector3 targetEuler;
+            if (bookItem.baseRotationEuler.x < 0f)
+            {
+                targetEuler = new Vector3(270f, 0f, 180f);
+            }
+            else if (Mathf.Approximately(bookItem.baseRotationEuler.x, 270f))
+            {
+                targetEuler = new Vector3(0f, 0f, 180f);
+            }
+            else
+            {
+                PrefabUtility.UnloadPrefabContents(prefabRoot);
+                continue;
+            }
+
+            Quaternion targetRotation = Quaternion.Euler(targetEuler);
+            bookItem.baseRotationEuler = targetEuler;
+            bookItem.nativeRotation = targetRotation;
+            prefabRoot.transform.localRotation = targetRotation;
+
+            EditorUtility.SetDirty(bookItem);
+            EditorUtility.SetDirty(prefabRoot);
+            PrefabUtility.SaveAsPrefabAsset(prefabRoot, prefabPath);
+            PrefabUtility.UnloadPrefabContents(prefabRoot);
+            changed++;
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log($"ComicShop: {changed} VERIDIAN prefab'inin rotasyonu uygulandi. -4... -> (270, 0, 180), 270... -> (0, 0, 180).");
+    }
+
     private static Bounds CalculateExactLocalBounds(GameObject root)
     {
         bool initialized = false;
