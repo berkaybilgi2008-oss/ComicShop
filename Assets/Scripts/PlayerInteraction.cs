@@ -13,6 +13,10 @@ public class PlayerInteraction : MonoBehaviour
     public float stackSpacing = 3f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
+    [Header("Elde Kitap Animasyonu")]
+    [Min(0.01f)] public float bookMoveDuration = 0.22f;
+    public AnimationCurve bookMoveCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
     [Header("Birakma Ayarlari")]
     [Tooltip("Kitabin elden birakildiginda ileri dogru kazanacagi hiz.")]
     [Min(0f)] public float dropForwardForce = 2.5f;
@@ -34,6 +38,7 @@ public class PlayerInteraction : MonoBehaviour
 
     private BookItem lookedBook;
     private ShelfSlot lookedSlot;
+    private bool isBookAnimating;
 
     void Awake()
     {
@@ -50,11 +55,18 @@ public class PlayerInteraction : MonoBehaviour
     {
         HandleLookDetection();
 
+        if (isBookAnimating)
+            return;
+
         if (Input.GetKeyDown(KeyCode.Mouse0))
             HandlePickupPress();
 
         if (Input.GetKeyDown(KeyCode.Mouse1))
             HandleDropOrPlacePress();
+
+        float wheel = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
+            ChangeActiveHeldBook(wheel > 0f ? 1 : -1);
     }
 
     void HandleLookDetection()
@@ -115,7 +127,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (lookedSlot != null && heldBooks.Count > 0)
         {
-            PlaceOneMatchingBook();
+            PlaceActiveBook();
             return;
         }
 
@@ -127,7 +139,7 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || lookedSlot.FilledCount <= 0 || heldBooks.Count >= maxHeldBooks)
             return;
 
-        BookItem book = lookedSlot.TakeFirstBook();
+        BookItem book = lookedSlot.TakeLastBook();
         if (book == null)
             return;
 
@@ -135,8 +147,9 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
-        RepositionHeldBooks();
         lookedSlot = null;
+
+        StartCoroutine(MoveBookIntoHand(book));
     }
 
     void PickUp(BookItem book)
@@ -151,16 +164,206 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
-        RepositionHeldBooks();
         lookedBook = null;
+
+        StartCoroutine(MoveBookIntoHand(book));
     }
 
-    void RepositionHeldBooks()
+    IEnumerator MoveBookIntoHand(BookItem book)
+    {
+        if (book == null || rightHandPoint == null)
+            yield break;
+
+        isBookAnimating = true;
+
+        Vector3 startPosition = book.transform.position;
+        Quaternion startRotation = book.transform.rotation;
+        Vector3 startScale = book.transform.lossyScale;
+
+        book.transform.SetParent(rightHandPoint, true);
+        Vector3 targetLocalPosition = GetHeldLocalPosition(heldBooks.Count - 1);
+        Quaternion targetLocalRotation = book.NativeRotation;
+        Vector3 targetLocalScale = book.OriginalScale * heldScaleMultiplier;
+
+        Vector3 currentLocalPosition = book.transform.localPosition;
+        Quaternion currentLocalRotation = book.transform.localRotation;
+        Vector3 currentLocalScale = book.transform.localScale;
+
+        // Parent degistigi icin baslangic degerlerini yeniden local uzayda aliyoruz.
+        // Boylece kitap bulundugu yerden ele dogru akar.
+        float duration = Mathf.Max(0.01f, bookMoveDuration);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+            book.transform.localPosition = Vector3.LerpUnclamped(currentLocalPosition, targetLocalPosition, t);
+            book.transform.localRotation = Quaternion.SlerpUnclamped(currentLocalRotation, targetLocalRotation, t);
+            book.transform.localScale = Vector3.LerpUnclamped(currentLocalScale, targetLocalScale, t);
+            yield return null;
+        }
+
+        book.transform.localPosition = targetLocalPosition;
+        book.transform.localRotation = targetLocalRotation;
+        book.transform.localScale = targetLocalScale;
+        isBookAnimating = false;
+    }
+
+    void ChangeActiveHeldBook(int direction)
+    {
+        if (heldBooks.Count < 2)
+            return;
+
+        int activeIndex = heldBooks.Count - 1;
+        int newIndex = activeIndex - direction;
+        if (newIndex < 0)
+            newIndex = heldBooks.Count - 1;
+        else if (newIndex >= heldBooks.Count)
+            newIndex = 0;
+
+        BookItem selected = heldBooks[newIndex];
+        heldBooks.RemoveAt(newIndex);
+        heldBooks.Add(selected);
+
+        StartCoroutine(AnimateHeldStack());
+    }
+
+    IEnumerator AnimateHeldStack()
+    {
+        if (rightHandPoint == null)
+            yield break;
+
+        isBookAnimating = true;
+        int count = heldBooks.Count;
+        Vector3[] startPositions = new Vector3[count];
+        Quaternion[] startRotations = new Quaternion[count];
+        Vector3[] startScales = new Vector3[count];
+        Vector3[] targetPositions = new Vector3[count];
+        Quaternion[] targetRotations = new Quaternion[count];
+        Vector3[] targetScales = new Vector3[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            BookItem book = heldBooks[i];
+            if (book == null)
+                continue;
+
+            book.transform.SetParent(rightHandPoint, true);
+            startPositions[i] = book.transform.localPosition;
+            startRotations[i] = book.transform.localRotation;
+            startScales[i] = book.transform.localScale;
+            targetPositions[i] = GetHeldLocalPosition(i);
+            targetRotations[i] = book.NativeRotation;
+            targetScales[i] = book.OriginalScale * heldScaleMultiplier;
+        }
+
+        float duration = Mathf.Max(0.01f, bookMoveDuration);
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+
+            for (int i = 0; i < count; i++)
+            {
+                BookItem book = heldBooks[i];
+                if (book == null)
+                    continue;
+
+                book.transform.localPosition = Vector3.LerpUnclamped(startPositions[i], targetPositions[i], t);
+                book.transform.localRotation = Quaternion.SlerpUnclamped(startRotations[i], targetRotations[i], t);
+                book.transform.localScale = Vector3.LerpUnclamped(startScales[i], targetScales[i], t);
+            }
+
+            yield return null;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            BookItem book = heldBooks[i];
+            if (book == null)
+                continue;
+
+            book.transform.localPosition = targetPositions[i];
+            book.transform.localRotation = targetRotations[i];
+            book.transform.localScale = targetScales[i];
+        }
+
+        isBookAnimating = false;
+    }
+
+    Vector3 GetHeldLocalPosition(int index)
+    {
+        return new Vector3(0f, index * stackSpacing, 0f);
+    }
+
+    void PlaceActiveBook()
+    {
+        if (lookedSlot == null || heldBooks.Count == 0)
+            return;
+
+        BookItem book = heldBooks[heldBooks.Count - 1];
+        if (!lookedSlot.Matches(book))
+            return;
+
+        StartCoroutine(PlaceActiveBookAnimated(book, lookedSlot));
+    }
+
+    IEnumerator PlaceActiveBookAnimated(BookItem book, ShelfSlot slot)
+    {
+        if (book == null || slot == null || rightHandPoint == null)
+            yield break;
+
+        isBookAnimating = true;
+
+        Transform point = slot.GetNextPlacementPoint();
+        if (point == null)
+        {
+            isBookAnimating = false;
+            yield break;
+        }
+
+        Vector3 startPosition = book.transform.position;
+        Quaternion startRotation = book.transform.rotation;
+        Vector3 startScale = book.transform.lossyScale;
+        Vector3 targetPosition = point.position;
+        Quaternion targetRotation = point.rotation * book.NativeRotation;
+        Vector3 targetScale = book.OriginalScale;
+
+        book.transform.SetParent(null, true);
+        book.transform.SetPositionAndRotation(startPosition, startRotation);
+        book.transform.localScale = startScale;
+
+        float duration = Mathf.Max(0.01f, bookMoveDuration);
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+            book.transform.position = Vector3.LerpUnclamped(startPosition, targetPosition, t);
+            book.transform.rotation = Quaternion.SlerpUnclamped(startRotation, targetRotation, t);
+            book.transform.localScale = Vector3.LerpUnclamped(startScale, targetScale, t);
+            yield return null;
+        }
+
+        book.transform.SetPositionAndRotation(targetPosition, targetRotation);
+        book.transform.localScale = targetScale;
+
+        // Animasyon hedef noktaya ulastiktan sonra slot kaydi yapilir.
+        if (slot.PlaceBook(book))
+            heldBooks.Remove(book);
+
+        RepositionHeldBooksImmediate();
+        lookedSlot = null;
+        isBookAnimating = false;
+    }
+
+    void RepositionHeldBooksImmediate()
     {
         if (rightHandPoint == null)
             return;
 
-        // Kitaplar sadece el noktasinin local Y ekseninde yukari dogru dizilir.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -168,29 +371,9 @@ public class PlayerInteraction : MonoBehaviour
                 continue;
 
             book.transform.SetParent(rightHandPoint, false);
-            book.transform.localPosition = new Vector3(0f, i * stackSpacing, 0f);
+            book.transform.localPosition = GetHeldLocalPosition(i);
             book.transform.localRotation = book.NativeRotation;
             book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
-        }
-    }
-
-    void PlaceOneMatchingBook()
-    {
-        if (lookedSlot == null || heldBooks.Count == 0)
-            return;
-
-        for (int i = 0; i < heldBooks.Count; i++)
-        {
-            BookItem book = heldBooks[i];
-            if (!lookedSlot.Matches(book))
-                continue;
-
-            if (lookedSlot.PlaceBook(book))
-            {
-                heldBooks.RemoveAt(i);
-                RepositionHeldBooks();
-            }
-            return;
         }
     }
 
@@ -202,29 +385,17 @@ public class PlayerInteraction : MonoBehaviour
         BookItem book = heldBooks[heldBooks.Count - 1];
         heldBooks.RemoveAt(heldBooks.Count - 1);
 
-        // Kitabin elden ciktigi dunya konumunu ve acisini koruyoruz.
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
 
-        // Once kalan kitaplari asagi indiriyoruz. Boylece birakilan kitap,
-        // tam boyuta dondugunde alttaki kitapla baslangicta ic ice girmez.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
         IgnorePlayerCollision(book, true);
-        RepositionHeldBooks();
-
-        // Elde kalan kitaplar kinematic olsa bile collider'lari aktiftir.
-        // Birakilan kitabi dinamik yapmadan hemen once tum kitap-kitap
-        // collider ciftlerinin collision state'ini acikca sifirliyoruz.
-        // Boylece daha once herhangi bir Physics.IgnoreCollision durumu
-        // olustuysa bile bu kitap, diger kitaplarla ilk physics step'inden
-        // itibaren carpismaya acik olur.
+        RepositionHeldBooksImmediate();
         RestoreBookToBookCollisions(book);
 
-        // Simdi kitap elden tamamen ayriliyor ve fizik devreye giriyor.
-        // SetHeld(false), kitabin collider'larini aktif tutar.
         book.SetHeld(false);
         Physics.SyncTransforms();
 
