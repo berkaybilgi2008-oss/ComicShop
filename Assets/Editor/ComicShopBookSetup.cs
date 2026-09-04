@@ -14,7 +14,7 @@ public static class ComicShopBookSetup
     private const string OutputDataFolder = "Assets/BookData/VERIDIAN";
     private const int BookLayer = 8;
 
-    [MenuItem("ComicShop/Setup 15 VERIDIAN Books")]
+    [MenuItem("ComicShop/Setup/15 VERIDIAN Books")]
     public static void Setup()
     {
         EnsureFolder("Assets/Prefabs", "VeridianBooks");
@@ -160,7 +160,7 @@ public static class ComicShopBookSetup
         Debug.Log("ComicShop: 15 VERIDIAN kitap hazirlandi. Her prefab'in Base Rotation alani FBX native rotasyonundan baslatildi.");
     }
 
-    [MenuItem("ComicShop/Apply VERIDIAN Book Rotations")]
+    [MenuItem("ComicShop/Setup/Apply VERIDIAN Book Rotations")]
     public static void ApplyVeridianBookRotations()
     {
         string[] prefabPaths = AssetDatabase.FindAssets("t:Prefab", new[] { OutputPrefabFolder })
