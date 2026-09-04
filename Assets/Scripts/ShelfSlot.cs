@@ -34,6 +34,15 @@ public class ShelfSlot : MonoBehaviour
         return !IsClaimed || book.bookID == ownerBookID;
     }
 
+    public Transform GetNextPlacementPoint()
+    {
+        int index = FindFreeIndex();
+        if (index < 0 || placementPoints == null || index >= placementPoints.Length)
+            return null;
+
+        return placementPoints[index];
+    }
+
     public bool PlaceBook(BookItem book)
     {
         if (!Matches(book))
@@ -56,9 +65,6 @@ public class ShelfSlot : MonoBehaviour
 
         book.transform.SetParent(null, true);
         book.transform.position = point.position;
-
-        // Point'in yonu rafin yonunu belirler; kitabin kendi FBX native rotasyonu
-        // bu yonun uzerine uygulanir. Spawn'daki Random.rotation kullanilmaz.
         book.transform.rotation = point.rotation * book.NativeRotation;
         book.transform.localScale = book.OriginalScale;
         book.SetHeld(false);
