@@ -55,6 +55,23 @@ public class BookItem : MonoBehaviour
         // default ise eski degeri geriye uyumlu sekilde kullan.
         if (nativeRotation == Quaternion.identity && baseRotationEuler != Vector3.zero)
             nativeRotation = Quaternion.Euler(baseRotationEuler);
+
+        // VERIDIAN kitaplarinda mevcut authored X acisina gore hedef rotasyonu uygula.
+        // X -4... ile baslayan eski degerler -> (270, 0, 180)
+        // X 270... olan eski degerler -> (0, 0, 180)
+        if (brandID == 0)
+        {
+            if (baseRotationEuler.x < 0f)
+            {
+                baseRotationEuler = new Vector3(270f, 0f, 180f);
+                nativeRotation = Quaternion.Euler(baseRotationEuler);
+            }
+            else if (Mathf.Approximately(baseRotationEuler.x, 270f))
+            {
+                baseRotationEuler = new Vector3(0f, 0f, 180f);
+                nativeRotation = Quaternion.Euler(baseRotationEuler);
+            }
+        }
     }
 
     void Update()
