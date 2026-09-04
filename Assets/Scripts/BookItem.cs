@@ -36,9 +36,9 @@ public class BookItem : MonoBehaviour
     public float sleepDelay = 0.25f;
     private float stillTimer;
 
-    [Header("Destek Kontrolu")]
-    [Tooltip("Kitabin altinda fiziksel bir destek aramak icin kullanilan dikey tolerans.")]
-    [Min(0.005f)] public float supportVerticalTolerance = 0.06f;
+    [Header("Elde Tutulan Kitap Kontrolu")]
+    [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
+    [Min(0.005f)] public float heldSupportTolerance = 0.08f;
 
     void Awake()
     {
@@ -59,7 +59,12 @@ public class BookItem : MonoBehaviour
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
         {
             stillTimer += Time.deltaTime;
-            if (stillTimer >= sleepDelay && HasPhysicalSupport())
+
+            // Normal durumda kitap mutlaka sabitlenebilir. Tek istisna,
+            // kitabin fiziksel olarak su anda oyuncunun elindeki bir kitabin
+            // uzerinde durmasidir. Boylece eldeki kitap destekken ustteki kitap
+            // havada donup sabitlenmez.
+            if (stillTimer >= sleepDelay && !IsSupportedByHeldBook())
             {
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
@@ -74,27 +79,26 @@ public class BookItem : MonoBehaviour
         }
     }
 
-    bool HasPhysicalSupport()
+    bool IsSupportedByHeldBook()
     {
         Collider ownCollider = GetComponentInChildren<Collider>();
         if (ownCollider == null)
             return false;
 
         Bounds ownBounds = ownCollider.bounds;
-        float tolerance = supportVerticalTolerance;
+        float tolerance = heldSupportTolerance;
 
-        // Kitabin alt kenarinin hemen altinda kucuk bir fizik arama bolgesi
-        // olusturuyoruz. Burada herhangi bir pozisyon duzeltmesi yapilmaz;
-        // sadece mevcut fiziksel temasi tespit ederiz.
+        // Sadece kitabin alt tarafini tarariz. Bu bir pozisyon duzeltmesi
+        // degildir; mevcut collider temasini tespit etmek icindir.
         Vector3 probeCenter = new Vector3(
             ownBounds.center.x,
             ownBounds.min.y + tolerance * 0.5f,
             ownBounds.center.z);
 
         Vector3 probeHalfExtents = new Vector3(
-            Mathf.Max(0.005f, ownBounds.extents.x * 0.92f),
+            Mathf.Max(0.005f, ownBounds.extents.x * 0.95f),
             tolerance * 0.5f,
-            Mathf.Max(0.005f, ownBounds.extents.z * 0.92f));
+            Mathf.Max(0.005f, ownBounds.extents.z * 0.95f));
 
         Collider[] candidates = Physics.OverlapBox(
             probeCenter,
@@ -110,46 +114,28 @@ public class BookItem : MonoBehaviour
                 continue;
 
             BookItem otherBook = candidate.GetComponentInParent<BookItem>();
-            if (otherBook == this)
+            if (otherBook == null || otherBook == this)
                 continue;
 
-            // Oyuncu fiziksel destek degildir.
-            if (candidate.GetComponentInParent<PlayerInteraction>() != null)
+            if (!otherBook.IsHeld)
                 continue;
 
-            Bounds candidateBounds = candidate.bounds;
+            Bounds otherBounds = candidate.bounds;
 
-            // Aday collider'in ustu, bu kitabin altina yakin olmali. Boylece
-            // yan yana duran veya kitabin ustunde bulunan collider'lar destek
-            // olarak kabul edilmez.
-            if (candidateBounds.max.y < ownBounds.min.y - tolerance ||
-                candidateBounds.min.y > ownBounds.min.y + tolerance)
+            // Elde olan kitap gercekten bu kitabin altinda olmali. Yandaki veya
+            // ustteki elde tutulan kitaplar destek olarak kabul edilmez.
+            if (otherBounds.max.y < ownBounds.min.y - tolerance)
                 continue;
 
-            // Yatayda gercek bir kesisim/temas olmali.
-            if (candidateBounds.max.x < ownBounds.min.x ||
-                candidateBounds.min.x > ownBounds.max.x ||
-                candidateBounds.max.z < ownBounds.min.z ||
-                candidateBounds.min.z > ownBounds.max.z)
+            if (otherBounds.min.y > ownBounds.min.y + tolerance)
                 continue;
 
-            if (otherBook != null)
-            {
-                // Elde tasinan kitap destek sayilmaz. Bu, eldeki kitabin
-                // ustundeki kitabin havada donup sabitlenmesini engeller.
-                if (otherBook.IsHeld)
-                    continue;
-
-                Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
-                if (otherRb != null && otherRb.isKinematic)
-                    return true;
-
-                // Alt kitap hala dinamikse onun hareketi bitmeden ustteki
-                // kitabi sabitleme.
+            if (otherBounds.max.x < ownBounds.min.x ||
+                otherBounds.min.x > ownBounds.max.x ||
+                otherBounds.max.z < ownBounds.min.z ||
+                otherBounds.min.z > ownBounds.max.z)
                 continue;
-            }
 
-            // Raf/zemin gibi normal collider'lar gecerli destektir.
             return true;
         }
 
