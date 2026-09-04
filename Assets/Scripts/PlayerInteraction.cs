@@ -13,13 +13,6 @@ public class PlayerInteraction : MonoBehaviour
     public float stackSpacing = 3f;
     [Range(0.2f, 1f)] public float heldScaleMultiplier = 0.55f;
 
-    [Header("Birakma Ayarlari")]
-    [Tooltip("Kitabin elden birakildiginda ileri dogru kazanacagi hiz.")]
-    [Min(0f)] public float dropForwardForce = 2.5f;
-    [Tooltip("Kitabin elden birakildiginda yukari dogru kazanacagi hiz.")]
-    [Min(0f)] public float dropUpwardForce = 0.75f;
-    [Min(0f)] public float playerCollisionRestoreDelay = 0.1f;
-
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
@@ -39,21 +32,16 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
-
-        interactMask |= 1 << 0;
-
-        if (FindFirstObjectByType<Crosshair>() == null)
-            gameObject.AddComponent<Crosshair>();
     }
 
     void Update()
     {
         HandleLookDetection();
 
-        if (Input.GetKeyDown(KeyCode.Mouse0))
+        if (Input.GetKeyDown(pickupKey))
             HandlePickupPress();
 
-        if (Input.GetKeyDown(KeyCode.Mouse1))
+        if (Input.GetKeyDown(dropKey))
             HandleDropOrPlacePress();
     }
 
@@ -69,33 +57,48 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Ignore);
+
+        // Interaction is intentionally not coupled to the UI crosshair.
+        // Search every physics layer, then decide from the actual component hit.
+        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, ~0, QueryTriggerInteraction.Ignore);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
+        ShelfSlot nearestSlot = null;
 
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
+            if (book != null)
+            {
+                if (canPickMore && !book.IsHeld)
+                {
+                    if (book.currentSlot == null)
+                    {
+                        lookedBook = book;
+                        break;
+                    }
+
+                    if (nearestSlot == null)
+                        nearestSlot = book.currentSlot;
+                }
+
+                continue;
+            }
+
             ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-
-            if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null)
-            {
-                lookedBook = book;
-                break;
-            }
-
-            if (slot != null)
-            {
-                lookedSlot = slot;
-                break;
-            }
+            if (slot != null && nearestSlot == null)
+                nearestSlot = slot;
         }
 
         if (lookedBook != null)
         {
             lookedSlot = null;
             lookedBook.SetHighlight(true);
+        }
+        else
+        {
+            lookedSlot = nearestSlot;
         }
     }
 
@@ -127,7 +130,7 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || lookedSlot.FilledCount <= 0 || heldBooks.Count >= maxHeldBooks)
             return;
 
-        BookItem book = lookedSlot.TakeFirstBook();
+        BookItem book = lookedSlot.TakeLastBook();
         if (book == null)
             return;
 
@@ -178,6 +181,7 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || heldBooks.Count == 0)
             return;
 
+        // Preserve the previous prototype rule: the first matching held book is placed.
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
@@ -232,7 +236,7 @@ public class PlayerInteraction : MonoBehaviour
             throwDirection.Normalize();
 
             rb.AddForce(
-                throwDirection * dropForwardForce + Vector3.up * dropUpwardForce,
+                throwDirection * 2.5f + Vector3.up * 0.75f,
                 ForceMode.VelocityChange);
             rb.WakeUp();
         }
@@ -268,8 +272,9 @@ public class PlayerInteraction : MonoBehaviour
         while (book != null && rb != null && !rb.isKinematic)
             yield return null;
 
-        if (playerCollisionRestoreDelay > 0f)
-            yield return new WaitForSeconds(playerCollisionRestoreDelay);
+        float delay = 0.1f;
+        if (delay > 0f)
+            yield return new WaitForSeconds(delay);
 
         if (book == null)
             yield break;
