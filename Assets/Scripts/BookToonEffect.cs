@@ -1,9 +1,6 @@
 using UnityEngine;
 
-/// <summary>
-/// Tum BookItem renderer'larina URP toon/cell shading uygular.
-/// Mevcut materyalin texture ve rengini korur.
-/// </summary>
+[DisallowMultipleComponent]
 public class BookToonEffect : MonoBehaviour
 {
     static Shader toonShader;
@@ -11,6 +8,14 @@ public class BookToonEffect : MonoBehaviour
     void Awake()
     {
         ApplyToRenderers();
+    }
+
+    public static void ApplyToBook(GameObject book)
+    {
+        if (book == null) return;
+        BookToonEffect effect = book.GetComponent<BookToonEffect>();
+        if (effect == null) effect = book.AddComponent<BookToonEffect>();
+        else effect.ApplyToRenderers();
     }
 
     void ApplyToRenderers()
@@ -27,49 +32,34 @@ public class BookToonEffect : MonoBehaviour
         Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
         foreach (Renderer renderer in renderers)
         {
-            if (renderer == null)
-                continue;
-
+            if (renderer == null) continue;
             Material[] materials = renderer.materials;
             for (int i = 0; i < materials.Length; i++)
             {
-                Material original = materials[i];
-                if (original == null)
-                    continue;
+                Material material = materials[i];
+                if (material == null) continue;
+                if (material.shader == toonShader) continue;
 
-                Texture baseTexture = null;
-                Color baseColor = Color.white;
+                Texture texture = null;
+                Color color = Color.white;
+                if (material.HasProperty("_BaseMap")) texture = material.GetTexture("_BaseMap");
+                else if (material.HasProperty("_MainTex")) texture = material.GetTexture("_MainTex");
+                if (material.HasProperty("_BaseColor")) color = material.GetColor("_BaseColor");
+                else if (material.HasProperty("_Color")) color = material.GetColor("_Color");
 
-                if (original.HasProperty("_BaseMap"))
-                    baseTexture = original.GetTexture("_BaseMap");
-                else if (original.HasProperty("_MainTex"))
-                    baseTexture = original.GetTexture("_MainTex");
-
-                if (original.HasProperty("_BaseColor"))
-                    baseColor = original.GetColor("_BaseColor");
-                else if (original.HasProperty("_Color"))
-                    baseColor = original.GetColor("_Color");
-
-                original.shader = toonShader;
-
-                if (baseTexture != null)
-                    original.SetTexture("_BaseMap", baseTexture);
-
-                original.SetColor("_BaseColor", baseColor);
+                material.shader = toonShader;
+                if (texture != null) material.SetTexture("_BaseMap", texture);
+                material.SetColor("_BaseColor", color);
             }
-
             renderer.materials = materials;
         }
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void AddToBooks()
+    static void AddToExistingBooks()
     {
         BookItem[] books = Object.FindObjectsByType<BookItem>(FindObjectsSortMode.None);
         foreach (BookItem book in books)
-        {
-            if (book != null && book.GetComponent<BookToonEffect>() == null)
-                book.gameObject.AddComponent<BookToonEffect>();
-        }
+            ApplyToBook(book.gameObject);
     }
 }

@@ -17,19 +17,19 @@ public class BookItem : MonoBehaviour
     public Renderer coverRenderer;
 
     [Header("Kitap Temel Rotasyonu")]
-    [Tooltip("Bu kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in Unity'de sahneye suruklendigindeki acisindan baslar; buradan elle degistirebilirsin.")]
-    public Vector3 baseRotationEuler;
-
+    [Tooltip("Kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in native rotasyonudur.")]
     [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
+
+    // Eski prefablarin baseRotationEuler alanini korumak icin tutulur.
+    [HideInInspector] public Vector3 baseRotationEuler;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
-    private GameObject[] outlineObjects;
     private Vector3 originalScale;
 
     public ShelfSlot currentSlot;
     public bool IsHeld { get; private set; }
     public Vector3 OriginalScale => originalScale;
-    public Quaternion NativeRotation => Quaternion.Euler(baseRotationEuler);
+    public Quaternion NativeRotation => nativeRotation;
 
     [Header("Birakma Fizigi")]
     public float sleepLinearVelocity = 0.03f;
@@ -51,8 +51,10 @@ public class BookItem : MonoBehaviour
     void Awake()
     {
         originalScale = transform.localScale;
-        // Outline objeleri artik olusturulmuyor. Highlight sistemi tamamen kapali.
-        outlineObjects = null;
+        // Eski prefablar baseRotationEuler ile uretilmisse, yalnizca nativeRotation
+        // default ise eski degeri geriye uyumlu sekilde kullan.
+        if (nativeRotation == Quaternion.identity && baseRotationEuler != Vector3.zero)
+            nativeRotation = Quaternion.Euler(baseRotationEuler);
     }
 
     void Update()
@@ -68,7 +70,6 @@ public class BookItem : MonoBehaviour
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
         {
             stillTimer += Time.deltaTime;
-
             SupportState supportState = GetSupportState();
 
             if (stillTimer >= sleepDelay && supportState == SupportState.Stable)
@@ -96,7 +97,6 @@ public class BookItem : MonoBehaviour
     {
         if (book == null || !visited.Add(book))
             return SupportState.None;
-
         if (book.IsHeld)
             return SupportState.Held;
 
@@ -108,23 +108,10 @@ public class BookItem : MonoBehaviour
         float tolerance = heldSupportTolerance;
         bool foundUnstableBookSupport = false;
 
-        Vector3 probeCenter = new Vector3(
-            ownBounds.center.x,
-            ownBounds.min.y + tolerance * 0.5f,
-            ownBounds.center.z);
+        Vector3 probeCenter = new Vector3(ownBounds.center.x, ownBounds.min.y + tolerance * 0.5f, ownBounds.center.z);
+        Vector3 probeHalfExtents = new Vector3(Mathf.Max(0.005f, ownBounds.extents.x * 0.95f), tolerance * 0.5f, Mathf.Max(0.005f, ownBounds.extents.z * 0.95f));
 
-        Vector3 probeHalfExtents = new Vector3(
-            Mathf.Max(0.005f, ownBounds.extents.x * 0.95f),
-            tolerance * 0.5f,
-            Mathf.Max(0.005f, ownBounds.extents.z * 0.95f));
-
-        Collider[] candidates = Physics.OverlapBox(
-            probeCenter,
-            probeHalfExtents,
-            Quaternion.identity,
-            Physics.AllLayers,
-            QueryTriggerInteraction.Ignore);
-
+        Collider[] candidates = Physics.OverlapBox(probeCenter, probeHalfExtents, Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < candidates.Length; i++)
         {
             Collider candidate = candidates[i];
@@ -136,43 +123,28 @@ public class BookItem : MonoBehaviour
                 continue;
 
             Bounds candidateBounds = candidate.bounds;
-
-            if (candidateBounds.max.y < ownBounds.min.y - tolerance)
+            if (candidateBounds.max.y < ownBounds.min.y - tolerance || candidateBounds.min.y > ownBounds.min.y + tolerance)
                 continue;
-
-            if (candidateBounds.min.y > ownBounds.min.y + tolerance)
-                continue;
-
-            if (candidateBounds.max.x < ownBounds.min.x ||
-                candidateBounds.min.x > ownBounds.max.x ||
-                candidateBounds.max.z < ownBounds.min.z ||
-                candidateBounds.min.z > ownBounds.max.z)
+            if (candidateBounds.max.x < ownBounds.min.x || candidateBounds.min.x > ownBounds.max.x || candidateBounds.max.z < ownBounds.min.z || candidateBounds.min.z > ownBounds.max.z)
                 continue;
 
             if (otherBook != null)
             {
                 SupportState otherState = GetSupportStateRecursive(otherBook, visited);
-
                 if (otherState == SupportState.Held)
                     return SupportState.Held;
-
                 if (otherState == SupportState.Stable)
                     return SupportState.Stable;
-
                 foundUnstableBookSupport = true;
                 continue;
             }
 
             if (candidate.GetComponentInParent<PlayerInteraction>() != null)
                 continue;
-
             return SupportState.Stable;
         }
 
-        if (foundUnstableBookSupport)
-            return SupportState.None;
-
-        return SupportState.None;
+        return foundUnstableBookSupport ? SupportState.None : SupportState.None;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -181,24 +153,17 @@ public class BookItem : MonoBehaviour
             coverRenderer.material = coverMaterial;
     }
 
-    public void SetHighlight(bool on)
-    {
-        // Outline highlight sistemi kaldirildi.
-    }
+    public void SetHighlight(bool on) { }
 
     public void SetHeld(bool held)
     {
         IsHeld = held;
-
         if (held)
             SetHighlight(false);
 
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider col in colliders)
-        {
-            if (col != null)
-                col.enabled = true;
-        }
+            if (col != null) col.enabled = true;
 
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
