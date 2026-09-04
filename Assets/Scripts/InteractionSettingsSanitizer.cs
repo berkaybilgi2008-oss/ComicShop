@@ -17,13 +17,13 @@ public static class InteractionSettingsSanitizer
             if (interaction == null)
                 continue;
 
-            // Bu iki deger mevcut sahnede eski surumden kalmis durumda.
-            // Yeni sistemin 3 birim stack araligi ve 0.55 olcegiyle calismasi gerekir.
-            if (interaction.stackSpacing > 0f && interaction.stackSpacing < 0.5f && interaction.heldScaleMultiplier > 0.65f)
-            {
-                interaction.stackSpacing = 3f;
-                interaction.heldScaleMultiplier = 0.55f;
-            }
+            // Eski sahne serilestirmesi mouse yerine E/Q kaydetmis olabilir.
+            interaction.pickupKey = KeyCode.Mouse0;
+            interaction.dropKey = KeyCode.Mouse1;
+
+            // Elde kitaplar arasindaki dikey ilerleme 0.08 birim olsun.
+            interaction.stackSpacing = 0.08f;
+            interaction.heldScaleMultiplier = 0.55f;
         }
     }
 }
