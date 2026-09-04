@@ -17,11 +17,9 @@ public class BookItem : MonoBehaviour
     public Renderer coverRenderer;
 
     [Header("Kitap Temel Rotasyonu")]
-    [Tooltip("Kitabin elde ve rafta kullanilacak temel rotasyonu. FBX'in native rotasyonudur.")]
+    [Tooltip("Kitabin elde ve rafta kullanilacak temel rotasyonu. X/Y/Z degerlerini derece olarak ayarlayabilirsin.")]
+    public Vector3 baseRotationEuler;
     [HideInInspector] public Quaternion nativeRotation = Quaternion.identity;
-
-    // Eski prefablarin baseRotationEuler alanini korumak icin tutulur.
-    [HideInInspector] public Vector3 baseRotationEuler;
     [HideInInspector] public Quaternion orientationCorrection = Quaternion.identity;
 
     private Vector3 originalScale;
@@ -51,10 +49,7 @@ public class BookItem : MonoBehaviour
     void Awake()
     {
         originalScale = transform.localScale;
-        // Eski prefablar baseRotationEuler ile uretilmisse, yalnizca nativeRotation
-        // default ise eski degeri geriye uyumlu sekilde kullan.
-        if (nativeRotation == Quaternion.identity && baseRotationEuler != Vector3.zero)
-            nativeRotation = Quaternion.Euler(baseRotationEuler);
+        nativeRotation = Quaternion.Euler(baseRotationEuler);
     }
 
     void Update()
