@@ -69,15 +69,11 @@ public class BookItem : MonoBehaviour
         if (otherBook != null && otherBook != this)
         {
             supportedByBooks.Remove(otherBook);
-            WakeIfUnsupported();
             return;
         }
 
         if (collision.collider.GetComponentInParent<PlayerInteraction>() == null)
-        {
             supportedByWorldColliders.Remove(collision.collider);
-            WakeIfUnsupported();
-        }
     }
 
     void RegisterSupportCollision(Collision collision)
@@ -139,14 +135,6 @@ public class BookItem : MonoBehaviour
 
     bool HasPhysicalSupport()
     {
-        return HasPhysicalSupport(new HashSet<BookItem>());
-    }
-
-    bool HasPhysicalSupport(HashSet<BookItem> visited)
-    {
-        if (!visited.Add(this))
-            return false;
-
         if (HasValidWorldSupport())
             return true;
 
@@ -159,11 +147,12 @@ public class BookItem : MonoBehaviour
             if (otherRb == null)
                 continue;
 
-            if (otherRb.isKinematic || otherRb.IsSleeping())
-            {
-                if (otherBook.HasPhysicalSupport(visited))
-                    return true;
-            }
+            // Zincirin altindaki kitap zaten sabitlenmisse fiziksel destek
+            // olarak kabul edilir. O kitap daha sonra alinip havada kalsa bile
+            // ustteki kitaplar tekrar uyandirilmaz; kullanicinin istedigi
+            // davranis budur.
+            if (otherRb.isKinematic)
+                return true;
         }
 
         return false;
@@ -178,62 +167,6 @@ public class BookItem : MonoBehaviour
         }
 
         return false;
-    }
-
-    void WakeIfUnsupported()
-    {
-        if (IsHeld)
-            return;
-
-        Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb == null || !rb.isKinematic)
-            return;
-
-        if (HasPhysicalSupport())
-            return;
-
-        rb.isKinematic = false;
-        rb.WakeUp();
-        rb.linearVelocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
-        stillTimer = 0f;
-    }
-
-    void WakeBooksDependingOnThis()
-    {
-        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
-        HashSet<BookItem> visited = new HashSet<BookItem>();
-        WakeDependentsRecursive(allBooks, visited);
-    }
-
-    void WakeDependentsRecursive(BookItem[] allBooks, HashSet<BookItem> visited)
-    {
-        if (!visited.Add(this))
-            return;
-
-        foreach (BookItem otherBook in allBooks)
-        {
-            if (otherBook == null || otherBook == this || !otherBook.supportedByBooks.Contains(this))
-                continue;
-
-            otherBook.supportedByBooks.Remove(this);
-
-            if (otherBook.IsHeld)
-                continue;
-
-            Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
-            if (otherRb == null)
-                continue;
-
-            if (!otherBook.HasPhysicalSupport())
-            {
-                otherRb.isKinematic = false;
-                otherRb.WakeUp();
-                otherBook.stillTimer = 0f;
-            }
-
-            otherBook.WakeDependentsRecursive(allBooks, visited);
-        }
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -287,9 +220,6 @@ public class BookItem : MonoBehaviour
 
     public void SetHeld(bool held)
     {
-        if (held && !IsHeld)
-            WakeBooksDependingOnThis();
-
         IsHeld = held;
 
         if (held)
