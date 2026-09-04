@@ -47,6 +47,8 @@ public class PlayerInteraction : MonoBehaviour
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
+    [Tooltip("Merkez ray kitabi tam ortalamadiginda kullanilan kucuk tolerans.")]
+    [Min(0f)] public float interactSphereRadius = 0.06f;
 
     [Header("Tusu")]
     public KeyCode pickupKey = KeyCode.Mouse0;
@@ -78,7 +80,9 @@ public class PlayerInteraction : MonoBehaviour
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>();
 
-        interactMask |= 1 << 0;
+        // Interaction should never depend on a stale serialized LayerMask.
+        // We identify books/shelves by their actual components after the hit.
+        interactMask = ~0;
 
         if (FindFirstObjectByType<Crosshair>() == null)
             gameObject.AddComponent<Crosshair>();
@@ -115,26 +119,74 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Ignore);
+        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, ~0, QueryTriggerInteraction.Ignore);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
         ShelfSlot nearestSlot = null;
 
-        // Once shelf colliders became children of ShelfSlot, a shelf collider can be
-        // encountered before the actual book collider. Always prefer a valid free book.
         foreach (RaycastHit hit in hits)
         {
             BookItem book = hit.collider.GetComponentInParent<BookItem>();
-            if (book != null && canPickMore && !book.IsHeld && book.currentSlot == null)
+            if (book != null)
             {
-                lookedBook = book;
-                break;
+                // A free world book is picked directly. A book already on a shelf
+                // resolves to its owning ShelfSlot so shelf pickup cannot be blocked
+                // by the shelf collider or by the book's own currentSlot state.
+                if (canPickMore && !book.IsHeld)
+                {
+                    if (book.currentSlot == null)
+                    {
+                        lookedBook = book;
+                        break;
+                    }
+
+                    if (nearestSlot == null)
+                        nearestSlot = book.currentSlot;
+                }
+
+                continue;
             }
 
             ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
             if (slot != null && nearestSlot == null)
                 nearestSlot = slot;
+        }
+
+        // If the exact center ray misses the thin book collider, use a very small
+        // sphere cast as a tolerance. This does not move or alter any book position.
+        if (lookedBook == null && nearestSlot == null && canPickMore && interactSphereRadius > 0f)
+        {
+            RaycastHit[] sphereHits = Physics.SphereCastAll(
+                ray,
+                interactSphereRadius,
+                interactRange,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
+            System.Array.Sort(sphereHits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit hit in sphereHits)
+            {
+                BookItem book = hit.collider.GetComponentInParent<BookItem>();
+                if (book != null && !book.IsHeld)
+                {
+                    if (book.currentSlot == null)
+                    {
+                        lookedBook = book;
+                        break;
+                    }
+
+                    if (nearestSlot == null)
+                        nearestSlot = book.currentSlot;
+
+                    continue;
+                }
+
+                ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
+                if (slot != null && nearestSlot == null)
+                    nearestSlot = slot;
+            }
         }
 
         if (lookedBook != null)
