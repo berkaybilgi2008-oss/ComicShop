@@ -61,10 +61,10 @@ public class PlayerInteraction : MonoBehaviour
         if (isBookAnimating)
             return;
 
-        if (Input.GetKeyDown(KeyCode.Mouse0))
+        if (Input.GetKeyDown(pickupKey))
             HandlePickupPress();
 
-        if (Input.GetKeyDown(KeyCode.Mouse1))
+        if (Input.GetKeyDown(dropKey))
             HandleDropOrPlacePress();
 
         float wheel = Input.mouseScrollDelta.y;
@@ -76,9 +76,6 @@ public class PlayerInteraction : MonoBehaviour
     {
         if (playerCamera == null)
             return;
-
-        if (lookedBook != null)
-            lookedBook.SetHighlight(false);
 
         lookedBook = null;
         lookedSlot = null;
@@ -134,7 +131,7 @@ public class PlayerInteraction : MonoBehaviour
             return;
         }
 
-        DropTopBook();
+        DropActiveBook();
     }
 
     void TakeFromShelf()
@@ -200,7 +197,7 @@ public class PlayerInteraction : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+            float t = EvaluateBookMoveCurve(elapsed / duration);
             book.transform.localPosition = Vector3.LerpUnclamped(currentLocalPosition, targetLocalPosition, t);
             book.transform.localRotation = Quaternion.SlerpUnclamped(currentLocalRotation, targetLocalRotation, t);
             book.transform.localScale = Vector3.LerpUnclamped(currentLocalScale, targetLocalScale, t);
@@ -213,6 +210,12 @@ public class PlayerInteraction : MonoBehaviour
         isBookAnimating = false;
     }
 
+    float EvaluateBookMoveCurve(float normalizedTime)
+    {
+        normalizedTime = Mathf.Clamp01(normalizedTime);
+        return bookMoveCurve != null ? bookMoveCurve.Evaluate(normalizedTime) : normalizedTime;
+    }
+
     void ChangeActiveHeldBook(int direction)
     {
         if (heldBooks.Count < 2)
@@ -221,6 +224,8 @@ public class PlayerInteraction : MonoBehaviour
         if (activeHeldIndex < 0 || activeHeldIndex >= heldBooks.Count)
             activeHeldIndex = heldBooks.Count - 1;
 
+        // Asagidan yukariya giderken index +1, yukaridan asagiya giderken -1.
+        // Dongu sonunda tekrar baslangica doner.
         activeHeldIndex += direction;
         if (activeHeldIndex < 0)
             activeHeldIndex = heldBooks.Count - 1;
@@ -268,7 +273,7 @@ public class PlayerInteraction : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+            float t = EvaluateBookMoveCurve(elapsed / duration);
 
             for (int i = 0; i < count; i++)
             {
@@ -321,11 +326,11 @@ public class PlayerInteraction : MonoBehaviour
 
     void PlaceActiveBook()
     {
-        if (lookedSlot == null || heldBooks.Count == 0)
+        BookItem book = ActiveHeldBook;
+        if (lookedSlot == null || book == null)
             return;
 
-        BookItem book = ActiveHeldBook;
-        if (book == null || !lookedSlot.Matches(book))
+        if (!lookedSlot.Matches(book))
             return;
 
         StartCoroutine(PlaceActiveBookAnimated(book, lookedSlot));
@@ -361,7 +366,7 @@ public class PlayerInteraction : MonoBehaviour
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
-            float t = bookMoveCurve != null ? bookMoveCurve.Evaluate(Mathf.Clamp01(elapsed / duration)) : Mathf.Clamp01(elapsed / duration);
+            float t = EvaluateBookMoveCurve(elapsed / duration);
             book.transform.position = Vector3.LerpUnclamped(startPosition, targetPosition, t);
             book.transform.rotation = Quaternion.SlerpUnclamped(startRotation, targetRotation, t);
             book.transform.localScale = Vector3.LerpUnclamped(startScale, targetScale, t);
@@ -378,7 +383,7 @@ public class PlayerInteraction : MonoBehaviour
             if (heldBooks.Count == 0)
                 activeHeldIndex = -1;
             else
-                activeHeldIndex = Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
+                activeHeldIndex = Mathf.Clamp(heldBooks.Count - 1, 0, heldBooks.Count - 1);
         }
 
         RepositionHeldBooksImmediate();
@@ -407,7 +412,7 @@ public class PlayerInteraction : MonoBehaviour
         }
     }
 
-    void DropTopBook()
+    void DropActiveBook()
     {
         if (heldBooks.Count == 0)
             return;
