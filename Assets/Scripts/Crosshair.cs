@@ -22,24 +22,24 @@ public class Crosshair : MonoBehaviour
 
     void CreateRingTexture()
     {
-        int textureSize = 64;
+        const int textureSize = 64;
         ringTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
         ringTexture.wrapMode = TextureWrapMode.Clamp;
         ringTexture.filterMode = FilterMode.Bilinear;
 
         float center = (textureSize - 1) * 0.5f;
         float outerRadius = center - 1f;
-        float innerRadius = outerRadius - 3f;
+        float ringWidth = Mathf.Clamp(thickness, 0.5f, 4f);
+        float innerRadius = outerRadius - ringWidth;
 
         for (int y = 0; y < textureSize; y++)
         {
             for (int x = 0; x < textureSize; x++)
             {
                 float distance = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                float outerAlpha = Mathf.Clamp01(outerRadius - distance + 1f);
+                float outerAlpha = Mathf.Clamp01(outerRadius + 1f - distance);
                 float innerAlpha = Mathf.Clamp01(distance - innerRadius + 1f);
                 float alpha = outerAlpha * innerAlpha;
-
                 ringTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
             }
         }
@@ -49,6 +49,9 @@ public class Crosshair : MonoBehaviour
 
     void OnGUI()
     {
+        if (ringTexture == null)
+            return;
+
         float centerX = Screen.width * 0.5f;
         float centerY = Screen.height * 0.5f;
 
