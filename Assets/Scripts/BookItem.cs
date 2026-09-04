@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BookItem : MonoBehaviour
@@ -60,10 +61,10 @@ public class BookItem : MonoBehaviour
         {
             stillTimer += Time.deltaTime;
 
-            // Normal durumda kitap mutlaka sabitlenebilir. Tek istisna,
-            // kitabin fiziksel olarak su anda oyuncunun elindeki bir kitabin
-            // uzerinde durmasidir. Boylece eldeki kitap destekken ustteki kitap
-            // havada donup sabitlenmez.
+            // Normal durumda kitap sabitlenebilir. Tek istisna, destek zincirinin
+            // herhangi bir yerinde su anda oyuncunun elinde olan bir kitap varsa
+            // sabitlenmez. Boylece A elde, B A'nin ustunde, C de B'nin ustundeyken
+            // C'nin havada sabitlenmesi engellenir.
             if (stillTimer >= sleepDelay && !IsSupportedByHeldBook())
             {
                 rb.linearVelocity = Vector3.zero;
@@ -81,7 +82,19 @@ public class BookItem : MonoBehaviour
 
     bool IsSupportedByHeldBook()
     {
-        Collider ownCollider = GetComponentInChildren<Collider>();
+        HashSet<BookItem> visited = new HashSet<BookItem>();
+        return IsSupportedByHeldBookRecursive(this, visited);
+    }
+
+    bool IsSupportedByHeldBookRecursive(BookItem book, HashSet<BookItem> visited)
+    {
+        if (book == null || !visited.Add(book))
+            return false;
+
+        if (book.IsHeld)
+            return true;
+
+        Collider ownCollider = book.GetComponentInChildren<Collider>();
         if (ownCollider == null)
             return false;
 
@@ -89,7 +102,7 @@ public class BookItem : MonoBehaviour
         float tolerance = heldSupportTolerance;
 
         // Sadece kitabin alt tarafini tarariz. Bu bir pozisyon duzeltmesi
-        // degildir; mevcut collider temasini tespit etmek icindir.
+        // degildir; mevcut destek zincirini tespit etmek icindir.
         Vector3 probeCenter = new Vector3(
             ownBounds.center.x,
             ownBounds.min.y + tolerance * 0.5f,
@@ -114,16 +127,13 @@ public class BookItem : MonoBehaviour
                 continue;
 
             BookItem otherBook = candidate.GetComponentInParent<BookItem>();
-            if (otherBook == null || otherBook == this)
-                continue;
-
-            if (!otherBook.IsHeld)
+            if (otherBook == null || otherBook == book)
                 continue;
 
             Bounds otherBounds = candidate.bounds;
 
-            // Elde olan kitap gercekten bu kitabin altinda olmali. Yandaki veya
-            // ustteki elde tutulan kitaplar destek olarak kabul edilmez.
+            // Aday kitap gercekten bu kitabin altinda/temas bolgesinde olmali.
+            // Boylece yandaki veya ustteki kitaplar destek zincirine girmez.
             if (otherBounds.max.y < ownBounds.min.y - tolerance)
                 continue;
 
@@ -136,7 +146,15 @@ public class BookItem : MonoBehaviour
                 otherBounds.min.z > ownBounds.max.z)
                 continue;
 
-            return true;
+            // Dogrudan eldeki kitap varsa zincir kirilir: sabitlenme yok.
+            if (otherBook.IsHeld)
+                return true;
+
+            // Aradaki kitap da fiziksel olarak bu kitabi destekliyorsa zinciri
+            // asagi dogru takip ederiz. Boylece 3., 4., 5. kitaplar da eldeki
+            // kitabin dolayli destegini dogru algilar.
+            if (IsSupportedByHeldBookRecursive(otherBook, visited))
+                return true;
         }
 
         return false;
