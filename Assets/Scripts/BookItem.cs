@@ -41,6 +41,13 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
     [Min(0.005f)] public float heldSupportTolerance = 0.08f;
 
+    private enum SupportState
+    {
+        None,
+        Stable,
+        Held
+    }
+
     void Awake()
     {
         originalScale = transform.localScale;
@@ -61,11 +68,12 @@ public class BookItem : MonoBehaviour
         {
             stillTimer += Time.deltaTime;
 
-            // Normal durumda kitap sabitlenebilir. Tek istisna, destek zincirinin
-            // herhangi bir yerinde su anda oyuncunun elinde olan bir kitap varsa
-            // sabitlenmez. Boylece A elde, B A'nin ustunde, C de B'nin ustundeyken
-            // C'nin havada sabitlenmesi engellenir.
-            if (stillTimer >= sleepDelay && !IsSupportedByHeldBook())
+            SupportState supportState = GetSupportState();
+
+            // Kitap ancak gercek bir fiziksel destege sahipse sabitlenir.
+            // Destek zinciri eldeki kitaba ulasiyorsa sabitlenmez. Desteksiz
+            // dinamik kitap da havada sabitlenmez.
+            if (stillTimer >= sleepDelay && supportState == SupportState.Stable)
             {
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
@@ -80,29 +88,29 @@ public class BookItem : MonoBehaviour
         }
     }
 
-    bool IsSupportedByHeldBook()
+    SupportState GetSupportState()
     {
         HashSet<BookItem> visited = new HashSet<BookItem>();
-        return IsSupportedByHeldBookRecursive(this, visited);
+        return GetSupportStateRecursive(this, visited);
     }
 
-    bool IsSupportedByHeldBookRecursive(BookItem book, HashSet<BookItem> visited)
+    SupportState GetSupportStateRecursive(BookItem book, HashSet<BookItem> visited)
     {
         if (book == null || !visited.Add(book))
-            return false;
+            return SupportState.None;
 
+        // Bu kitap eldeyse, yukaridaki kitap icin zincirin sonu Held'dir.
         if (book.IsHeld)
-            return true;
+            return SupportState.Held;
 
         Collider ownCollider = book.GetComponentInChildren<Collider>();
         if (ownCollider == null)
-            return false;
+            return SupportState.None;
 
         Bounds ownBounds = ownCollider.bounds;
         float tolerance = heldSupportTolerance;
+        bool foundUnstableBookSupport = false;
 
-        // Sadece kitabin alt tarafini tarariz. Bu bir pozisyon duzeltmesi
-        // degildir; mevcut destek zincirini tespit etmek icindir.
         Vector3 probeCenter = new Vector3(
             ownBounds.center.x,
             ownBounds.min.y + tolerance * 0.5f,
@@ -127,37 +135,49 @@ public class BookItem : MonoBehaviour
                 continue;
 
             BookItem otherBook = candidate.GetComponentInParent<BookItem>();
-            if (otherBook == null || otherBook == book)
+            if (otherBook == book)
                 continue;
 
-            Bounds otherBounds = candidate.bounds;
+            Bounds candidateBounds = candidate.bounds;
 
-            // Aday kitap gercekten bu kitabin altinda/temas bolgesinde olmali.
-            // Boylece yandaki veya ustteki kitaplar destek zincirine girmez.
-            if (otherBounds.max.y < ownBounds.min.y - tolerance)
+            if (candidateBounds.max.y < ownBounds.min.y - tolerance)
                 continue;
 
-            if (otherBounds.min.y > ownBounds.min.y + tolerance)
+            if (candidateBounds.min.y > ownBounds.min.y + tolerance)
                 continue;
 
-            if (otherBounds.max.x < ownBounds.min.x ||
-                otherBounds.min.x > ownBounds.max.x ||
-                otherBounds.max.z < ownBounds.min.z ||
-                otherBounds.min.z > ownBounds.max.z)
+            if (candidateBounds.max.x < ownBounds.min.x ||
+                candidateBounds.min.x > ownBounds.max.x ||
+                candidateBounds.max.z < ownBounds.min.z ||
+                candidateBounds.min.z > ownBounds.max.z)
                 continue;
 
-            // Dogrudan eldeki kitap varsa zincir kirilir: sabitlenme yok.
-            if (otherBook.IsHeld)
-                return true;
+            if (otherBook != null)
+            {
+                SupportState otherState = GetSupportStateRecursive(otherBook, visited);
 
-            // Aradaki kitap da fiziksel olarak bu kitabi destekliyorsa zinciri
-            // asagi dogru takip ederiz. Boylece 3., 4., 5. kitaplar da eldeki
-            // kitabin dolayli destegini dogru algilar.
-            if (IsSupportedByHeldBookRecursive(otherBook, visited))
-                return true;
+                if (otherState == SupportState.Held)
+                    return SupportState.Held;
+
+                if (otherState == SupportState.Stable)
+                    return SupportState.Stable;
+
+                foundUnstableBookSupport = true;
+                continue;
+            }
+
+            if (candidate.GetComponentInParent<PlayerInteraction>() != null)
+                continue;
+
+            // Raf/zemin gibi dunya collider'i dogrudan stabil destek kabul edilir.
+            return SupportState.Stable;
         }
 
-        return false;
+        // Dinamik/desteksiz bir kitap ustteki kitabi havada sabitleyemez.
+        if (foundUnstableBookSupport)
+            return SupportState.None;
+
+        return SupportState.None;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
