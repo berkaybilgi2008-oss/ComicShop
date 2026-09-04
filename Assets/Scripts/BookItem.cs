@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class BookItem : MonoBehaviour
@@ -38,71 +37,13 @@ public class BookItem : MonoBehaviour
     private float stillTimer;
 
     [Header("Destek Kontrolu")]
-    [Tooltip("Bir temas yuzeyinin destek sayilmasi icin gereken minimum yukari normal.")]
-    [Range(0.1f, 0.9f)] public float supportNormalY = 0.35f;
-
-    private readonly HashSet<BookItem> supportedByBooks = new HashSet<BookItem>();
-    private readonly HashSet<Collider> supportedByWorldColliders = new HashSet<Collider>();
+    [Tooltip("Kitabin altinda fiziksel bir destek aramak icin kullanilan dikey tolerans.")]
+    [Min(0.005f)] public float supportVerticalTolerance = 0.06f;
 
     void Awake()
     {
         originalScale = transform.localScale;
         CreateOutlineObjects();
-    }
-
-    void OnCollisionEnter(Collision collision)
-    {
-        RegisterSupportCollision(collision);
-    }
-
-    void OnCollisionStay(Collision collision)
-    {
-        RegisterSupportCollision(collision);
-    }
-
-    void OnCollisionExit(Collision collision)
-    {
-        if (collision == null || collision.collider == null)
-            return;
-
-        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
-        if (otherBook != null && otherBook != this)
-        {
-            supportedByBooks.Remove(otherBook);
-            return;
-        }
-
-        if (collision.collider.GetComponentInParent<PlayerInteraction>() == null)
-            supportedByWorldColliders.Remove(collision.collider);
-    }
-
-    void RegisterSupportCollision(Collision collision)
-    {
-        if (collision == null || collision.collider == null)
-            return;
-
-        if (collision.collider.GetComponentInParent<PlayerInteraction>() != null)
-            return;
-
-        bool hasUpwardSupport = false;
-        ContactPoint[] contacts = collision.contacts;
-        for (int i = 0; i < contacts.Length; i++)
-        {
-            if (contacts[i].normal.y >= supportNormalY)
-            {
-                hasUpwardSupport = true;
-                break;
-            }
-        }
-
-        if (!hasUpwardSupport)
-            return;
-
-        BookItem otherBook = collision.collider.GetComponentInParent<BookItem>();
-        if (otherBook != null && otherBook != this)
-            supportedByBooks.Add(otherBook);
-        else
-            supportedByWorldColliders.Add(collision.collider);
     }
 
     void Update()
@@ -135,35 +76,81 @@ public class BookItem : MonoBehaviour
 
     bool HasPhysicalSupport()
     {
-        if (HasValidWorldSupport())
+        Collider ownCollider = GetComponentInChildren<Collider>();
+        if (ownCollider == null)
+            return false;
+
+        Bounds ownBounds = ownCollider.bounds;
+        float tolerance = supportVerticalTolerance;
+
+        // Kitabin alt kenarinin hemen altinda kucuk bir fizik arama bolgesi
+        // olusturuyoruz. Burada herhangi bir pozisyon duzeltmesi yapilmaz;
+        // sadece mevcut fiziksel temasi tespit ederiz.
+        Vector3 probeCenter = new Vector3(
+            ownBounds.center.x,
+            ownBounds.min.y + tolerance * 0.5f,
+            ownBounds.center.z);
+
+        Vector3 probeHalfExtents = new Vector3(
+            Mathf.Max(0.005f, ownBounds.extents.x * 0.92f),
+            tolerance * 0.5f,
+            Mathf.Max(0.005f, ownBounds.extents.z * 0.92f));
+
+        Collider[] candidates = Physics.OverlapBox(
+            probeCenter,
+            probeHalfExtents,
+            Quaternion.identity,
+            Physics.AllLayers,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < candidates.Length; i++)
+        {
+            Collider candidate = candidates[i];
+            if (candidate == null || candidate == ownCollider)
+                continue;
+
+            BookItem otherBook = candidate.GetComponentInParent<BookItem>();
+            if (otherBook == this)
+                continue;
+
+            // Oyuncu fiziksel destek degildir.
+            if (candidate.GetComponentInParent<PlayerInteraction>() != null)
+                continue;
+
+            Bounds candidateBounds = candidate.bounds;
+
+            // Aday collider'in ustu, bu kitabin altina yakin olmali. Boylece
+            // yan yana duran veya kitabin ustunde bulunan collider'lar destek
+            // olarak kabul edilmez.
+            if (candidateBounds.max.y < ownBounds.min.y - tolerance ||
+                candidateBounds.min.y > ownBounds.min.y + tolerance)
+                continue;
+
+            // Yatayda gercek bir kesisim/temas olmali.
+            if (candidateBounds.max.x < ownBounds.min.x ||
+                candidateBounds.min.x > ownBounds.max.x ||
+                candidateBounds.max.z < ownBounds.min.z ||
+                candidateBounds.min.z > ownBounds.max.z)
+                continue;
+
+            if (otherBook != null)
+            {
+                // Elde tasinan kitap destek sayilmaz. Bu, eldeki kitabin
+                // ustundeki kitabin havada donup sabitlenmesini engeller.
+                if (otherBook.IsHeld)
+                    continue;
+
+                Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
+                if (otherRb != null && otherRb.isKinematic)
+                    return true;
+
+                // Alt kitap hala dinamikse onun hareketi bitmeden ustteki
+                // kitabi sabitleme.
+                continue;
+            }
+
+            // Raf/zemin gibi normal collider'lar gecerli destektir.
             return true;
-
-        foreach (BookItem otherBook in supportedByBooks)
-        {
-            if (otherBook == null || otherBook == this || otherBook.IsHeld)
-                continue;
-
-            Rigidbody otherRb = otherBook.GetComponent<Rigidbody>();
-            if (otherRb == null)
-                continue;
-
-            // Zincirin altindaki kitap zaten sabitlenmisse fiziksel destek
-            // olarak kabul edilir. O kitap daha sonra alinip havada kalsa bile
-            // ustteki kitaplar tekrar uyandirilmaz; kullanicinin istedigi
-            // davranis budur.
-            if (otherRb.isKinematic)
-                return true;
-        }
-
-        return false;
-    }
-
-    bool HasValidWorldSupport()
-    {
-        foreach (Collider collider in supportedByWorldColliders)
-        {
-            if (collider != null && collider.enabled && collider.gameObject.activeInHierarchy)
-                return true;
         }
 
         return false;
@@ -238,8 +225,6 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
-            supportedByBooks.Clear();
-            supportedByWorldColliders.Clear();
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = held;
