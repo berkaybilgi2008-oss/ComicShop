@@ -35,7 +35,10 @@ public class PlayerInteraction : MonoBehaviour
     private readonly List<BookItem> heldBooks = new List<BookItem>();
     public IReadOnlyList<BookItem> HeldBooksList => heldBooks;
     public int MaxHeldBooks => maxHeldBooks;
+    public int ActiveHeldIndex => activeHeldIndex;
+    public BookItem ActiveHeldBook => heldBooks.Count == 0 ? null : heldBooks[Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1)];
 
+    private int activeHeldIndex = -1;
     private BookItem lookedBook;
     private ShelfSlot lookedSlot;
     private bool isBookAnimating;
@@ -66,7 +69,7 @@ public class PlayerInteraction : MonoBehaviour
 
         float wheel = Input.mouseScrollDelta.y;
         if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
-            ChangeActiveHeldBook(wheel > 0f ? 1 : -1);
+            ChangeActiveHeldBook(wheel < 0f ? 1 : -1);
     }
 
     void HandleLookDetection()
@@ -147,6 +150,7 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
+        activeHeldIndex = heldBooks.Count - 1;
         lookedSlot = null;
 
         StartCoroutine(MoveBookIntoHand(book));
@@ -164,6 +168,7 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
         heldBooks.Add(book);
+        activeHeldIndex = heldBooks.Count - 1;
         lookedBook = null;
 
         StartCoroutine(MoveBookIntoHand(book));
@@ -189,8 +194,6 @@ public class PlayerInteraction : MonoBehaviour
         Quaternion currentLocalRotation = book.transform.localRotation;
         Vector3 currentLocalScale = book.transform.localScale;
 
-        // Parent degistigi icin baslangic degerlerini yeniden local uzayda aliyoruz.
-        // Boylece kitap bulundugu yerden ele dogru akar.
         float duration = Mathf.Max(0.01f, bookMoveDuration);
         float elapsed = 0f;
 
@@ -215,16 +218,14 @@ public class PlayerInteraction : MonoBehaviour
         if (heldBooks.Count < 2)
             return;
 
-        int activeIndex = heldBooks.Count - 1;
-        int newIndex = activeIndex - direction;
-        if (newIndex < 0)
-            newIndex = heldBooks.Count - 1;
-        else if (newIndex >= heldBooks.Count)
-            newIndex = 0;
+        if (activeHeldIndex < 0 || activeHeldIndex >= heldBooks.Count)
+            activeHeldIndex = heldBooks.Count - 1;
 
-        BookItem selected = heldBooks[newIndex];
-        heldBooks.RemoveAt(newIndex);
-        heldBooks.Add(selected);
+        activeHeldIndex += direction;
+        if (activeHeldIndex < 0)
+            activeHeldIndex = heldBooks.Count - 1;
+        else if (activeHeldIndex >= heldBooks.Count)
+            activeHeldIndex = 0;
 
         StartCoroutine(AnimateHeldStack());
     }
@@ -243,6 +244,8 @@ public class PlayerInteraction : MonoBehaviour
         Quaternion[] targetRotations = new Quaternion[count];
         Vector3[] targetScales = new Vector3[count];
 
+        List<int> displayOrder = GetDisplayOrder();
+
         for (int i = 0; i < count; i++)
         {
             BookItem book = heldBooks[i];
@@ -253,7 +256,9 @@ public class PlayerInteraction : MonoBehaviour
             startPositions[i] = book.transform.localPosition;
             startRotations[i] = book.transform.localRotation;
             startScales[i] = book.transform.localScale;
-            targetPositions[i] = GetHeldLocalPosition(i);
+
+            int displayIndex = displayOrder.IndexOf(i);
+            targetPositions[i] = GetHeldLocalPosition(displayIndex);
             targetRotations[i] = book.NativeRotation;
             targetScales[i] = book.OriginalScale * heldScaleMultiplier;
         }
@@ -293,6 +298,22 @@ public class PlayerInteraction : MonoBehaviour
         isBookAnimating = false;
     }
 
+    List<int> GetDisplayOrder()
+    {
+        List<int> order = new List<int>(heldBooks.Count);
+
+        for (int i = 0; i < heldBooks.Count; i++)
+        {
+            if (i != activeHeldIndex)
+                order.Add(i);
+        }
+
+        if (activeHeldIndex >= 0 && activeHeldIndex < heldBooks.Count)
+            order.Add(activeHeldIndex);
+
+        return order;
+    }
+
     Vector3 GetHeldLocalPosition(int index)
     {
         return new Vector3(0f, index * stackSpacing, 0f);
@@ -303,8 +324,8 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || heldBooks.Count == 0)
             return;
 
-        BookItem book = heldBooks[heldBooks.Count - 1];
-        if (!lookedSlot.Matches(book))
+        BookItem book = ActiveHeldBook;
+        if (book == null || !lookedSlot.Matches(book))
             return;
 
         StartCoroutine(PlaceActiveBookAnimated(book, lookedSlot));
@@ -350,9 +371,15 @@ public class PlayerInteraction : MonoBehaviour
         book.transform.SetPositionAndRotation(targetPosition, targetRotation);
         book.transform.localScale = targetScale;
 
-        // Animasyon hedef noktaya ulastiktan sonra slot kaydi yapilir.
         if (slot.PlaceBook(book))
+        {
             heldBooks.Remove(book);
+
+            if (heldBooks.Count == 0)
+                activeHeldIndex = -1;
+            else
+                activeHeldIndex = Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
+        }
 
         RepositionHeldBooksImmediate();
         lookedSlot = null;
@@ -364,14 +391,17 @@ public class PlayerInteraction : MonoBehaviour
         if (rightHandPoint == null)
             return;
 
+        List<int> displayOrder = GetDisplayOrder();
+
         for (int i = 0; i < heldBooks.Count; i++)
         {
             BookItem book = heldBooks[i];
             if (book == null)
                 continue;
 
+            int displayIndex = displayOrder.IndexOf(i);
             book.transform.SetParent(rightHandPoint, false);
-            book.transform.localPosition = GetHeldLocalPosition(i);
+            book.transform.localPosition = GetHeldLocalPosition(displayIndex);
             book.transform.localRotation = book.NativeRotation;
             book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
         }
@@ -382,8 +412,17 @@ public class PlayerInteraction : MonoBehaviour
         if (heldBooks.Count == 0)
             return;
 
-        BookItem book = heldBooks[heldBooks.Count - 1];
-        heldBooks.RemoveAt(heldBooks.Count - 1);
+        if (activeHeldIndex < 0 || activeHeldIndex >= heldBooks.Count)
+            activeHeldIndex = heldBooks.Count - 1;
+
+        int removedIndex = activeHeldIndex;
+        BookItem book = heldBooks[removedIndex];
+        heldBooks.RemoveAt(removedIndex);
+
+        if (heldBooks.Count == 0)
+            activeHeldIndex = -1;
+        else
+            activeHeldIndex = Mathf.Clamp(removedIndex, 0, heldBooks.Count - 1);
 
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
