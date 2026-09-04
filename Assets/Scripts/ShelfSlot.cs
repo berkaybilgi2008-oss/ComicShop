@@ -78,12 +78,13 @@ public class ShelfSlot : MonoBehaviour
         return true;
     }
 
-    public BookItem TakeFirstBook()
+    public BookItem TakeLastBook()
     {
         if (placedBooks == null || FilledCount <= 0)
             return null;
 
-        for (int i = 0; i < placedBooks.Length; i++)
+        // Rafdan her zaman en son konan kitabi al: FIFO yerine LIFO.
+        for (int i = placedBooks.Length - 1; i >= 0; i--)
         {
             BookItem book = placedBooks[i];
             if (book == null)
@@ -101,6 +102,11 @@ public class ShelfSlot : MonoBehaviour
         }
 
         return null;
+    }
+
+    public BookItem TakeFirstBook()
+    {
+        return TakeLastBook();
     }
 
     public void RemoveBook(BookItem book)
