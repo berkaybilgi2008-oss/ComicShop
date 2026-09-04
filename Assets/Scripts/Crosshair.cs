@@ -3,15 +3,15 @@ using UnityEngine;
 public class Crosshair : MonoBehaviour
 {
     [Header("Gorunum")]
-    [Min(2f)] public float size = 12f;
-    [Min(1f)] public float thickness = 2.5f;
+    [Min(2f)] public float size = 14f;
+    [Min(1f)] public float thickness = 3.5f;
     public Color color = Color.white;
 
     private Texture2D texture;
 
     void Awake()
     {
-        texture = CreateRingTexture(64, 64, 20f, 2.5f);
+        texture = CreateRingTexture(96, 96, 28f, thickness * 1.35f);
     }
 
     void OnGUI()
@@ -37,13 +37,16 @@ public class Crosshair : MonoBehaviour
         Vector2 center = new Vector2((width - 1) * 0.5f, (height - 1) * 0.5f);
         float outer = radius;
         float inner = Mathf.Max(0f, radius - ringThickness);
+        float edge = 1.5f;
 
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
                 float distance = Vector2.Distance(new Vector2(x, y), center);
-                float alpha = Mathf.Clamp01(Mathf.Min(outer - distance, distance - inner) + 0.5f);
+                float outerAlpha = 1f - Mathf.SmoothStep(outer - edge, outer + edge, distance);
+                float innerAlpha = Mathf.SmoothStep(inner - edge, inner + edge, distance);
+                float alpha = Mathf.Clamp01(outerAlpha * innerAlpha);
                 result.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
             }
         }
