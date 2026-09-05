@@ -8,62 +8,14 @@ Shader "Custom/BookToon"
         _LightThreshold ("Light Threshold", Range(0,1)) = 0.55
         _ShadowSoftness ("Shadow Softness", Range(0.001,0.5)) = 0.08
         _OutlineColor ("Outline Color", Color) = (0,0,0,1)
-        _OutlineWidth ("Outline Width", Range(0,0.03)) = 0.008
+        _OutlineWidth ("Outline Width", Range(0,0.01)) = 0.0025
     }
 
     SubShader
     {
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
 
-        Pass
-        {
-            Name "Outline"
-            Tags { "LightMode"="SRPDefaultUnlit" }
-            Cull Front
-            ZWrite On
-
-            HLSLPROGRAM
-            #pragma vertex vertOutline
-            #pragma fragment fragOutline
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseMap_ST;
-                float4 _BaseColor;
-                float4 _ShadowColor;
-                float _LightThreshold;
-                float _ShadowSoftness;
-                float4 _OutlineColor;
-                float _OutlineWidth;
-            CBUFFER_END
-
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-                float3 normalOS : NORMAL;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-            };
-
-            Varyings vertOutline(Attributes IN)
-            {
-                Varyings OUT;
-                float3 positionOS = IN.positionOS.xyz + normalize(IN.normalOS) * _OutlineWidth;
-                OUT.positionCS = TransformObjectToHClip(positionOS);
-                return OUT;
-            }
-
-            half4 fragOutline(Varyings IN) : SV_Target
-            {
-                return _OutlineColor;
-            }
-            ENDHLSL
-        }
-
+        // First render the real book surface and write its depth.
         Pass
         {
             Name "UniversalForward"
@@ -155,6 +107,59 @@ Shader "Custom/BookToon"
                 #endif
 
                 return half4(color, albedo.a);
+            }
+            ENDHLSL
+        }
+
+        // Draw the enlarged backfaces only where they are behind the real surface.
+        // This prevents the black outline from appearing on the book's flat faces.
+        Pass
+        {
+            Name "Outline"
+            Tags { "LightMode"="SRPDefaultUnlit" }
+            Cull Front
+            ZWrite Off
+            ZTest Greater
+
+            HLSLPROGRAM
+            #pragma vertex vertOutline
+            #pragma fragment fragOutline
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _BaseMap_ST;
+                float4 _BaseColor;
+                float4 _ShadowColor;
+                float _LightThreshold;
+                float _ShadowSoftness;
+                float4 _OutlineColor;
+                float _OutlineWidth;
+            CBUFFER_END
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            Varyings vertOutline(Attributes IN)
+            {
+                Varyings OUT;
+                float3 normalOS = normalize(IN.normalOS);
+                float3 positionOS = IN.positionOS.xyz + normalOS * _OutlineWidth;
+                OUT.positionCS = TransformObjectToHClip(positionOS);
+                return OUT;
+            }
+
+            half4 fragOutline(Varyings IN) : SV_Target
+            {
+                return _OutlineColor;
             }
             ENDHLSL
         }
