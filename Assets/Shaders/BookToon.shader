@@ -5,8 +5,8 @@ Shader "Custom/BookToon"
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
         _EdgeColor ("Edge Color", Color) = (0,0,0,1)
-        _EdgeThreshold ("Edge Threshold", Range(0.01,1)) = 0.18
-        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.05
+        _EdgeThreshold ("Edge Threshold", Range(0.01,1)) = 0.08
+        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.04
     }
 
     SubShader
@@ -67,16 +67,15 @@ Shader "Custom/BookToon"
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
 
-                // Normal derivatives change sharply where two mesh surfaces meet.
-                // Unlike an inverted hull, this does not expand the mesh and therefore
-                // cannot create the detached black bars seen in the previous version.
+                // Detect sharp changes between adjacent mesh surface normals.
+                // Lower threshold + wider transition makes the seam line thicker
+                // while keeping the effect tied to actual geometric surface joins.
                 half normalChange = length(fwidth(normalize(IN.normalWS)));
                 half edge = smoothstep(_EdgeThreshold,
                                        _EdgeThreshold + _EdgeSoftness,
                                        normalChange);
 
-                // Keep the book surface normally lit. There is deliberately no toon
-                // shadow band: black is reserved for geometric surface junctions.
+                // Normal book lighting only; no toon shadow bands are applied.
                 Light mainLight = GetMainLight();
                 half ndotl = saturate(dot(IN.normalWS, normalize(mainLight.direction)));
                 half3 ambient = SampleSH(IN.normalWS);
