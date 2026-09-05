@@ -5,8 +5,8 @@ Shader "Custom/BookToon"
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
         _EdgeColor ("Edge Color", Color) = (0,0,0,1)
-        _EdgeThreshold ("Edge Threshold", Range(0.01,1)) = 0.08
-        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.04
+        _EdgeThreshold ("Edge Threshold", Range(0.005,1)) = 0.025
+        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.02
     }
 
     SubShader
@@ -67,21 +67,19 @@ Shader "Custom/BookToon"
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
 
-                // Detect sharp changes between adjacent mesh surface normals.
-                // Lower threshold + wider transition makes the seam line thicker
-                // while keeping the effect tied to actual geometric surface joins.
+                // Detect sharp normal changes at actual geometric surface joins.
                 half normalChange = length(fwidth(normalize(IN.normalWS)));
                 half edge = smoothstep(_EdgeThreshold,
                                        _EdgeThreshold + _EdgeSoftness,
                                        normalChange);
 
-                // Normal book lighting only; no toon shadow bands are applied.
                 Light mainLight = GetMainLight();
                 half ndotl = saturate(dot(IN.normalWS, normalize(mainLight.direction)));
                 half3 ambient = SampleSH(IN.normalWS);
                 half3 diffuse = albedo.rgb * (ambient + mainLight.color * ndotl * mainLight.shadowAttenuation);
                 diffuse = max(diffuse, albedo.rgb * 0.08h);
 
+                // Strong black seam only where adjacent surface normals change sharply.
                 return half4(lerp(diffuse, _EdgeColor.rgb, edge), albedo.a);
             }
             ENDHLSL
