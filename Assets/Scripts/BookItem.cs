@@ -288,7 +288,11 @@ public class BookItem : MonoBehaviour
         dst.SetColumn(1, longAxis);
         dst.SetColumn(2, wide);
 
-        return (dst * src.transpose).rotation;
+        Quaternion alignedRotation = (dst * src.transpose).rotation;
+
+        // Atis/sarj pozunda su anda arka kapak gorunuyordu.
+        // Kitabin boy ekseni etrafinda 180 derece cevirerek on kapagi kameraya getiriyoruz.
+        return Quaternion.AngleAxis(180f, longAxis) * alignedRotation;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
