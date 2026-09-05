@@ -56,15 +56,14 @@ public class BookEdgeLines : MonoBehaviour
         {
             Mesh.MeshData data = dataArray[0];
             int vertexCount = data.vertexCount;
-            int indexCount = data.indexCount;
-            if (vertexCount < 3 || indexCount < 3) return;
-
-            NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
             bool is32 = source.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
+            NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
             NativeArray<int> indices32 = default;
             NativeArray<ushort> indices16 = default;
             if (is32) indices32 = data.GetIndexData<int>();
             else indices16 = data.GetIndexData<ushort>();
+            int indexCount = is32 ? indices32.Length : indices16.Length;
+            if (vertexCount < 3 || indexCount < 3) return;
 
             Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
             int[] weldedVertex = new int[vertexCount];
