@@ -55,9 +55,18 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         int activeIndex = interaction.ActiveHeldIndex;
 
+        // Bu ozel gecis SADECE mouse tekerlegi aktif kitabi degistirdiginde calissin.
+        // Kitap alma, raftan kitap alma, yere birakma veya rafa yerlestirme gibi
+        // islemlerde activeHeldIndex degisse bile bu animasyon tetiklenmez.
+        bool wheelChangedBook = Mathf.Abs(Input.mouseScrollDelta.y) > 0.01f;
+
         if (activeIndex != lastActiveIndex)
         {
-            BeginActiveBookTransition(activeIndex);
+            if (wheelChangedBook)
+                BeginActiveBookTransition(activeIndex);
+            else
+                CancelTransitionWithoutMovingBook();
+
             lastActiveIndex = activeIndex;
         }
 
@@ -140,6 +149,12 @@ public class HeldBookVisualSpacing : MonoBehaviour
         startPosition = book.transform.localPosition;
         animationTime = 0f;
         animating = true;
+    }
+
+    void CancelTransitionWithoutMovingBook()
+    {
+        animating = false;
+        animatingBook = null;
     }
 
     static float SmoothStep01(float value)
