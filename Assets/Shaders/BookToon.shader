@@ -5,8 +5,8 @@ Shader "Custom/BookToon"
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
         _EdgeColor ("Edge Color", Color) = (0,0,0,1)
-        _EdgeThreshold ("Edge Threshold", Range(0.0001,1)) = 0.0005
-        _EdgeSoftness ("Edge Softness", Range(0.0001,0.5)) = 0.002
+        _EdgeStrength ("Edge Strength", Range(1,200)) = 80
+        _EdgeThreshold ("Edge Threshold", Range(0,1)) = 0.015
     }
 
     SubShader
@@ -32,8 +32,8 @@ Shader "Custom/BookToon"
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
                 float4 _EdgeColor;
+                float _EdgeStrength;
                 float _EdgeThreshold;
-                float _EdgeSoftness;
             CBUFFER_END
 
             struct Attributes
@@ -67,19 +67,27 @@ Shader "Custom/BookToon"
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
 
-                // Extremely sensitive seam detection for tuning. Any visible
-                // discontinuity in interpolated surface normals becomes black.
-                half normalChange = length(fwidth(normalize(IN.normalWS)));
-                half edge = smoothstep(_EdgeThreshold,
-                                       _EdgeThreshold + _EdgeSoftness,
-                                       normalChange);
+                // Detect the actual change of surface direction between adjacent
+                // screen pixels. This is deliberately amplified so hard mesh
+                // creases become unmistakable instead of barely visible.
+                half3 n = normalize(IN.normalWS);
+                half normalChangeX = length(ddx(n));
+                half normalChangeY = length(ddy(n));
+                half normalChange = max(normalChangeX, normalChangeY);
+                half edge = saturate((normalChange - _EdgeThreshold) * _EdgeStrength);
+                edge = smoothstep(0.05h, 0.85h, edge);
 
                 Light mainLight = GetMainLight();
-                half ndotl = saturate(dot(IN.normalWS, normalize(mainLight.direction)));
-                half3 ambient = SampleSH(IN.normalWS);
-                half3 diffuse = albedo.rgb * (ambient + mainLight.color * ndotl * mainLight.shadowAttenuation);
+                half ndotl = saturate(dot(n, normalize(mainLight.direction)));
+                half3 ambient = SampleSH(n);
+
+                // Strong toon-style light bands while keeping the original texture.
+                half toonLight = smoothstep(0.25h, 0.30h, ndotl);
+                half3 lit = ambient + mainLight.color * lerp(0.45h, 1.0h, toonLight) * mainLight.shadowAttenuation;
+                half3 diffuse = albedo.rgb * lit;
                 diffuse = max(diffuse, albedo.rgb * 0.08h);
 
+                // Black only at detected geometric surface transitions.
                 return half4(lerp(diffuse, _EdgeColor.rgb, edge), albedo.a);
             }
             ENDHLSL
