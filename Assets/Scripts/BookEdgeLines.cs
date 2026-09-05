@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -34,7 +35,11 @@ public class BookEdgeLines : MonoBehaviour
     public void Rebuild()
     {
         Transform old = transform.Find(GeneratedName);
-        if (old != null) Destroy(old.gameObject);
+        if (old != null)
+        {
+            for (int i = old.childCount - 1; i >= 0; i--)
+                Destroy(old.GetChild(i).gameObject);
+        }
 
         MeshFilter[] filters = GetComponentsInChildren<MeshFilter>(true);
         foreach (MeshFilter filter in filters)
@@ -47,49 +52,60 @@ public class BookEdgeLines : MonoBehaviour
     private void BuildForMesh(MeshFilter filter)
     {
         Mesh source = filter.sharedMesh;
-        Vector3[] vertices = source.vertices;
-        int[] triangles = source.triangles;
-        if (vertices == null || triangles == null || triangles.Length < 3) return;
-
-        Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
-        int[] weldedVertex = new int[vertices.Length];
-        List<Vector3> positions = new List<Vector3>();
-
-        for (int i = 0; i < vertices.Length; i++)
+        using (Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(source))
         {
-            PositionKey key = new PositionKey(vertices[i], vertexWeldTolerance);
-            int id;
-            if (!welded.TryGetValue(key, out id))
+            Mesh.MeshData data = dataArray[0];
+            int vertexCount = data.vertexCount;
+            int indexCount = data.indexCount;
+            if (vertexCount < 3 || indexCount < 3) return;
+
+            NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
+            bool is32 = source.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
+            NativeArray<int> indices32 = default;
+            NativeArray<ushort> indices16 = default;
+            if (is32) indices32 = data.GetIndexData<int>();
+            else indices16 = data.GetIndexData<ushort>();
+
+            Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
+            int[] weldedVertex = new int[vertexCount];
+            List<Vector3> weldedPositions = new List<Vector3>();
+            for (int i = 0; i < vertexCount; i++)
             {
-                id = positions.Count;
-                welded.Add(key, id);
-                positions.Add(vertices[i]);
+                PositionKey key = new PositionKey(positions[i], vertexWeldTolerance);
+                int id;
+                if (!welded.TryGetValue(key, out id))
+                {
+                    id = weldedPositions.Count;
+                    welded.Add(key, id);
+                    weldedPositions.Add(positions[i]);
+                }
+                weldedVertex[i] = id;
             }
-            weldedVertex[i] = id;
+
+            Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
+            for (int i = 0; i + 2 < indexCount; i += 3)
+            {
+                int a = is32 ? indices32[i] : indices16[i];
+                int b = is32 ? indices32[i + 1] : indices16[i + 1];
+                int c = is32 ? indices32[i + 2] : indices16[i + 2];
+                if (a < 0 || b < 0 || c < 0 || a >= vertexCount || b >= vertexCount || c >= vertexCount) continue;
+
+                int wa = weldedVertex[a], wb = weldedVertex[b], wc = weldedVertex[c];
+                if (wa == wb || wb == wc || wc == wa) continue;
+                Vector3 normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
+                if (normal.sqrMagnitude < 0.0000001f) continue;
+                normal.Normalize();
+                AddEdge(edges, wa, wb, normal);
+                AddEdge(edges, wb, wc, normal);
+                AddEdge(edges, wc, wa, normal);
+            }
+
+            BuildLines(filter, weldedPositions, edges);
         }
+    }
 
-        Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
-        for (int i = 0; i < triangles.Length; i += 3)
-        {
-            int a = triangles[i];
-            int b = triangles[i + 1];
-            int c = triangles[i + 2];
-            if (a < 0 || b < 0 || c < 0 || a >= vertices.Length || b >= vertices.Length || c >= vertices.Length) continue;
-
-            int wa = weldedVertex[a];
-            int wb = weldedVertex[b];
-            int wc = weldedVertex[c];
-            if (wa == wb || wb == wc || wc == wa) continue;
-
-            Vector3 normal = Vector3.Cross(vertices[b] - vertices[a], vertices[c] - vertices[a]);
-            if (normal.sqrMagnitude < 0.0000001f) continue;
-            normal.Normalize();
-
-            AddEdge(edges, wa, wb, normal);
-            AddEdge(edges, wb, wc, normal);
-            AddEdge(edges, wc, wa, normal);
-        }
-
+    private void BuildLines(MeshFilter filter, List<Vector3> positions, Dictionary<EdgeKey, EdgeData> edges)
+    {
         List<Vector3> lineVertices = new List<Vector3>();
         List<int> lineIndices = new List<int>();
         Matrix4x4 worldToRoot = transform.worldToLocalMatrix;
@@ -106,49 +122,34 @@ public class BookEdgeLines : MonoBehaviour
             Vector3 p0World = meshToWorld.MultiplyPoint3x4(positions[pair.Key.a]);
             Vector3 p1World = meshToWorld.MultiplyPoint3x4(positions[pair.Key.b]);
             Vector3 nA = meshToWorld.MultiplyVector(edge.normalA).normalized;
-            Vector3 nB = edge.count == 2
-                ? meshToWorld.MultiplyVector(edge.normalB).normalized
-                : nA;
-
+            Vector3 nB = edge.count == 2 ? meshToWorld.MultiplyVector(edge.normalB).normalized : nA;
             Vector3 tangent = p1World - p0World;
             if (tangent.sqrMagnitude < 0.0000001f) continue;
             tangent.Normalize();
-
             Vector3 bisector = nA + nB;
             if (bisector.sqrMagnitude < 0.000001f) bisector = nA;
             bisector.Normalize();
-
             Vector3 side = Vector3.Cross(tangent, bisector).normalized;
-            if (side.sqrMagnitude < 0.000001f)
-                side = Vector3.Cross(tangent, nA).normalized;
+            if (side.sqrMagnitude < 0.000001f) side = Vector3.Cross(tangent, nA).normalized;
             if (side.sqrMagnitude < 0.000001f) continue;
 
             Vector3 offset = bisector * surfaceOffset;
             Vector3 half = side * (lineWidth * 0.5f);
             int start = lineVertices.Count;
-
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset - half));
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset + half));
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p1World + offset + half));
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p1World + offset - half));
-
-            lineIndices.Add(start);
-            lineIndices.Add(start + 1);
-            lineIndices.Add(start + 2);
-            lineIndices.Add(start);
-            lineIndices.Add(start + 2);
-            lineIndices.Add(start + 3);
+            lineIndices.Add(start); lineIndices.Add(start + 1); lineIndices.Add(start + 2);
+            lineIndices.Add(start); lineIndices.Add(start + 2); lineIndices.Add(start + 3);
         }
 
         if (lineVertices.Count == 0) return;
-
         GameObject holder = GetOrCreateHolder();
-        Mesh edgeMesh = new Mesh();
-        edgeMesh.name = filter.name + "_CreaseLines";
+        Mesh edgeMesh = new Mesh { name = filter.name + "_CreaseLines" };
         edgeMesh.SetVertices(lineVertices);
         edgeMesh.SetTriangles(lineIndices, 0);
         edgeMesh.RecalculateBounds();
-
         GameObject lineObject = new GameObject(filter.name + "_CreaseLines");
         lineObject.transform.SetParent(holder.transform, false);
         lineObject.AddComponent<MeshFilter>().sharedMesh = edgeMesh;
@@ -171,18 +172,13 @@ public class BookEdgeLines : MonoBehaviour
     {
         EdgeKey key = new EdgeKey(a, b);
         EdgeData data;
-        if (!edges.TryGetValue(key, out data))
-            data = new EdgeData { normalA = normal, count = 1 };
-        else if (data.count == 1)
-        {
-            data.normalB = normal;
-            data.count = 2;
-        }
+        if (!edges.TryGetValue(key, out data)) data = new EdgeData { normalA = normal, count = 1 };
+        else if (data.count == 1) { data.normalB = normal; data.count = 2; }
         else return;
         edges[key] = data;
     }
 
-    private Material GetLineMaterial()
+    private static Material GetLineMaterial()
     {
         if (lineMaterial == null)
         {
@@ -192,52 +188,26 @@ public class BookEdgeLines : MonoBehaviour
                 Debug.LogWarning("BookEdgeLines: Custom/BookEdgeLine shader bulunamadi.");
                 return null;
             }
-            lineMaterial = new Material(shader);
-            lineMaterial.name = "BookEdgeLine_Runtime";
+            lineMaterial = new Material(shader) { name = "BookEdgeLine_Runtime" };
         }
-        lineMaterial.SetColor("_Color", lineColor);
         return lineMaterial;
     }
 
     private struct PositionKey
     {
-        private readonly int x, y, z;
+        readonly int x, y, z;
         public PositionKey(Vector3 p, float tolerance)
-        {
-            x = Mathf.RoundToInt(p.x / tolerance);
-            y = Mathf.RoundToInt(p.y / tolerance);
-            z = Mathf.RoundToInt(p.z / tolerance);
-        }
-        public override int GetHashCode()
-        {
-            unchecked { return (x * 73856093) ^ (y * 19349663) ^ (z * 83492791); }
-        }
-        public override bool Equals(object obj)
-        {
-            if (!(obj is PositionKey)) return false;
-            PositionKey other = (PositionKey)obj;
-            return x == other.x && y == other.y && z == other.z;
-        }
+        { x = Mathf.RoundToInt(p.x / tolerance); y = Mathf.RoundToInt(p.y / tolerance); z = Mathf.RoundToInt(p.z / tolerance); }
+        public override int GetHashCode() { unchecked { return (x * 73856093) ^ (y * 19349663) ^ (z * 83492791); } }
+        public override bool Equals(object obj) { if (!(obj is PositionKey)) return false; PositionKey o = (PositionKey)obj; return x == o.x && y == o.y && z == o.z; }
     }
 
     private struct EdgeKey
     {
-        public int a, b;
-        public EdgeKey(int first, int second)
-        {
-            if (first < second) { a = first; b = second; }
-            else { a = second; b = first; }
-        }
-        public override int GetHashCode()
-        {
-            unchecked { return (a * 397) ^ b; }
-        }
-        public override bool Equals(object obj)
-        {
-            if (!(obj is EdgeKey)) return false;
-            EdgeKey other = (EdgeKey)obj;
-            return a == other.a && b == other.b;
-        }
+        public readonly int a, b;
+        public EdgeKey(int first, int second) { if (first < second) { a = first; b = second; } else { a = second; b = first; } }
+        public override int GetHashCode() { unchecked { return (a * 397) ^ b; } }
+        public override bool Equals(object obj) { if (!(obj is EdgeKey)) return false; EdgeKey o = (EdgeKey)obj; return a == o.a && b == o.b; }
     }
 
     private struct EdgeData
