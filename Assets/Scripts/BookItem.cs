@@ -175,15 +175,6 @@ public class BookItem : MonoBehaviour
         return SupportState.None;
     }
 
-    // ------------------------------------------------------------------
-    // Kitabin kendi eksenleri (mesh'ten olculur, tahmin yok)
-    //
-    // Bir cizgi roman yassi bir kutudur:
-    //   en INCE eksen  -> kapak normali (shuriken donme ekseni)
-    //   en UZUN eksen  -> boy
-    // Model hangi eksende export edilmis olursa olsun bu roller degismez.
-    // ------------------------------------------------------------------
-
     private bool axesResolved;
     private Vector3 localCoverNormal = Vector3.forward;
     private Vector3 localLongAxis = Vector3.up;
@@ -226,7 +217,6 @@ public class BookItem : MonoBehaviour
         if (!found)
             return;
 
-        // Gercek olcu = mesh olcusu x kok scale (modellerde Apply Scale yapilmamis).
         Vector3 size = new Vector3(
             Mathf.Abs(bounds.size.x * originalScale.x),
             Mathf.Abs(bounds.size.y * originalScale.y),
@@ -256,9 +246,8 @@ public class BookItem : MonoBehaviour
 
     /// <summary>
     /// Kitabi istenen yone hizalayan DUNYA rotasyonu.
-    /// coverNormal: kapaklarin bakacagi yon (shuriken donme ekseni)
+    /// coverNormal: kapaklarin bakacagi yon
     /// longAxis   : kitabin boyunun bakacagi yon
-    /// Ikisi de birbirine dik olmali.
     /// </summary>
     public Quaternion GetAlignedRotation(Vector3 coverNormal, Vector3 longAxis)
     {
@@ -290,9 +279,15 @@ public class BookItem : MonoBehaviour
 
         Quaternion alignedRotation = (dst * src.transpose).rotation;
 
-        // Atis/sarj pozunda su anda arka kapak gorunuyordu.
-        // Kitabin boy ekseni etrafinda 180 derece cevirerek on kapagi kameraya getiriyoruz.
-        return Quaternion.AngleAxis(180f, longAxis) * alignedRotation;
+        // VERIDIAN'daki iki farkli authored rotasyon grubunu ayri ele aliyoruz.
+        // Ilk grup (x=270, z=180) ters kapakla geliyordu; bu grupta 180 derece
+        // ceviriyoruz. Ikinci grup (x=0, z=180) zaten on kapak tarafini dogru
+        // tarafta tutuyor; burada ek cevirme yapmiyoruz.
+        bool needsFrontFlip = Mathf.Abs(Mathf.DeltaAngle(baseRotationEuler.x, 270f)) < 1f;
+        if (needsFrontFlip)
+            alignedRotation = Quaternion.AngleAxis(180f, longAxis) * alignedRotation;
+
+        return alignedRotation;
     }
 
     public void SetCoverMaterial(Material coverMaterial)
@@ -325,9 +320,6 @@ public class BookItem : MonoBehaviour
         {
             stillTimer = 0f;
 
-            // Kinematic bir Rigidbody'nin hizi yazilamaz -- Unity uyari basar.
-            // Bu yuzden once kinematic durumunu ayarliyoruz, hizi sadece fizik
-            // ACIKKEN sifirliyoruz.
             if (held)
             {
                 if (!rb.isKinematic)
