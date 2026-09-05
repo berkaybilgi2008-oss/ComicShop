@@ -10,15 +10,15 @@ public class PlayerController : MonoBehaviour
     public float jumpHeight = 1.4f;
     public float gravity = -20f;
 
-    [Header("Mouse Bakış")]
+    [Header("Mouse Bakis")]
     public float mouseSensitivity = 2.2f;
-    public Transform cameraTransform; // Main Camera'yı buraya sürükle
+    public Transform cameraTransform; // Main Camera'yi buraya surukle
     public float minPitch = -80f;
     public float maxPitch = 80f;
 
     private CharacterController controller;
     private Vector3 velocity;
-    private float pitch = 0f; // kameranın yukarı/aşağı açısı
+    private float pitch = 0f;
 
     void Start()
     {
@@ -38,10 +38,8 @@ public class PlayerController : MonoBehaviour
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        // Govdeyi (Player objesini) yatayda dondur
         transform.Rotate(Vector3.up * mouseX);
 
-        // Kamerayi dikeyde dondur, ama klampla (takla atmasin)
         pitch -= mouseY;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
         cameraTransform.localEulerAngles = new Vector3(pitch, 0f, 0f);
@@ -50,23 +48,21 @@ public class PlayerController : MonoBehaviour
     void HandleMove()
     {
         bool isGrounded = controller.isGrounded;
+
         if (isGrounded && velocity.y < 0)
-            velocity.y = -2f; // yere yapisik dursun, surekli tam sifir olursa titreme yapar
+            velocity.y = -2f;
 
-        float h = Input.GetAxis("Horizontal"); // A/D
-        float v = Input.GetAxis("Vertical");   // W/S
+        float h = Input.GetAxis("Horizontal");
+        float v = Input.GetAxis("Vertical");
 
-        // Sprint tusuna basiliyken hizli, degilse normal hizda yuru
         bool isSprinting = Input.GetKey(sprintKey);
         float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
 
         Vector3 move = transform.right * h + transform.forward * v;
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        // Ziplama
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
-            // fizik formulu: v = sqrt(h * -2 * g)
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 

@@ -71,9 +71,16 @@
     <Compile Include="Assets\Scripts\BookItem.cs" />
     <Compile Include="Assets\Scripts\GameStats.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
+    <Compile Include="Assets\Scripts\ShelfSlotDuplicator.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
+    <Compile Include="Assets\Scripts\Crosshair.cs" />
+    <Compile Include="Assets\Scripts\ThrownBook.cs" />
     <Compile Include="Assets\Scripts\BookcaseSlotGenerator.cs" />
+    <Compile Include="Assets\Scripts\BookData.cs" />
+    <Compile Include="Assets\Scripts\PrankOverlay.cs" />
+    <Compile Include="Assets\Scripts\BookRecallMachine.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotGenerator.cs" />
+    <Compile Include="Assets\Scripts\InteractionSettingsSanitizer.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
     <Compile Include="Assets\Scripts\BrandConfig.cs" />
   </ItemGroup>

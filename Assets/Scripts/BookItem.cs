@@ -175,6 +175,122 @@ public class BookItem : MonoBehaviour
         return SupportState.None;
     }
 
+    // ------------------------------------------------------------------
+    // Kitabin kendi eksenleri (mesh'ten olculur, tahmin yok)
+    //
+    // Bir cizgi roman yassi bir kutudur:
+    //   en INCE eksen  -> kapak normali (shuriken donme ekseni)
+    //   en UZUN eksen  -> boy
+    // Model hangi eksende export edilmis olursa olsun bu roller degismez.
+    // ------------------------------------------------------------------
+
+    private bool axesResolved;
+    private Vector3 localCoverNormal = Vector3.forward;
+    private Vector3 localLongAxis = Vector3.up;
+    private Vector3 localWideAxis = Vector3.right;
+
+    private void ResolveLocalAxes()
+    {
+        if (axesResolved)
+            return;
+
+        axesResolved = true;
+
+        Bounds bounds = new Bounds();
+        bool found = false;
+        Matrix4x4 toRoot = transform.worldToLocalMatrix;
+
+        MeshFilter[] filters = GetComponentsInChildren<MeshFilter>(true);
+        foreach (MeshFilter filter in filters)
+        {
+            if (filter == null || filter.sharedMesh == null)
+                continue;
+
+            Matrix4x4 m = toRoot * filter.transform.localToWorldMatrix;
+            Bounds mb = filter.sharedMesh.bounds;
+
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = new Vector3(
+                    mb.center.x + ((i & 1) == 0 ? -mb.extents.x : mb.extents.x),
+                    mb.center.y + ((i & 2) == 0 ? -mb.extents.y : mb.extents.y),
+                    mb.center.z + ((i & 4) == 0 ? -mb.extents.z : mb.extents.z));
+
+                Vector3 point = m.MultiplyPoint3x4(corner);
+
+                if (!found) { bounds = new Bounds(point, Vector3.zero); found = true; }
+                else bounds.Encapsulate(point);
+            }
+        }
+
+        if (!found)
+            return;
+
+        // Gercek olcu = mesh olcusu x kok scale (modellerde Apply Scale yapilmamis).
+        Vector3 size = new Vector3(
+            Mathf.Abs(bounds.size.x * originalScale.x),
+            Mathf.Abs(bounds.size.y * originalScale.y),
+            Mathf.Abs(bounds.size.z * originalScale.z));
+
+        int thin = 0, longest = 0;
+        for (int i = 1; i < 3; i++)
+        {
+            if (size[i] < size[thin]) thin = i;
+            if (size[i] > size[longest]) longest = i;
+        }
+
+        if (thin == longest)
+            longest = (thin + 1) % 3;
+
+        int wide = 3 - thin - longest;
+
+        localCoverNormal = Axis(thin);
+        localLongAxis = Axis(longest);
+        localWideAxis = Axis(wide);
+    }
+
+    private static Vector3 Axis(int index)
+    {
+        return index == 0 ? Vector3.right : index == 1 ? Vector3.up : Vector3.forward;
+    }
+
+    /// <summary>
+    /// Kitabi istenen yone hizalayan DUNYA rotasyonu.
+    /// coverNormal: kapaklarin bakacagi yon (shuriken donme ekseni)
+    /// longAxis   : kitabin boyunun bakacagi yon
+    /// Ikisi de birbirine dik olmali.
+    /// </summary>
+    public Quaternion GetAlignedRotation(Vector3 coverNormal, Vector3 longAxis)
+    {
+        ResolveLocalAxes();
+
+        if (coverNormal.sqrMagnitude < 0.0001f || longAxis.sqrMagnitude < 0.0001f)
+            return Quaternion.identity;
+
+        coverNormal = coverNormal.normalized;
+        longAxis = Vector3.ProjectOnPlane(longAxis, coverNormal).normalized;
+
+        if (longAxis.sqrMagnitude < 0.0001f)
+            return Quaternion.identity;
+
+        float handedness = Mathf.Sign(
+            Vector3.Dot(Vector3.Cross(localCoverNormal, localLongAxis), localWideAxis));
+
+        Vector3 wide = Vector3.Cross(coverNormal, longAxis) * handedness;
+
+        Matrix4x4 src = Matrix4x4.identity;
+        src.SetColumn(0, localCoverNormal);
+        src.SetColumn(1, localLongAxis);
+        src.SetColumn(2, localWideAxis);
+
+        Matrix4x4 dst = Matrix4x4.identity;
+        dst.SetColumn(0, coverNormal);
+        dst.SetColumn(1, longAxis);
+        dst.SetColumn(2, wide);
+
+        return (dst * src.transpose).rotation;
+    }
+
     public void SetCoverMaterial(Material coverMaterial)
     {
         if (coverRenderer != null && coverMaterial != null)
@@ -204,9 +320,27 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.isKinematic = held;
+
+            // Kinematic bir Rigidbody'nin hizi yazilamaz -- Unity uyari basar.
+            // Bu yuzden once kinematic durumunu ayarliyoruz, hizi sadece fizik
+            // ACIKKEN sifirliyoruz.
+            if (held)
+            {
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+
+                rb.isKinematic = true;
+            }
+            else
+            {
+                rb.isKinematic = false;
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
         }
     }
