@@ -86,6 +86,10 @@ public class BookSpawner : MonoBehaviour
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
 
+        // Kitaplar runtime'da burada olusturuldugu icin AfterSceneLoad callback'i
+        // bu nesneleri henuz goremez. Toon efektini spawn aninda uyguluyoruz.
+        BookToonEffect.ApplyToBook(book);
+
         Quaternion randomSpawnRotation = Random.rotation;
         book.transform.rotation = randomSpawnRotation * bookItem.NativeRotation;
 
