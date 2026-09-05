@@ -7,7 +7,7 @@ public class BookEdgeLines : MonoBehaviour
     [Header("Yuzey Birlesim Cizgileri")]
     [Range(1f, 80f)] public float creaseAngle = 12f;
     [Min(0.0001f)] public float lineWidth = 0.012f;
-    [Min(0f)] public float surfaceOffset = 0.0008f;
+    [Min(0f)] public float surfaceOffset = 0.0012f;
     [Min(0.000001f)] public float vertexWeldTolerance = 0.00005f;
     public Color lineColor = Color.black;
 
@@ -49,11 +49,8 @@ public class BookEdgeLines : MonoBehaviour
         Mesh source = filter.sharedMesh;
         Vector3[] vertices = source.vertices;
         int[] triangles = source.triangles;
-        if (vertices == null || triangles == null || triangles.Length < 6) return;
+        if (vertices == null || triangles == null || triangles.Length < 3) return;
 
-        // FBX meshes commonly split the same geometric corner into several
-        // vertex indices because of UVs, normals or material seams. Weld by
-        // position before constructing the edge adjacency graph.
         Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
         int[] weldedVertex = new int[vertices.Length];
         List<Vector3> positions = new List<Vector3>();
@@ -102,13 +99,17 @@ public class BookEdgeLines : MonoBehaviour
         foreach (KeyValuePair<EdgeKey, EdgeData> pair in edges)
         {
             EdgeData edge = pair.Value;
-            if (edge.count != 2) continue;
-            if (Vector3.Dot(edge.normalA, edge.normalB) > cosLimit) continue;
+            bool isBoundary = edge.count == 1;
+            bool isCrease = edge.count == 2 && Vector3.Dot(edge.normalA, edge.normalB) <= cosLimit;
+            if (!isBoundary && !isCrease) continue;
 
             Vector3 p0World = meshToWorld.MultiplyPoint3x4(positions[pair.Key.a]);
             Vector3 p1World = meshToWorld.MultiplyPoint3x4(positions[pair.Key.b]);
             Vector3 nA = meshToWorld.MultiplyVector(edge.normalA).normalized;
-            Vector3 nB = meshToWorld.MultiplyVector(edge.normalB).normalized;
+            Vector3 nB = edge.count == 2
+                ? meshToWorld.MultiplyVector(edge.normalB).normalized
+                : nA;
+
             Vector3 tangent = p1World - p0World;
             if (tangent.sqrMagnitude < 0.0000001f) continue;
             tangent.Normalize();
@@ -118,6 +119,8 @@ public class BookEdgeLines : MonoBehaviour
             bisector.Normalize();
 
             Vector3 side = Vector3.Cross(tangent, bisector).normalized;
+            if (side.sqrMagnitude < 0.000001f)
+                side = Vector3.Cross(tangent, nA).normalized;
             if (side.sqrMagnitude < 0.000001f) continue;
 
             Vector3 offset = bisector * surfaceOffset;
@@ -169,9 +172,7 @@ public class BookEdgeLines : MonoBehaviour
         EdgeKey key = new EdgeKey(a, b);
         EdgeData data;
         if (!edges.TryGetValue(key, out data))
-        {
             data = new EdgeData { normalA = normal, count = 1 };
-        }
         else if (data.count == 1)
         {
             data.normalB = normal;
