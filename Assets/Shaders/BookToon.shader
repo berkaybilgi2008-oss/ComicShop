@@ -5,8 +5,8 @@ Shader "Custom/BookToon"
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
         _EdgeColor ("Edge Color", Color) = (0,0,0,1)
-        _EdgeThreshold ("Edge Threshold", Range(0.005,1)) = 0.025
-        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.02
+        _EdgeThreshold ("Edge Threshold", Range(0.001,1)) = 0.008
+        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.012
     }
 
     SubShader
@@ -67,7 +67,8 @@ Shader "Custom/BookToon"
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
 
-                // Detect sharp normal changes at actual geometric surface joins.
+                // Aggressive geometric seam detection. The lower threshold makes the
+                // actual normal discontinuity much easier to see at game-camera distance.
                 half normalChange = length(fwidth(normalize(IN.normalWS)));
                 half edge = smoothstep(_EdgeThreshold,
                                        _EdgeThreshold + _EdgeSoftness,
@@ -79,7 +80,6 @@ Shader "Custom/BookToon"
                 half3 diffuse = albedo.rgb * (ambient + mainLight.color * ndotl * mainLight.shadowAttenuation);
                 diffuse = max(diffuse, albedo.rgb * 0.08h);
 
-                // Strong black seam only where adjacent surface normals change sharply.
                 return half4(lerp(diffuse, _EdgeColor.rgb, edge), albedo.a);
             }
             ENDHLSL
