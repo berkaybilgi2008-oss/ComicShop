@@ -41,36 +41,25 @@ public class BookItem : MonoBehaviour
     [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
     [Min(0.005f)] public float heldSupportTolerance = 0.08f;
 
-    private enum SupportState
-    {
-        None,
-        Stable,
-        Held
-    }
+    private enum SupportState { None, Stable, Held }
 
     void Awake()
     {
         originalScale = transform.localScale;
-        // Outline objeleri artik olusturulmuyor. Highlight sistemi tamamen kapali.
         outlineObjects = null;
     }
 
     void Update()
     {
-        if (IsHeld)
-            return;
-
+        if (IsHeld) return;
         Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb == null || rb.isKinematic)
-            return;
+        if (rb == null || rb.isKinematic) return;
 
         if (rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
             rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
         {
             stillTimer += Time.deltaTime;
-
             SupportState supportState = GetSupportState();
-
             if (stillTimer >= sleepDelay && supportState == SupportState.Stable)
             {
                 rb.linearVelocity = Vector3.zero;
@@ -80,10 +69,7 @@ public class BookItem : MonoBehaviour
                 stillTimer = 0f;
             }
         }
-        else
-        {
-            stillTimer = 0f;
-        }
+        else stillTimer = 0f;
     }
 
     SupportState GetSupportState()
@@ -94,85 +80,46 @@ public class BookItem : MonoBehaviour
 
     SupportState GetSupportStateRecursive(BookItem book, HashSet<BookItem> visited)
     {
-        if (book == null || !visited.Add(book))
-            return SupportState.None;
-
-        if (book.IsHeld)
-            return SupportState.Held;
+        if (book == null || !visited.Add(book)) return SupportState.None;
+        if (book.IsHeld) return SupportState.Held;
 
         Collider ownCollider = book.GetComponentInChildren<Collider>();
-        if (ownCollider == null)
-            return SupportState.None;
+        if (ownCollider == null) return SupportState.None;
 
         Bounds ownBounds = ownCollider.bounds;
         float tolerance = heldSupportTolerance;
         bool foundUnstableBookSupport = false;
 
-        Vector3 probeCenter = new Vector3(
-            ownBounds.center.x,
-            ownBounds.min.y + tolerance * 0.5f,
-            ownBounds.center.z);
+        Vector3 probeCenter = new Vector3(ownBounds.center.x, ownBounds.min.y + tolerance * 0.5f, ownBounds.center.z);
+        Vector3 probeHalfExtents = new Vector3(Mathf.Max(0.005f, ownBounds.extents.x * 0.95f), tolerance * 0.5f, Mathf.Max(0.005f, ownBounds.extents.z * 0.95f));
 
-        Vector3 probeHalfExtents = new Vector3(
-            Mathf.Max(0.005f, ownBounds.extents.x * 0.95f),
-            tolerance * 0.5f,
-            Mathf.Max(0.005f, ownBounds.extents.z * 0.95f));
-
-        Collider[] candidates = Physics.OverlapBox(
-            probeCenter,
-            probeHalfExtents,
-            Quaternion.identity,
-            Physics.AllLayers,
-            QueryTriggerInteraction.Ignore);
-
+        Collider[] candidates = Physics.OverlapBox(probeCenter, probeHalfExtents, Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < candidates.Length; i++)
         {
             Collider candidate = candidates[i];
-            if (candidate == null || candidate == ownCollider)
-                continue;
+            if (candidate == null || candidate == ownCollider) continue;
 
             BookItem otherBook = candidate.GetComponentInParent<BookItem>();
-            if (otherBook == book)
-                continue;
+            if (otherBook == book) continue;
 
             Bounds candidateBounds = candidate.bounds;
-
-            if (candidateBounds.max.y < ownBounds.min.y - tolerance)
-                continue;
-
-            if (candidateBounds.min.y > ownBounds.min.y + tolerance)
-                continue;
-
-            if (candidateBounds.max.x < ownBounds.min.x ||
-                candidateBounds.min.x > ownBounds.max.x ||
-                candidateBounds.max.z < ownBounds.min.z ||
-                candidateBounds.min.z > ownBounds.max.z)
-                continue;
+            if (candidateBounds.max.y < ownBounds.min.y - tolerance || candidateBounds.min.y > ownBounds.min.y + tolerance) continue;
+            if (candidateBounds.max.x < ownBounds.min.x || candidateBounds.min.x > ownBounds.max.x || candidateBounds.max.z < ownBounds.min.z || candidateBounds.min.z > ownBounds.max.z) continue;
 
             if (otherBook != null)
             {
                 SupportState otherState = GetSupportStateRecursive(otherBook, visited);
-
-                if (otherState == SupportState.Held)
-                    return SupportState.Held;
-
-                if (otherState == SupportState.Stable)
-                    return SupportState.Stable;
-
+                if (otherState == SupportState.Held) return SupportState.Held;
+                if (otherState == SupportState.Stable) return SupportState.Stable;
                 foundUnstableBookSupport = true;
                 continue;
             }
 
-            if (candidate.GetComponentInParent<PlayerInteraction>() != null)
-                continue;
-
+            if (candidate.GetComponentInParent<PlayerInteraction>() != null) continue;
             return SupportState.Stable;
         }
 
-        if (foundUnstableBookSupport)
-            return SupportState.None;
-
-        return SupportState.None;
+        return foundUnstableBookSupport ? SupportState.None : SupportState.None;
     }
 
     private bool axesResolved;
@@ -182,9 +129,7 @@ public class BookItem : MonoBehaviour
 
     private void ResolveLocalAxes()
     {
-        if (axesResolved)
-            return;
-
+        if (axesResolved) return;
         axesResolved = true;
 
         Bounds bounds = new Bounds();
@@ -194,9 +139,7 @@ public class BookItem : MonoBehaviour
         MeshFilter[] filters = GetComponentsInChildren<MeshFilter>(true);
         foreach (MeshFilter filter in filters)
         {
-            if (filter == null || filter.sharedMesh == null)
-                continue;
-
+            if (filter == null || filter.sharedMesh == null) continue;
             Matrix4x4 m = toRoot * filter.transform.localToWorldMatrix;
             Bounds mb = filter.sharedMesh.bounds;
 
@@ -206,34 +149,23 @@ public class BookItem : MonoBehaviour
                     mb.center.x + ((i & 1) == 0 ? -mb.extents.x : mb.extents.x),
                     mb.center.y + ((i & 2) == 0 ? -mb.extents.y : mb.extents.y),
                     mb.center.z + ((i & 4) == 0 ? -mb.extents.z : mb.extents.z));
-
                 Vector3 point = m.MultiplyPoint3x4(corner);
-
                 if (!found) { bounds = new Bounds(point, Vector3.zero); found = true; }
                 else bounds.Encapsulate(point);
             }
         }
 
-        if (!found)
-            return;
+        if (!found) return;
 
-        Vector3 size = new Vector3(
-            Mathf.Abs(bounds.size.x * originalScale.x),
-            Mathf.Abs(bounds.size.y * originalScale.y),
-            Mathf.Abs(bounds.size.z * originalScale.z));
-
+        Vector3 size = new Vector3(Mathf.Abs(bounds.size.x * originalScale.x), Mathf.Abs(bounds.size.y * originalScale.y), Mathf.Abs(bounds.size.z * originalScale.z));
         int thin = 0, longest = 0;
         for (int i = 1; i < 3; i++)
         {
             if (size[i] < size[thin]) thin = i;
             if (size[i] > size[longest]) longest = i;
         }
-
-        if (thin == longest)
-            longest = (thin + 1) % 3;
-
+        if (thin == longest) longest = (thin + 1) % 3;
         int wide = 3 - thin - longest;
-
         localCoverNormal = Axis(thin);
         localLongAxis = Axis(longest);
         localWideAxis = Axis(wide);
@@ -244,27 +176,16 @@ public class BookItem : MonoBehaviour
         return index == 0 ? Vector3.right : index == 1 ? Vector3.up : Vector3.forward;
     }
 
-    /// <summary>
-    /// Kitabi istenen yone hizalayan DUNYA rotasyonu.
-    /// coverNormal: kapaklarin bakacagi yon
-    /// longAxis   : kitabin boyunun bakacagi yon
-    /// </summary>
     public Quaternion GetAlignedRotation(Vector3 coverNormal, Vector3 longAxis)
     {
         ResolveLocalAxes();
-
-        if (coverNormal.sqrMagnitude < 0.0001f || longAxis.sqrMagnitude < 0.0001f)
-            return Quaternion.identity;
+        if (coverNormal.sqrMagnitude < 0.0001f || longAxis.sqrMagnitude < 0.0001f) return Quaternion.identity;
 
         coverNormal = coverNormal.normalized;
         longAxis = Vector3.ProjectOnPlane(longAxis, coverNormal).normalized;
+        if (longAxis.sqrMagnitude < 0.0001f) return Quaternion.identity;
 
-        if (longAxis.sqrMagnitude < 0.0001f)
-            return Quaternion.identity;
-
-        float handedness = Mathf.Sign(
-            Vector3.Dot(Vector3.Cross(localCoverNormal, localLongAxis), localWideAxis));
-
+        float handedness = Mathf.Sign(Vector3.Dot(Vector3.Cross(localCoverNormal, localLongAxis), localWideAxis));
         Vector3 wide = Vector3.Cross(coverNormal, longAxis) * handedness;
 
         Matrix4x4 src = Matrix4x4.identity;
@@ -279,11 +200,9 @@ public class BookItem : MonoBehaviour
 
         Quaternion alignedRotation = (dst * src.transpose).rotation;
 
-        // VERIDIAN'daki iki farkli authored rotasyon grubunu ayri ele aliyoruz.
-        // Ilk grup (x=270, z=180) ters kapakla geliyordu; bu grupta 180 derece
-        // ceviriyoruz. Ikinci grup (x=0, z=180) zaten on kapak tarafini dogru
-        // tarafta tutuyor; burada ek cevirme yapmiyoruz.
-        bool needsFrontFlip = Mathf.Abs(Mathf.DeltaAngle(baseRotationEuler.x, 270f)) < 1f;
+        // Onceki denemenin tam tersi: 180 derece ceviriyi x=0 grubuna uyguluyoruz.
+        // x=270 grubunda mevcut hizalama korunuyor.
+        bool needsFrontFlip = Mathf.Abs(Mathf.DeltaAngle(baseRotationEuler.x, 0f)) < 1f;
         if (needsFrontFlip)
             alignedRotation = Quaternion.AngleAxis(180f, longAxis) * alignedRotation;
 
@@ -292,34 +211,23 @@ public class BookItem : MonoBehaviour
 
     public void SetCoverMaterial(Material coverMaterial)
     {
-        if (coverRenderer != null && coverMaterial != null)
-            coverRenderer.material = coverMaterial;
+        if (coverRenderer != null && coverMaterial != null) coverRenderer.material = coverMaterial;
     }
 
-    public void SetHighlight(bool on)
-    {
-        // Outline highlight sistemi kaldirildi.
-    }
+    public void SetHighlight(bool on) { }
 
     public void SetHeld(bool held)
     {
         IsHeld = held;
-
-        if (held)
-            SetHighlight(false);
+        if (held) SetHighlight(false);
 
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
-        foreach (Collider col in colliders)
-        {
-            if (col != null)
-                col.enabled = true;
-        }
+        foreach (Collider col in colliders) if (col != null) col.enabled = true;
 
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
             stillTimer = 0f;
-
             if (held)
             {
                 if (!rb.isKinematic)
@@ -327,7 +235,6 @@ public class BookItem : MonoBehaviour
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
                 }
-
                 rb.isKinematic = true;
             }
             else
@@ -336,7 +243,6 @@ public class BookItem : MonoBehaviour
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
             }
-
             rb.interpolation = held ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
         }
     }
