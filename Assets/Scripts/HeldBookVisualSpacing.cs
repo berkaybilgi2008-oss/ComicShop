@@ -2,23 +2,31 @@ using UnityEngine;
 
 /// <summary>
 /// Mouse tekerlegiyle aktif kitap degistiginde, yeni aktif olan kitabi
-/// once yiginin yanina cikartir, sonra yukariya tasir ve en sonda kendi
+/// once saga ve one acartirir, sonra yukariya tasir ve en sonda kendi
 /// normal stack konumuna tam duz sekilde oturtur.
 /// </summary>
 public class HeldBookVisualSpacing : MonoBehaviour
 {
     [Header("Kitap Gecis Goruntusu")]
     [Min(0f)]
-    [Tooltip("Yeni aktif kitap yukselmeden once ne kadar yana acilsin.")]
+    [Tooltip("Yeni aktif kitap yukselmeden once ne kadar saga acilsin.")]
     public float sideOffset = 0.09f;
+
+    [Min(0f)]
+    [Tooltip("Kitap yukselirken kameraya dogru ne kadar one ciksin. Perspektifte kitaplarin ic ice gorunmesini azaltir.")]
+    public float forwardOffset = 0.14f;
 
     [Min(0.01f)]
     [Tooltip("Aktif kitap gecisinin toplam suresi.")]
     public float cycleDuration = 0.24f;
 
     [Range(0.1f, 0.8f)]
-    [Tooltip("Toplam animasyonun ilk kaclik kismi yana acilma icin kullanilsin.")]
+    [Tooltip("Toplam animasyonun ilk kaclik kismi yana ve one acilma icin kullanilsin.")]
     public float sidePhase = 0.35f;
+
+    [Range(0.5f, 0.95f)]
+    [Tooltip("One/saga aciklik hangi noktaya kadar korunacak; son kisimda kitap normal konumuna oturur.")]
+    public float settleStart = 0.78f;
 
     private PlayerInteraction interaction;
     private int lastActiveIndex = -1;
@@ -91,18 +99,30 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         if (t < sidePhase)
         {
-            // 1) Once yana acil: diger kitaplarin icinden gecmeden temiz bosluk ac.
-            float sideT = SmoothStep01(t / sidePhase);
-            local.x = Mathf.Lerp(startPosition.x, sideOffset, sideT);
+            // 1) Once saga + one acil. Kitap henuz yukselmez.
+            float openT = SmoothStep01(t / sidePhase);
+            local.x = Mathf.Lerp(startPosition.x, sideOffset, openT);
             local.y = startPosition.y;
+            local.z = Mathf.Lerp(startPosition.z, forwardOffset, openT);
+        }
+        else if (t < settleStart)
+        {
+            // 2) Kitap acik konumunu koruyarak yukariya cikar.
+            // One cikiklik burada korunur; perspektif sayesinde alttaki kitaplarla
+            // ust uste binme hissi belirgin sekilde azalir.
+            float moveT = SmoothStep01((t - sidePhase) / (settleStart - sidePhase));
+            local.x = sideOffset;
+            local.y = Mathf.Lerp(startPosition.y, targetY, moveT);
+            local.z = forwardOffset;
         }
         else
         {
-            // 2) Yana cikmis halde yukari ilerle.
-            // 3) Son kisimda X tekrar 0'a gelir ve kitap tam stack noktasina oturur.
-            float moveT = SmoothStep01((t - sidePhase) / (1f - sidePhase));
-            local.y = Mathf.Lerp(startPosition.y, targetY, moveT);
-            local.x = Mathf.Lerp(sideOffset, 0f, moveT);
+            // 3) Yukaridaki yerine geldikten sonra saga/one acikligi kapat.
+            // Son noktada X/Z sifirlanir ve kitap tam stack konumuna oturur.
+            float settleT = SmoothStep01((t - settleStart) / (1f - settleStart));
+            local.x = Mathf.Lerp(sideOffset, 0f, settleT);
+            local.y = Mathf.Lerp(targetY, targetY, settleT);
+            local.z = Mathf.Lerp(forwardOffset, 0f, settleT);
         }
 
         animatingBook.transform.SetParent(interaction.rightHandPoint, false);
