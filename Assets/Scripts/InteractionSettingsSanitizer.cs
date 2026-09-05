@@ -21,8 +21,8 @@ public static class InteractionSettingsSanitizer
             interaction.pickupKey = KeyCode.Mouse0;
             interaction.dropKey = KeyCode.Mouse1;
 
-            // Elde kitaplar arasindaki dikey ilerleme 0.04 birim olsun.
-            interaction.stackSpacing = 0.04f;
+            // Elde kitaplar arasindaki dikey ilerleme 0.041 birim olsun.
+            interaction.stackSpacing = 0.041f;
             interaction.heldScaleMultiplier = 0.55f;
         }
     }
