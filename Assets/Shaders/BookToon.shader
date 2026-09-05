@@ -8,14 +8,14 @@ Shader "Custom/BookToon"
         _LightThreshold ("Light Threshold", Range(0,1)) = 0.55
         _ShadowSoftness ("Shadow Softness", Range(0.001,0.5)) = 0.08
         _OutlineColor ("Outline Color", Color) = (0,0,0,1)
-        _OutlineWidth ("Outline Width", Range(0,0.01)) = 0.0025
+        _OutlineWidth ("Outline Width", Range(0,0.01)) = 0.0015
     }
 
     SubShader
     {
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
 
-        // First render the real book surface and write its depth.
+        // Main book surface. It writes the real depth first.
         Pass
         {
             Name "UniversalForward"
@@ -111,15 +111,18 @@ Shader "Custom/BookToon"
             ENDHLSL
         }
 
-        // Draw the enlarged backfaces only where they are behind the real surface.
-        // This prevents the black outline from appearing on the book's flat faces.
+        // Classic inverted-hull outline:
+        // render only backfaces of a slightly enlarged copy. Because the original
+        // surface already occupies the depth buffer, the enlarged mesh is visible
+        // only where it extends beyond the silhouette. It cannot paint the middle
+        // of a flat face.
         Pass
         {
             Name "Outline"
             Tags { "LightMode"="SRPDefaultUnlit" }
             Cull Front
             ZWrite Off
-            ZTest Greater
+            ZTest LEqual
 
             HLSLPROGRAM
             #pragma vertex vertOutline
