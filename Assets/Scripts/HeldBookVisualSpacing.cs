@@ -4,10 +4,6 @@ using UnityEngine;
 /// Mouse tekerlegiyle aktif kitap degistiginde, yeni aktif olan kitabi
 /// once yiginin yanina cikartir, sonra yukariya tasir ve en sonda kendi
 /// normal stack konumuna tam duz sekilde oturtur.
-///
-/// PlayerInteraction'in mevcut stack animasyonunu bozmadan LateUpdate'ta
-/// aktif kitabin gorunur yolunu devralir. Boylece kitaplar birbirinin icinden
-/// geciyormus gibi gorunmez.
 /// </summary>
 public class HeldBookVisualSpacing : MonoBehaviour
 {
@@ -68,7 +64,7 @@ public class HeldBookVisualSpacing : MonoBehaviour
         if (!animating)
             return;
 
-        if (animatingBook == null || !interaction.HeldBooksList.Contains(animatingBook))
+        if (animatingBook == null || !IsBookStillHeld(animatingBook))
         {
             animating = false;
             return;
@@ -114,6 +110,18 @@ public class HeldBookVisualSpacing : MonoBehaviour
             animating = false;
             animatingBook = null;
         }
+    }
+
+    bool IsBookStillHeld(BookItem book)
+    {
+        var books = interaction.HeldBooksList;
+        for (int i = 0; i < books.Count; i++)
+        {
+            if (books[i] == book)
+                return true;
+        }
+
+        return false;
     }
 
     void BeginActiveBookTransition(int activeIndex)
