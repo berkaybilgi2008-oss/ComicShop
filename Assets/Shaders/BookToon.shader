@@ -4,18 +4,15 @@ Shader "Custom/BookToon"
     {
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
-        _ShadowColor ("Shadow Color", Color) = (0.65,0.65,0.7,1)
-        _LightThreshold ("Light Threshold", Range(0,1)) = 0.55
-        _ShadowSoftness ("Shadow Softness", Range(0.001,0.5)) = 0.08
-        _OutlineColor ("Outline Color", Color) = (0,0,0,1)
-        _OutlineWidth ("Outline Width", Range(0,0.01)) = 0.0015
+        _EdgeColor ("Edge Color", Color) = (0,0,0,1)
+        _EdgeThreshold ("Edge Threshold", Range(0.01,1)) = 0.18
+        _EdgeSoftness ("Edge Softness", Range(0.001,0.5)) = 0.05
     }
 
     SubShader
     {
         Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry" }
 
-        // Main book surface. It writes the real depth first.
         Pass
         {
             Name "UniversalForward"
@@ -25,8 +22,6 @@ Shader "Custom/BookToon"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -36,11 +31,9 @@ Shader "Custom/BookToon"
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
-                float4 _ShadowColor;
-                float _LightThreshold;
-                float _ShadowSoftness;
-                float4 _OutlineColor;
-                float _OutlineWidth;
+                float4 _EdgeColor;
+                float _EdgeThreshold;
+                float _EdgeSoftness;
             CBUFFER_END
 
             struct Attributes
@@ -65,104 +58,32 @@ Shader "Custom/BookToon"
                 VertexNormalInputs normal = GetVertexNormalInputs(IN.normalOS);
                 OUT.positionCS = pos.positionCS;
                 OUT.positionWS = pos.positionWS;
-                OUT.normalWS = normal.normalWS;
+                OUT.normalWS = normalize(normal.normalWS);
                 OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
                 return OUT;
-            }
-
-            half3 ToonBand(half3 albedo, half3 lightColor, half3 lightDirection,
-                           half3 normalWS, half attenuation)
-            {
-                half ndotl = saturate(dot(normalize(normalWS), normalize(lightDirection)));
-                half band = smoothstep(_LightThreshold - _ShadowSoftness,
-                                       _LightThreshold + _ShadowSoftness, ndotl);
-                half3 toonLight = lerp(_ShadowColor.rgb, half3(1,1,1), band);
-                return albedo * toonLight * lightColor * attenuation;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
 
+                // Normal derivatives change sharply where two mesh surfaces meet.
+                // Unlike an inverted hull, this does not expand the mesh and therefore
+                // cannot create the detached black bars seen in the previous version.
+                half normalChange = length(fwidth(normalize(IN.normalWS)));
+                half edge = smoothstep(_EdgeThreshold,
+                                       _EdgeThreshold + _EdgeSoftness,
+                                       normalChange);
+
+                // Keep the book surface normally lit. There is deliberately no toon
+                // shadow band: black is reserved for geometric surface junctions.
                 Light mainLight = GetMainLight();
-                half3 color = ToonBand(
-                    albedo.rgb,
-                    mainLight.color,
-                    mainLight.direction,
-                    IN.normalWS,
-                    mainLight.distanceAttenuation * mainLight.shadowAttenuation);
+                half ndotl = saturate(dot(IN.normalWS, normalize(mainLight.direction)));
+                half3 ambient = SampleSH(IN.normalWS);
+                half3 diffuse = albedo.rgb * (ambient + mainLight.color * ndotl * mainLight.shadowAttenuation);
+                diffuse = max(diffuse, albedo.rgb * 0.08h);
 
-                #if defined(_ADDITIONAL_LIGHTS)
-                uint count = GetAdditionalLightsCount();
-                for (uint i = 0u; i < count; i++)
-                {
-                    Light light = GetAdditionalLight(i, IN.positionWS);
-                    color += ToonBand(
-                        albedo.rgb,
-                        light.color,
-                        light.direction,
-                        IN.normalWS,
-                        light.distanceAttenuation * light.shadowAttenuation);
-                }
-                #endif
-
-                return half4(color, albedo.a);
-            }
-            ENDHLSL
-        }
-
-        // Classic inverted-hull outline:
-        // render only backfaces of a slightly enlarged copy. Because the original
-        // surface already occupies the depth buffer, the enlarged mesh is visible
-        // only where it extends beyond the silhouette. It cannot paint the middle
-        // of a flat face.
-        Pass
-        {
-            Name "Outline"
-            Tags { "LightMode"="SRPDefaultUnlit" }
-            Cull Front
-            ZWrite Off
-            ZTest LEqual
-
-            HLSLPROGRAM
-            #pragma vertex vertOutline
-            #pragma fragment fragOutline
-
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseMap_ST;
-                float4 _BaseColor;
-                float4 _ShadowColor;
-                float _LightThreshold;
-                float _ShadowSoftness;
-                float4 _OutlineColor;
-                float _OutlineWidth;
-            CBUFFER_END
-
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-                float3 normalOS : NORMAL;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-            };
-
-            Varyings vertOutline(Attributes IN)
-            {
-                Varyings OUT;
-                float3 normalOS = normalize(IN.normalOS);
-                float3 positionOS = IN.positionOS.xyz + normalOS * _OutlineWidth;
-                OUT.positionCS = TransformObjectToHClip(positionOS);
-                return OUT;
-            }
-
-            half4 fragOutline(Varyings IN) : SV_Target
-            {
-                return _OutlineColor;
+                return half4(lerp(diffuse, _EdgeColor.rgb, edge), albedo.a);
             }
             ENDHLSL
         }
