@@ -3,8 +3,6 @@ using UnityEngine;
 /// <summary>
 /// Elde tasinan kitaplarin goruntusunu duzenler: aktif kitap gecisinde
 /// once acilir, sonra yukselir ve en sonunda stack konumuna oturur.
-/// Elde kitaplar kameraya kapak yerine yan donuk tutulur; boylece kitap
-/// sirti (yazilarin oldugu kisim) kameraya bakar.
 /// </summary>
 public class HeldBookVisualSpacing : MonoBehaviour
 {
@@ -16,7 +14,7 @@ public class HeldBookVisualSpacing : MonoBehaviour
     [Range(0.5f, 0.95f)] public float settleStart = 0.78f;
 
     [Header("Elde Kitap Yonu")]
-    [Tooltip("Kitabi elde 90 derece yan dondurur. Pozitif deger sirti kameraya getirir.")]
+    [Tooltip("Kitabi uzun ekseni etrafinda 90 derece yan dondurur; kitap sirti kameraya gelir.")]
     public float spineViewRotation = 90f;
 
     private PlayerInteraction interaction;
@@ -61,8 +59,6 @@ public class HeldBookVisualSpacing : MonoBehaviour
             lastActiveIndex = activeIndex;
         }
 
-        // Normal elde tutma durumunda tum kitaplari yan dondur.
-        // Atis/yerlestirme sirasinda kitap artik rightHandPoint altinda olmadigi icin etkilenmez.
         if (!animating)
         {
             ApplySpineViewToHeldBooks();
@@ -136,7 +132,10 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
     Quaternion GetSpineViewRotation(BookItem book)
     {
-        return book.NativeRotation * Quaternion.AngleAxis(spineViewRotation, Vector3.forward);
+        // Kitabin uzun ekseni FBX'te local Y oldugu icin donusu Y ekseninde yapiyoruz.
+        // Onceki denemede Z ekseni kullanildigi icin kapak duzleminde donuyordu ve
+        // kitap sirti kameraya gelmiyordu.
+        return Quaternion.AngleAxis(spineViewRotation, Vector3.up) * book.NativeRotation;
     }
 
     bool IsBookStillHeld(BookItem book)
