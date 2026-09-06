@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Elde tasinan kitaplarin goruntusunu duzenler: aktif kitap gecisinde
 /// once acilir, sonra yukselir ve en sonunda stack konumuna oturur.
+/// Bu scriptin amaci test icin tek ve belirgin bir rotasyon degisikligi uygulamaktir.
 /// </summary>
 public class HeldBookVisualSpacing : MonoBehaviour
 {
@@ -13,9 +14,9 @@ public class HeldBookVisualSpacing : MonoBehaviour
     [Range(0.1f, 0.8f)] public float sidePhase = 0.35f;
     [Range(0.5f, 0.95f)] public float settleStart = 0.78f;
 
-    [Header("Elde Kitap Yonu")]
-    [Tooltip("Kitabi uzun ekseni etrafinda 90 derece yan dondurur; kitap sirti kameraya gelir.")]
-    public float spineViewRotation = 90f;
+    [Header("SYNC TEST - Elde Kitap Yonu")]
+    [Tooltip("Duz test rotasyonu. 90 = kitap eldeyken acik bir sekilde doner.")]
+    public float testHeldRotationY = 90f;
 
     private PlayerInteraction interaction;
     private int lastActiveIndex = -1;
@@ -61,14 +62,14 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         if (!animating)
         {
-            ApplySpineViewToHeldBooks();
+            ApplyTestRotationToHeldBooks();
             return;
         }
 
         if (animatingBook == null || !IsBookStillHeld(animatingBook))
         {
             animating = false;
-            ApplySpineViewToHeldBooks();
+            ApplyTestRotationToHeldBooks();
             return;
         }
 
@@ -105,20 +106,20 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         animatingBook.transform.SetParent(interaction.rightHandPoint, false);
         animatingBook.transform.localPosition = local;
-        animatingBook.transform.localRotation = GetSpineViewRotation(animatingBook);
+        animatingBook.transform.localRotation = GetHeldTestRotation(animatingBook);
         animatingBook.transform.localScale = animatingBook.OriginalScale * interaction.heldScaleMultiplier;
 
         if (t >= 1f)
         {
             animatingBook.transform.localPosition = new Vector3(0f, targetY, 0f);
-            animatingBook.transform.localRotation = GetSpineViewRotation(animatingBook);
+            animatingBook.transform.localRotation = GetHeldTestRotation(animatingBook);
             animatingBook.transform.localScale = animatingBook.OriginalScale * interaction.heldScaleMultiplier;
             animating = false;
             animatingBook = null;
         }
     }
 
-    void ApplySpineViewToHeldBooks()
+    void ApplyTestRotationToHeldBooks()
     {
         var books = interaction.HeldBooksList;
         for (int i = 0; i < books.Count; i++)
@@ -126,16 +127,15 @@ public class HeldBookVisualSpacing : MonoBehaviour
             BookItem book = books[i];
             if (book == null || book.transform.parent != interaction.rightHandPoint)
                 continue;
-            book.transform.localRotation = GetSpineViewRotation(book);
+            book.transform.localRotation = GetHeldTestRotation(book);
         }
     }
 
-    Quaternion GetSpineViewRotation(BookItem book)
+    Quaternion GetHeldTestRotation(BookItem book)
     {
-        // Kitabin uzun ekseni FBX'te local Y oldugu icin donusu Y ekseninde yapiyoruz.
-        // Onceki denemede Z ekseni kullanildigi icin kapak duzleminde donuyordu ve
-        // kitap sirti kameraya gelmiyordu.
-        return Quaternion.AngleAxis(spineViewRotation, Vector3.up) * book.NativeRotation;
+        // Bu testte kitap rotasyonu, mevcut NativeRotation'a ikinci bir Y donusu
+        // ekliyor. Boylece degisikligin Unity'ye ulasip ulasmadigi cok net gorulur.
+        return Quaternion.AngleAxis(testHeldRotationY, Vector3.up) * book.NativeRotation;
     }
 
     bool IsBookStillHeld(BookItem book)
