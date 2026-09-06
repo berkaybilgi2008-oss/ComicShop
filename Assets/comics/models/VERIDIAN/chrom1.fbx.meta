@@ -38,10 +38,6 @@ ModelImporter:
     sortHierarchyByName: 1
     importPhysicalCameras: 1
     importLights: 1
-    importVisibility: 1
-    importBlendShapes: 1
-    importCameras: 1
-    importLights: 1
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
@@ -87,7 +83,7 @@ ModelImporter:
     armTwist: 0.5
     foreArmTwist: 0.5
     upperLegTwist: 0.5
-    legTwist: 0.05
+    legTwist: 0.5
     armStretch: 0.05
     legStretch: 0.05
     feetSpacing: 0
@@ -98,7 +94,6 @@ ModelImporter:
     skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
   autoGenerateAvatarMappingIfUnspecified: 1
-  importBlendShapeDeformPercent: 1
   remapMaterialsIfMaterialImportModeIsNone: 0
   additionalBone: 0
   userData: 
