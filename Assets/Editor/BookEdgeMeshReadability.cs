@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.Callbacks;
 
 [InitializeOnLoad]
 public static class BookEdgeMeshReadability
@@ -6,6 +7,25 @@ public static class BookEdgeMeshReadability
     static BookEdgeMeshReadability()
     {
         EditorApplication.delayCall += EnsureReadable;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    [DidReloadScripts]
+    private static void OnScriptsReloaded()
+    {
+        EditorApplication.delayCall += EnsureReadable;
+    }
+
+    [MenuItem("Tools/Comic Shop/Enable Book Edge Mesh Read/Write")]
+    private static void MenuEnsureReadable()
+    {
+        EnsureReadable();
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.ExitingEditMode)
+            EnsureReadable();
     }
 
     private static void EnsureReadable()
@@ -25,7 +45,10 @@ public static class BookEdgeMeshReadability
             changed++;
         }
 
-        if (changed > 0)
-            UnityEngine.Debug.Log("BookEdgeLines: Kitap model meshleri Read/Write icin otomatik yeniden import edildi.");
+        UnityEngine.Debug.Log(
+            changed > 0
+                ? $"BookEdgeLines: {changed} kitap modeli Read/Write icin yeniden import edildi."
+                : "BookEdgeLines: Kitap modellerinin Read/Write ayari zaten acik."
+        );
     }
 }
