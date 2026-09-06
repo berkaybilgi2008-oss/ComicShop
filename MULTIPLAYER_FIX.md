@@ -10,7 +10,7 @@ Oyun sahnesi: `Assets/Settings/ne.unity`.
 - Kamera, CharacterController, input, nişangâh ve HUD yalnızca yerel oyuncuya bağlanır. Despawn sırasında eldeki kitaplar ayrılır, animasyonlar ve yerel referanslar temizlenir. Runtime üretilen oyunculara da eski sahnedeki tuş/elde taşıma ayarları uygulanır.
 - Kitaplar yalnızca host oturumu başladığında üretilir. 16 kitap prefabına NetworkObject/NetworkBook eklenir ve mevcut NetworkPrefabs listesine kaydedilir. Kitap oluşturma editör aracı da bu bileşenleri korur.
 - Her fiziksel kopyanın ayrı ağ kimliği vardır. Alma, raftan alma, yerleştirme ve bırakma/fırlatma sunucuya RPC ile gider. Sunucu mesafeyi, kapasiteyi, kitap sahibini ve raf kurallarını doğrular. Aynı kitabı iki oyuncu aynı anda alamaz.
-- Kitapların kimliği, sahibi, rafı, raf içi indeksi, konumu, dönüşü ve ölçeği NetworkVariable ile paylaşılır; geç katılan oyuncu güncel durumu alır. Serbest kitap fiziğini host çalıştırır. Elde taşıma/atış pozları sahibinden hosta iletilir. Ağda raf yerleştirme host onayında doğrudan tamamlanır; yerel alma ve atış animasyonları korunur.
+- Kitapların kimliği, sahibi, rafı, raf içi indeksi, konumu, dönüşü ve ölçeği NetworkVariable ile paylaşılır; geç katılan oyuncu güncel durumu alır. Serbest kitap fiziğini host çalıştırır. Elde taşıma/atış pozları sahibinden hosta iletilir. Rafın mantıksal yeri host onayında ayrılır; kitap mevcut bookMoveDuration ve bookMoveCurve ile her makinede elden rafa animasyonla taşınır. Animasyon sırasında ara pozlar hedef durumu ezmez ve kitap yeniden alınamaz. Geç katılan oyuncu eski yerleştirme animasyonunu tekrar oynatmaz; güncel raf durumunu görür. Yerel alma ve atış animasyonları korunur.
 - Oyuncu ayrıldığında tuttuğu kitaplar yok olmaz; host bunları serbest bırakır. Her yeni oturum yeni kitaplarla başlar. Raf sayaçları despawn sırasında temizlenir.
 - Kurtarma makinesi ortak kitapları host üzerinde değiştirir; istemci kendi oyuncusu üzerinden istek gönderir.
 - Depodaki BookEdgeLines başlangıç hatası giderilir: okunamayan mesh atlanır, okunabilir mesh pozisyonları vertex stride varsaymadan alınır.
@@ -44,3 +44,7 @@ Araç gerçek NGO/UTP üzerinden üç host aç/kapat döngüsü, kitap alma, ayn
 7. Host bazı kitapları yerleştirdikten sonra yeni client katılsın; mevcut raf içerikleri, eldeki kitaplar ve sayaçlar aynı olsun.
 
 Kapsam: mevcut IP/UnityTransport co-op akışı. Steam/lobi veya farklı sahneler arasında oyun ilerletme eklenmedi. Mevcut oyuncu prefabında görünür karakter modeli yok; hareket senkronizasyonu model eklemez.
+
+## Oynanış geri bildirimi sonrası düzeltme
+
+Kullanıcı, iki oyunculu ana akışın çalıştığını doğruladı; karakterin kısaldığını ve raf yerleştirme animasyonunun kaybolduğunu bildirdi. Bunlar ilk düzeltmenin getirdiği regresyonlardı. Player.prefab içindeki CharacterController.center.y 1'den özgün değer 0'a döndürüldü; prefab artık kaynak sürümle birebir aynı. Ağ yerleştirmesine sunucu onayından sonra görsel geçiş eklendi. Unity kontrol aracına başlangıçta ışınlanmama, animasyon bitmeden alınamama ve nihai raf pozuna ulaşma kontrolleri eklendi. Bu ek değişikliklerin Play Mode testi bu ortamda çalıştırılmadı.

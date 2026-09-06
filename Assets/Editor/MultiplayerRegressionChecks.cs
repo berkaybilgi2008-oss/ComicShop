@@ -111,9 +111,20 @@ public static class MultiplayerRegressionChecks
             controller.enabled = false;
             setup.transform.position += box.bounds.center - setup.playerCamera.transform.position;
             Physics.SyncTransforms();
+            Vector3 placementStart = book.transform.position;
             book.PlaceRpc(target.NetworkKey);
+            Check(book.IsPlacementAnimating, "Placement animation did not start");
+            Check(Vector3.Distance(book.transform.position, placementStart) < 0.001f,
+                "Placement snapped to shelf instead of starting at the hand");
+            book.PickUpRpc();
+            Check(book.Holder == NetworkBook.NoHolder && target.FilledCount == 1,
+                "Book could be taken before placement animation finished");
             yield return WaitFor(() => target.FilledCount == 1 && player.HeldBooksList.Count == 0, 3f, "placement");
             Check(GameStats.TotalPlaced == 1, "Placement counted incorrectly");
+            yield return WaitFor(() => !book.IsPlacementAnimating, 6f, "placement animation completion");
+            Check(target.TryGetPlacementPose(target.GetBookIndex(book.GetComponent<BookItem>()),
+                book.GetComponent<BookItem>(), out Vector3 finalPose, out _), "Final shelf pose unavailable");
+            Check(Vector3.Distance(book.transform.position, finalPose) < 0.001f, "Placement missed its final pose");
             book.PickUpRpc();
             yield return WaitFor(() => player.HeldBooksList.Count == 1 && target.FilledCount == 0, 3f, "take from shelf");
             Check(GameStats.TotalPlaced == 0, "Taking from shelf did not update stats");

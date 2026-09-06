@@ -14,6 +14,7 @@ public class NetworkBook : NetworkBehaviour
         public Vector3 Position, Scale;
         public Quaternion Rotation;
         public bool Kinematic;
+        public float PlacementDuration;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -26,11 +27,12 @@ public class NetworkBook : NetworkBehaviour
             serializer.SerializeValue(ref Rotation);
             serializer.SerializeValue(ref Scale);
             serializer.SerializeValue(ref Kinematic);
+            serializer.SerializeValue(ref PlacementDuration);
         }
         public bool Equals(BookState other) => BookId == other.BookId && BrandId == other.BrandId &&
             Holder == other.Holder && Slot == other.Slot && SlotIndex == other.SlotIndex &&
             Position.Equals(other.Position) && Rotation.Equals(other.Rotation) &&
-            Scale.Equals(other.Scale) && Kinematic == other.Kinematic;
+            Scale.Equals(other.Scale) && Kinematic == other.Kinematic && PlacementDuration.Equals(other.PlacementDuration);
     }
 
     private readonly NetworkVariable<BookState> state = new NetworkVariable<BookState>(
@@ -41,6 +43,11 @@ public class NetworkBook : NetworkBehaviour
     private bool hasState;
     private float nextSync;
     private float nextHeldPose;
+    private Vector3 placementStartPosition, placementStartScale;
+    private Quaternion placementStartRotation;
+    private AnimationCurve placementCurve;
+    private float placementElapsed;
+    public bool IsPlacementAnimating { get; private set; }
     public ulong Holder => state.Value.Holder;
     public bool HeldByLocal => IsSpawned && Holder != NoHolder && Holder == NetworkManager.LocalClientId;
 
@@ -69,6 +76,7 @@ public class NetworkBook : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        IsPlacementAnimating = false;
         state.OnValueChanged -= ApplyState;
         if (boundPlayer != null) boundPlayer.ForgetNetworkBook(item);
         boundPlayer = null;
@@ -79,6 +87,14 @@ public class NetworkBook : NetworkBehaviour
 
     private void ApplyState(BookState previous, BookState current)
     {
+        // The slot is committed immediately by the host; the visible book still travels
+        // from its current hand pose. Late joiners receive the final pose without replay.
+        bool animatePlacement = hasState && current.Slot != 0 && previous.Slot != current.Slot && current.PlacementDuration > 0f;
+        Vector3 startPosition = transform.position;
+        Quaternion startRotation = transform.rotation;
+        Vector3 startScale = transform.lossyScale;
+        if (previous.Holder != current.Holder || previous.Slot != current.Slot)
+            IsPlacementAnimating = false;
         item.bookID = current.BookId;
         item.brandID = current.BrandId;
         bool changedHolder = item.IsHeld != (current.Holder != NoHolder) || previous.Holder != current.Holder;
@@ -97,7 +113,25 @@ public class NetworkBook : NetworkBehaviour
             var slot = ShelfSlot.FindNetworkSlot(current.Slot);
             if (slot != null) slot.ApplyNetworkPlacement(item, current.SlotIndex);
         }
-        if (!HeldByLocal && (!hasState || changedHolder || previous.Slot != current.Slot))
+        if (animatePlacement)
+        {
+            placementStartPosition = startPosition;
+            placementStartRotation = startRotation;
+            placementStartScale = startScale;
+            placementElapsed = 0f;
+            placementCurve = null;
+            foreach (var player in FindObjectsByType<NetworkPlayerSetup>(FindObjectsSortMode.None))
+            {
+                if (player.OwnerClientId != previous.Holder) continue;
+                var interaction = player.GetComponent<PlayerInteraction>();
+                if (interaction != null) placementCurve = interaction.bookMoveCurve;
+                break;
+            }
+            transform.SetPositionAndRotation(startPosition, startRotation);
+            transform.localScale = startScale;
+            IsPlacementAnimating = true;
+        }
+        else if (!HeldByLocal && (!hasState || changedHolder || previous.Slot != current.Slot))
         {
             transform.SetPositionAndRotation(current.Position, current.Rotation);
             transform.localScale = current.Scale;
@@ -117,6 +151,25 @@ public class NetworkBook : NetworkBehaviour
     {
         if (!IsSpawned) return;
         BindLocalHand();
+        if (IsPlacementAnimating)
+        {
+            var target = state.Value;
+            placementElapsed += Time.deltaTime;
+            float progress = Mathf.Clamp01(placementElapsed / Mathf.Max(0.01f, target.PlacementDuration));
+            float t = placementCurve != null ? placementCurve.Evaluate(progress) : Mathf.SmoothStep(0f, 1f, progress);
+            transform.position = Vector3.LerpUnclamped(placementStartPosition, target.Position, t);
+            transform.rotation = Quaternion.SlerpUnclamped(placementStartRotation, target.Rotation, t);
+            transform.localScale = Vector3.LerpUnclamped(placementStartScale, target.Scale, t);
+            if (progress >= 1f)
+            {
+                transform.SetPositionAndRotation(target.Position, target.Rotation);
+                transform.localScale = target.Scale;
+                IsPlacementAnimating = false;
+            }
+            // Neither the host's pose publisher nor client snapshot smoothing may
+            // overwrite this tween or publish an intermediate pose as the target.
+            return;
+        }
         if (!IsServer && !HeldByLocal)
         {
             var target = state.Value;
@@ -168,7 +221,7 @@ public class NetworkBook : NetworkBehaviour
     {
         ulong sender = rpc.Receive.SenderClientId;
         var player = GetPlayer(sender);
-        if (Holder != NoHolder || !WithinReach(player)) return;
+        if (Holder != NoHolder || IsPlacementAnimating || !WithinReach(player)) return;
         int count = 0;
         foreach (var book in FindObjectsByType<NetworkBook>(FindObjectsSortMode.None))
             if (book.IsSpawned && book.Holder == sender) count++;
@@ -181,6 +234,7 @@ public class NetworkBook : NetworkBehaviour
         value.Slot = 0;
         value.SlotIndex = -1;
         value.Kinematic = true;
+        value.PlacementDuration = 0f;
         state.Value = value; // Atomic claim: a second requester now sees an occupied book.
     }
 
@@ -194,7 +248,13 @@ public class NetworkBook : NetworkBehaviour
         var collider = slot.GetComponentInChildren<Collider>();
         if (collider == null || Vector3.Distance(eye, collider.ClosestPoint(eye)) > player.interactRange + 0.5f) return;
         if (!slot.TryGetNextPlacementPose(item, out Vector3 position, out _) ||
-            Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance || !slot.PlaceBook(item)) return;
+            Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance) return;
+        Vector3 startPosition = transform.position;
+        Quaternion startRotation = transform.rotation;
+        Vector3 startScale = transform.lossyScale;
+        // Claim the exact slot/index before the visual animation starts, so concurrent
+        // placements cannot reserve the same space or bypass brand/capacity checks.
+        if (!slot.PlaceBook(item)) return;
         var value = state.Value;
         value.Holder = NoHolder;
         value.Slot = slotKey;
@@ -203,6 +263,9 @@ public class NetworkBook : NetworkBehaviour
         value.Rotation = transform.rotation;
         value.Scale = transform.localScale;
         value.Kinematic = true;
+        value.PlacementDuration = Mathf.Clamp(player.bookMoveDuration, 0.01f, 5f);
+        transform.SetPositionAndRotation(startPosition, startRotation);
+        transform.localScale = startScale;
         state.Value = value;
     }
 
@@ -233,6 +296,7 @@ public class NetworkBook : NetworkBehaviour
         value.Rotation = transform.rotation;
         value.Scale = item.OriginalScale;
         value.Kinematic = false;
+        value.PlacementDuration = 0f;
         state.Value = value;
         item.SetHeld(false);
         if (body == null) return;
