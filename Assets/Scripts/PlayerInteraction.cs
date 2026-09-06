@@ -121,7 +121,9 @@ public class PlayerInteraction : MonoBehaviour
 
         interactMask |= 1 << 0;
 
-        crosshair = FindFirstObjectByType<Crosshair>();
+        // Multiplayer: her oyuncu KENDI nisangahini kullanmali. Sahne genelinde
+        // arayinca baska bir oyuncunun nisangahini bulup ona yaziyordu.
+        crosshair = GetComponent<Crosshair>();
         if (crosshair == null)
             crosshair = gameObject.AddComponent<Crosshair>();
     }
