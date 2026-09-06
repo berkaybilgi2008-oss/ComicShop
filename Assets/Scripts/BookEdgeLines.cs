@@ -14,6 +14,7 @@ public class BookEdgeLines : MonoBehaviour
 
     private const string GeneratedName = "__BookCreaseLines";
     private static Material lineMaterial;
+    private static bool warnedUnreadable;
 
     public static void ApplyToBook(GameObject book)
     {
@@ -52,6 +53,16 @@ public class BookEdgeLines : MonoBehaviour
     private void BuildForMesh(MeshFilter filter)
     {
         Mesh source = filter.sharedMesh;
+        if (!source.isReadable)
+        {
+            if (!warnedUnreadable)
+            {
+                Debug.LogWarning("BookEdgeLines: Kitap meshlerinden biri Read/Write kapali. Tools > Comic Shop > Enable Book Edge Mesh Read/Write komutunu calistirin.");
+                warnedUnreadable = true;
+            }
+            return;
+        }
+
         using (Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(source))
         {
             Mesh.MeshData data = dataArray[0];
