@@ -1,129 +1,99 @@
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>
-/// Bir oyuncu prefab'i her istemcide olusturulur -- 4 kisilik oyunda herkesin
-/// makinesinde 4 tane Player vardir. Ama sen sadece KENDI karakterini
-/// kontrol etmelisin, digerlerini sadece gormelisin.
-///
-/// Bu bilesen tam olarak bunu yapar: sahibi olmayan kopyalarda kamerayi,
-/// girdi scriptlerini ve ekran arayuzunu kapatir.
-///
-/// Mevcut PlayerController / PlayerInteraction dosyalarina DOKUNMAZ.
-/// Calisan kodu bozma riski olmasin diye bilerek boyle kuruldu.
-///
-/// KURULUM: Player prefab'ina ekle. Alanlari bos birakabilirsin, kendisi bulur.
-/// </summary>
+[DefaultExecutionOrder(100)]
 public class NetworkPlayerSetup : NetworkBehaviour
 {
-    [Header("Referanslar (bos birakilirsa otomatik bulunur)")]
-    [Tooltip("Bu oyuncunun kamerasi. Sahibi olmayanlarda kapatilir.")]
+    public static NetworkPlayerSetup LocalPlayer { get; private set; }
     public Camera playerCamera;
-
-    [Tooltip("Sahibi olmayanlarda kapatilir -- yoksa 4 dinleyici ust uste biner.")]
     public AudioListener audioListener;
-
-    [Header("Ek Bilesenler")]
-    [Tooltip("Sadece sahibinde calismasi gereken BASKA bilesenler varsa buraya ekle " +
-             "(orn. PrankOverlay). PlayerController, PlayerInteraction ve Crosshair " +
-             "zaten otomatik bulunuyor.")]
     public MonoBehaviour[] ownerOnlyComponents;
-
-    [Header("HUD")]
-    [Tooltip("Sahibi olan oyuncu, sahnedeki GameHUD'a kendini bagalasin mi?")]
     public bool connectHudToLocalPlayer = true;
+    private PlayerInteraction interaction;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => LocalPlayer = null;
+
+    private void Awake()
+    {
+        interaction = GetComponent<PlayerInteraction>();
+        if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>(true);
+        if (audioListener == null) audioListener = GetComponentInChildren<AudioListener>(true);
+        // Awake runs before network ownership is assigned. No prefab may read input yet.
+        SetLocal(false);
+    }
 
     public override void OnNetworkSpawn()
     {
-        ResolveReferences();
-
-        if (IsOwner)
-            SetUpLocalPlayer();
-        else
-            SetUpRemotePlayer();
-    }
-
-    private void ResolveReferences()
-    {
-        if (playerCamera == null)
-            playerCamera = GetComponentInChildren<Camera>(true);
-
-        if (audioListener == null)
-            audioListener = GetComponentInChildren<AudioListener>(true);
-    }
-
-    // ------------------------------------------------------------------
-
-    /// <summary>Bu bizim karakterimiz: her sey acik, HUD'a baglan.</summary>
-    private void SetUpLocalPlayer()
-    {
-        SetOwnerComponentsEnabled(true);
-
-        if (playerCamera != null)
-            playerCamera.enabled = true;
-
-        if (audioListener != null)
-            audioListener.enabled = true;
-
-        gameObject.name = $"Player_LOCAL_{OwnerClientId}";
-
-        if (connectHudToLocalPlayer)
-            ConnectHud();
-
-        Debug.Log($"[Ag] Kendi karakterin hazir (ID {OwnerClientId}).");
-    }
-
-    /// <summary>Bu baskasinin karakteri: sadece gorunsun, kontrol edilmesin.</summary>
-    private void SetUpRemotePlayer()
-    {
-        SetOwnerComponentsEnabled(false);
-
-        if (playerCamera != null)
-            playerCamera.enabled = false;
-
-        if (audioListener != null)
-            audioListener.enabled = false;
-
-        // CharacterController uzak kopyada calisirsa ag pozisyonuyla kavga eder.
-        CharacterController controller = GetComponent<CharacterController>();
-        if (controller != null)
-            controller.enabled = false;
-
-        gameObject.name = $"Player_{OwnerClientId}";
-
-        Debug.Log($"[Ag] Uzak oyuncu goruntulenecek (ID {OwnerClientId}).");
-    }
-
-    private void SetOwnerComponentsEnabled(bool enabled)
-    {
-        SetEnabled(GetComponent<PlayerController>(), enabled);
-        SetEnabled(GetComponent<PlayerInteraction>(), enabled);
-        SetEnabled(GetComponent<Crosshair>(), enabled);
-
-        if (ownerOnlyComponents == null)
-            return;
-
-        foreach (MonoBehaviour component in ownerOnlyComponents)
-            SetEnabled(component, enabled);
-    }
-
-    private static void SetEnabled(Behaviour component, bool enabled)
-    {
-        if (component != null)
-            component.enabled = enabled;
-    }
-
-    /// <summary>Sahnedeki GameHUD, yerel oyuncuyu gostersin.</summary>
-    private void ConnectHud()
-    {
-        GameHUD hud = FindFirstObjectByType<GameHUD>();
-
-        if (hud == null)
-            return;
-
-        PlayerInteraction interaction = GetComponent<PlayerInteraction>();
-
+        SetLocal(IsOwner);
+        gameObject.name = IsOwner ? $"Player_LOCAL_{OwnerClientId}" : $"Player_{OwnerClientId}";
+        if (!IsOwner) return;
+        LocalPlayer = this;
         if (interaction != null)
-            hud.playerInteraction = interaction;
+        {
+            interaction.playerCamera = playerCamera;
+            InteractionSettingsSanitizer.Apply(interaction);
+            if (GetComponent<HeldBookHandOffset>() == null) gameObject.AddComponent<HeldBookHandOffset>();
+            if (GetComponent<HeldBookVisualSpacing>() == null) gameObject.AddComponent<HeldBookVisualSpacing>();
+        }
+        if (connectHudToLocalPlayer)
+        {
+            var hud = FindFirstObjectByType<GameHUD>();
+            if (hud != null) hud.playerInteraction = interaction;
+        }
+        ConnectionManager.SetCursor(true);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        // Books remain server-owned and must survive the departing player's destruction.
+        if (IsServer) NetworkBook.ReleaseAllForPlayer(OwnerClientId);
+        if (interaction != null) interaction.ResetInteraction();
+        SetLocal(false);
+        if (LocalPlayer != this) return;
+        LocalPlayer = null;
+        var hud = FindFirstObjectByType<GameHUD>();
+        if (hud != null && hud.playerInteraction == interaction) hud.playerInteraction = null;
+        ConnectionManager.SetCursor(false);
+    }
+
+    [Rpc(SendTo.Server, RequireOwnership = true)]
+    public void RecallRpc(Vector3 machinePosition, Vector3 lookDirection)
+    {
+        if (playerCamera == null || lookDirection.sqrMagnitude < 0.9f || lookDirection.sqrMagnitude > 1.1f) return;
+        foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
+        {
+            if ((machine.transform.position - machinePosition).sqrMagnitude > 0.001f) continue;
+            Vector3 delta = machine.transform.position - playerCamera.transform.position;
+            if (delta.sqrMagnitude > machine.useRange * machine.useRange) return;
+            if (machine.requireLookingAt && Vector3.Dot(lookDirection, delta.normalized) < machine.lookThreshold) return;
+            if (machine.recallMode == BookRecallMachine.RecallMode.AllLostBooks) machine.TryRecallAllLost();
+            else machine.TryRecall(machine.targetBookID);
+            return;
+        }
+    }
+
+    private void SetLocal(bool local)
+    {
+        SetEnabled(GetComponent<PlayerController>(), local);
+        SetEnabled(GetComponent<PlayerInteraction>(), local);
+        SetEnabled(GetComponent<Crosshair>(), local);
+        SetEnabled(GetComponent<HeldBookVisualSpacing>(), local);
+        SetEnabled(GetComponent<CharacterController>(), local);
+        SetEnabled(playerCamera, local);
+        if (playerCamera != null) playerCamera.tag = local ? "MainCamera" : "Untagged";
+        SetEnabled(audioListener, local);
+        if (ownerOnlyComponents != null)
+            foreach (var component in ownerOnlyComponents)
+                if (component != this) SetEnabled(component, local);
+    }
+
+    private static void SetEnabled(Behaviour component, bool value)
+    {
+        if (component != null) component.enabled = value;
+    }
+    private static void SetEnabled(CharacterController component, bool value)
+    {
+        if (component != null) component.enabled = value;
     }
 }

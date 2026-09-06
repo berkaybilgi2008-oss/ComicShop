@@ -45,6 +45,8 @@ public class BookEdgeLines : MonoBehaviour
         foreach (MeshFilter filter in filters)
         {
             if (filter == null || filter.sharedMesh == null) continue;
+            if (!filter.sharedMesh.isReadable) continue;
+            if (filter.transform.IsChildOf(GetOrCreateHolder().transform)) continue;
             BuildForMesh(filter);
         }
     }
@@ -57,7 +59,8 @@ public class BookEdgeLines : MonoBehaviour
             Mesh.MeshData data = dataArray[0];
             int vertexCount = data.vertexCount;
             bool is32 = source.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
-            NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
+            using var positions = new NativeArray<Vector3>(vertexCount, Allocator.Temp);
+            data.GetVertices(positions);
             NativeArray<int> indices32 = default;
             NativeArray<ushort> indices16 = default;
             if (is32) indices32 = data.GetIndexData<int>();

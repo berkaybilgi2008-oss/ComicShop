@@ -130,6 +130,15 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        if (Cursor.lockState != CursorLockMode.Locked)
+        {
+            if (isChargingThrow)
+            {
+                CancelHandAnimations();
+                RepositionHeldBooksImmediate();
+            }
+            return;
+        }
         HandleLookDetection();
         HandleThrowInput();
 
@@ -415,6 +424,13 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || lookedSlot.FilledCount <= 0 || heldBooks.Count >= maxHeldBooks)
             return;
 
+        BookItem candidate = lookedSlot.PeekLastBook();
+        NetworkBook networkBook = candidate != null ? candidate.GetComponent<NetworkBook>() : null;
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            networkBook.PickUpRpc();
+            return;
+        }
         BookItem book = lookedSlot.TakeLastBook();
         if (book == null)
             return;
@@ -434,6 +450,13 @@ public class PlayerInteraction : MonoBehaviour
         if (book == null || heldBooks.Count >= maxHeldBooks)
             return;
 
+        NetworkBook networkBook = book.GetComponent<NetworkBook>();
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            networkBook.PickUpRpc();
+            return;
+        }
+        if (book.IsHeld) return;
         if (book.currentSlot != null)
             book.currentSlot.RemoveBook(book);
 
@@ -445,6 +468,56 @@ public class PlayerInteraction : MonoBehaviour
         lookedBook = null;
 
         StartCoroutine(MoveBookIntoHand(book));
+    }
+
+    public void AcceptNetworkBook(BookItem book)
+    {
+        if (book == null || heldBooks.Contains(book)) return;
+        CancelHandAnimations();
+        RepositionHeldBooksImmediate();
+        heldBooks.Add(book);
+        activeHeldIndex = heldBooks.Count - 1;
+        IgnorePlayerCollision(book, true);
+        book.SetHeld(true);
+        StartCoroutine(MoveBookIntoHand(book));
+        lookedBook = null;
+    }
+
+    public void ForgetNetworkBook(BookItem book)
+    {
+        if (book == null) return;
+        bool removed = heldBooks.Remove(book);
+        IgnorePlayerCollision(book, false);
+        if (!removed) return;
+        CancelHandAnimations();
+        activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
+        RepositionHeldBooksImmediate();
+    }
+
+    private void CancelHandAnimations()
+    {
+        StopAllCoroutines();
+        isBookAnimating = false;
+        isChargingThrow = false;
+        isThrowing = false;
+        chargingBook = null;
+        chargeAmount = 0f;
+        if (crosshair != null) crosshair.chargeAmount = 0f;
+    }
+
+    public void ResetInteraction()
+    {
+        CancelHandAnimations();
+        foreach (var book in heldBooks)
+        {
+            if (book == null) continue;
+            book.transform.SetParent(null, true);
+            IgnorePlayerCollision(book, false);
+        }
+        heldBooks.Clear();
+        activeHeldIndex = -1;
+        lookedBook = null;
+        lookedSlot = null;
     }
 
     IEnumerator MoveBookIntoHand(BookItem book)
@@ -617,6 +690,13 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || book == null)
             return false;
 
+        NetworkBook networkBook = book.GetComponent<NetworkBook>();
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            networkBook.PlaceRpc(lookedSlot.NetworkKey);
+            return true;
+        }
+
         if (!lookedSlot.Matches(book))
         {
             if (debugPlacement)
@@ -761,6 +841,14 @@ public class PlayerInteraction : MonoBehaviour
 
         Vector3 worldPosition = book.transform.position;
         Quaternion worldRotation = book.transform.rotation;
+        NetworkBook networkBook = book.GetComponent<NetworkBook>();
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            book.transform.SetParent(null, true);
+            RepositionHeldBooksImmediate();
+            networkBook.ReleaseRpc(worldPosition, worldRotation, velocity, spinAxis, spin, charged);
+            return;
+        }
 
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
