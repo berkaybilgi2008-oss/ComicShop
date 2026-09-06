@@ -30,7 +30,7 @@ public static class BookEdgeMeshReadability
 
     private static void EnsureReadable(bool forceLog = false)
     {
-        string[] guids = AssetDatabase.FindAssets("t:Model");
+        string[] guids = AssetDatabase.FindAssets("t:Model", new[] { "Assets/comics/models" });
         int changed = 0;
         int found = 0;
 
@@ -49,7 +49,7 @@ public static class BookEdgeMeshReadability
                 continue;
 
             importer.isReadable = true;
-            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            importer.SaveAndReimport();
             changed++;
         }
 
