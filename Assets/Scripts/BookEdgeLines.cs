@@ -53,64 +53,85 @@ public class BookEdgeLines : MonoBehaviour
     private void BuildForMesh(MeshFilter filter)
     {
         Mesh source = filter.sharedMesh;
+        if (source == null) return;
+
+        // Book.prefab icindeki fiziksel yardimci Cube meshleri Unity tarafindan
+        // Read/Write kapali olarak gelir. Bunlar kitap geometrisi degil; edge
+        // cizgisi uretiminden tamamen cikartilir.
+        if (source.name == "Cube" || source.name.StartsWith("Cube."))
+            return;
+
         if (!source.isReadable)
         {
             if (!warnedUnreadable)
             {
-                Debug.LogWarning("BookEdgeLines: Kitap meshlerinden biri Read/Write kapali. Tools > Comic Shop > Enable Book Edge Mesh Read/Write komutunu calistirin.");
+                Debug.LogWarning("BookEdgeLines: Bir kitap meshinin Read/Write ayari kapali, bu mesh edge cizgisi icin atlandi.");
                 warnedUnreadable = true;
             }
             return;
         }
 
-        using (Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(source))
+        try
         {
-            Mesh.MeshData data = dataArray[0];
-            int vertexCount = data.vertexCount;
-            bool is32 = source.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
-            NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
-            NativeArray<int> indices32 = default;
-            NativeArray<ushort> indices16 = default;
-            if (is32) indices32 = data.GetIndexData<int>();
-            else indices16 = data.GetIndexData<ushort>();
-            int indexCount = is32 ? indices32.Length : indices16.Length;
-            if (vertexCount < 3 || indexCount < 3) return;
-
-            Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
-            int[] weldedVertex = new int[vertexCount];
-            List<Vector3> weldedPositions = new List<Vector3>();
-            for (int i = 0; i < vertexCount; i++)
+            using (Mesh.MeshDataArray dataArray = Mesh.AcquireReadOnlyMeshData(source))
             {
-                PositionKey key = new PositionKey(positions[i], vertexWeldTolerance);
-                int id;
-                if (!welded.TryGetValue(key, out id))
+                Mesh.MeshData data = dataArray[0];
+                int vertexCount = data.vertexCount;
+                bool is32 = source.indexFormat == UnityEngine.Rendering.IndexFormat.UInt32;
+                NativeArray<Vector3> positions = data.GetVertexData<Vector3>();
+                NativeArray<int> indices32 = default;
+                NativeArray<ushort> indices16 = default;
+                if (is32) indices32 = data.GetIndexData<int>();
+                else indices16 = data.GetIndexData<ushort>();
+                int indexCount = is32 ? indices32.Length : indices16.Length;
+                if (vertexCount < 3 || indexCount < 3) return;
+
+                Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
+                int[] weldedVertex = new int[vertexCount];
+                List<Vector3> weldedPositions = new List<Vector3>();
+                for (int i = 0; i < vertexCount; i++)
                 {
-                    id = weldedPositions.Count;
-                    welded.Add(key, id);
-                    weldedPositions.Add(positions[i]);
+                    PositionKey key = new PositionKey(positions[i], vertexWeldTolerance);
+                    int id;
+                    if (!welded.TryGetValue(key, out id))
+                    {
+                        id = weldedPositions.Count;
+                        welded.Add(key, id);
+                        weldedPositions.Add(positions[i]);
+                    }
+                    weldedVertex[i] = id;
                 }
-                weldedVertex[i] = id;
-            }
 
-            Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
-            for (int i = 0; i + 2 < indexCount; i += 3)
+                Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
+                for (int i = 0; i + 2 < indexCount; i += 3)
+                {
+                    int a = is32 ? indices32[i] : indices16[i];
+                    int b = is32 ? indices32[i + 1] : indices16[i + 1];
+                    int c = is32 ? indices32[i + 2] : indices16[i + 2];
+                    if (a < 0 || b < 0 || c < 0 || a >= vertexCount || b >= vertexCount || c >= vertexCount) continue;
+
+                    int wa = weldedVertex[a], wb = weldedVertex[b], wc = weldedVertex[c];
+                    if (wa == wb || wb == wc || wc == wa) continue;
+                    Vector3 normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
+                    if (normal.sqrMagnitude < 0.0000001f) continue;
+                    normal.Normalize();
+                    AddEdge(edges, wa, wb, normal);
+                    AddEdge(edges, wb, wc, normal);
+                    AddEdge(edges, wc, wa, normal);
+                }
+
+                BuildLines(filter, weldedPositions, edges);
+            }
+        }
+        catch (System.InvalidOperationException)
+        {
+            // Importer ayari ile runtime Mesh okunabilirligi arasinda uyumsuzluk
+            // varsa oyunun kendisini durdurma; bu mesh icin edge cizgisi atlanir.
+            if (!warnedUnreadable)
             {
-                int a = is32 ? indices32[i] : indices16[i];
-                int b = is32 ? indices32[i + 1] : indices16[i + 1];
-                int c = is32 ? indices32[i + 2] : indices16[i + 2];
-                if (a < 0 || b < 0 || c < 0 || a >= vertexCount || b >= vertexCount || c >= vertexCount) continue;
-
-                int wa = weldedVertex[a], wb = weldedVertex[b], wc = weldedVertex[c];
-                if (wa == wb || wb == wc || wc == wa) continue;
-                Vector3 normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
-                if (normal.sqrMagnitude < 0.0000001f) continue;
-                normal.Normalize();
-                AddEdge(edges, wa, wb, normal);
-                AddEdge(edges, wb, wc, normal);
-                AddEdge(edges, wc, wa, normal);
+                Debug.LogWarning("BookEdgeLines: Bir mesh runtime'da okunamadi, edge cizgisi bu mesh icin atlandi.");
+                warnedUnreadable = true;
             }
-
-            BuildLines(filter, weldedPositions, edges);
         }
     }
 
