@@ -1,5 +1,5 @@
 using UnityEditor;
-using UnityEditor.Callbacks;
+using UnityEngine;
 
 [InitializeOnLoad]
 public static class BookEdgeMeshReadability
@@ -10,45 +10,52 @@ public static class BookEdgeMeshReadability
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
 
-    [DidReloadScripts]
-    private static void OnScriptsReloaded()
+    [InitializeOnLoadMethod]
+    private static void Initialize()
     {
         EditorApplication.delayCall += EnsureReadable;
     }
 
     [MenuItem("Tools/Comic Shop/Enable Book Edge Mesh Read/Write")]
-    private static void MenuEnsureReadable()
+    private static void EnableReadWrite()
     {
-        EnsureReadable();
+        EnsureReadable(true);
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
         if (state == PlayModeStateChange.ExitingEditMode)
-            EnsureReadable();
+            EnsureReadable(true);
     }
 
-    private static void EnsureReadable()
+    private static void EnsureReadable(bool forceLog = false)
     {
-        string[] guids = AssetDatabase.FindAssets("t:Model", new[] { "Assets/comics/models" });
+        string[] guids = AssetDatabase.FindAssets("t:Model");
         int changed = 0;
+        int found = 0;
 
         foreach (string guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (!path.StartsWith("Assets/comics/models/", System.StringComparison.OrdinalIgnoreCase))
+                continue;
+
             ModelImporter importer = AssetImporter.GetAtPath(path) as ModelImporter;
-            if (importer == null || importer.isReadable)
+            if (importer == null)
+                continue;
+
+            found++;
+            if (importer.isReadable)
                 continue;
 
             importer.isReadable = true;
-            importer.SaveAndReimport();
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             changed++;
         }
 
-        UnityEngine.Debug.Log(
-            changed > 0
-                ? $"BookEdgeLines: {changed} kitap modeli Read/Write icin yeniden import edildi."
-                : "BookEdgeLines: Kitap modellerinin Read/Write ayari zaten acik."
-        );
+        if (forceLog || changed > 0)
+        {
+            Debug.Log($"BookEdgeLines: {found} kitap modeli bulundu, {changed} model Read/Write icin yeniden import edildi.");
+        }
     }
 }
