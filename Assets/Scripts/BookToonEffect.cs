@@ -3,60 +3,32 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class BookToonEffect : MonoBehaviour
 {
-    static Shader toonShader;
-
-    void Awake()
+    private void Awake()
     {
-        ApplyToRenderers();
+        BuildBlackEdgeLines();
     }
 
     public static void ApplyToBook(GameObject book)
     {
         if (book == null) return;
         BookToonEffect effect = book.GetComponent<BookToonEffect>();
-        if (effect == null) effect = book.AddComponent<BookToonEffect>();
-        else effect.ApplyToRenderers();
-    }
-
-    void ApplyToRenderers()
-    {
-        if (toonShader == null)
-            toonShader = Shader.Find("Custom/BookToon");
-
-        if (toonShader == null)
+        if (effect == null)
         {
-            Debug.LogWarning("BookToonEffect: Custom/BookToon shader bulunamadi.");
+            book.AddComponent<BookToonEffect>();
             return;
         }
+        effect.BuildBlackEdgeLines();
+    }
 
-        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        foreach (Renderer renderer in renderers)
-        {
-            if (renderer == null) continue;
-            Material[] materials = renderer.materials;
-            for (int i = 0; i < materials.Length; i++)
-            {
-                Material material = materials[i];
-                if (material == null) continue;
-                if (material.shader == toonShader) continue;
-
-                Texture texture = null;
-                Color color = Color.white;
-                if (material.HasProperty("_BaseMap")) texture = material.GetTexture("_BaseMap");
-                else if (material.HasProperty("_MainTex")) texture = material.GetTexture("_MainTex");
-                if (material.HasProperty("_BaseColor")) color = material.GetColor("_BaseColor");
-                else if (material.HasProperty("_Color")) color = material.GetColor("_Color");
-
-                material.shader = toonShader;
-                if (texture != null) material.SetTexture("_BaseMap", texture);
-                material.SetColor("_BaseColor", color);
-            }
-            renderer.materials = materials;
-        }
+    private void BuildBlackEdgeLines()
+    {
+        // Kitabin mevcut material/texture'i degistirilmez.
+        // Sadece gercek mesh kenarlarina siyah geometri cizgileri eklenir.
+        BookEdgeLines.ApplyToBook(gameObject);
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    static void AddToExistingBooks()
+    private static void AddToExistingBooks()
     {
         BookItem[] books = Object.FindObjectsByType<BookItem>(FindObjectsSortMode.None);
         foreach (BookItem book in books)
