@@ -49,6 +49,9 @@ public class ShelfSlotDuplicator : MonoBehaviour
     [ContextMenu("Gozleri Olustur")]
     public void GenerateGrid()
     {
+        if (!CanEditGrid())
+            return;
+
         if (templateSlot == null)
         {
             Debug.LogError($"ShelfSlotDuplicator ({name}): Template Slot atanmamis.");
@@ -101,9 +104,15 @@ public class ShelfSlotDuplicator : MonoBehaviour
                 copy.transform.SetPositionAndRotation(position, rotation);
                 copy.transform.localScale = templateSlot.transform.localScale;
                 copy.name = $"{namePrefix}_R{r + 1}C{c + 1}";
+
+#if UNITY_EDITOR
+                UnityEditor.Undo.RegisterCreatedObjectUndo(copy, "Raf gozlerini olustur");
+#endif
                 created++;
             }
         }
+
+        MarkSceneDirty();
 
         Debug.Log($"ShelfSlotDuplicator ({name}): {created} yeni raf gozu olusturuldu " +
                   $"({rows} satir x {columns} sutun). " +
@@ -131,6 +140,9 @@ public class ShelfSlotDuplicator : MonoBehaviour
     [ContextMenu("Olusturulanlari Sil (template kalir)")]
     public void ClearGenerated()
     {
+        if (!CanEditGrid())
+            return;
+
         if (templateSlot == null)
         {
             Debug.LogError($"ShelfSlotDuplicator ({name}): Template Slot atanmamis, " +
@@ -161,13 +173,99 @@ public class ShelfSlotDuplicator : MonoBehaviour
                 continue;
 
 #if UNITY_EDITOR
-            DestroyImmediate(child);
+            UnityEditor.Undo.DestroyObjectImmediate(child);
 #else
             Destroy(child);
 #endif
             removed++;
         }
 
+        MarkSceneDirty();
+
         Debug.Log($"ShelfSlotDuplicator ({name}): {removed} uretilmis raf gozu silindi.");
+    }
+
+    /// <summary>
+    /// Ayarlar veya kaynak slotlar degistiginde eski uretilen gozleri temizleyip
+    /// guncel olculerle tekrar kurar.
+    /// </summary>
+    [ContextMenu("Gozleri Yeniden Olustur")]
+    public void RegenerateGrid()
+    {
+        if (!CanEditGrid())
+            return;
+
+#if UNITY_EDITOR
+        UnityEditor.Undo.SetCurrentGroupName("Raf gozlerini yeniden olustur");
+        int undoGroup = UnityEditor.Undo.GetCurrentGroup();
+#endif
+
+        ClearGenerated();
+        GenerateGrid();
+
+#if UNITY_EDITOR
+        UnityEditor.Undo.CollapseUndoOperations(undoGroup);
+#endif
+    }
+
+    /// <summary>Inspector'un anlasilir bir hata gosterebilmesi icin ortak kontrol.</summary>
+    public bool TryGetValidationError(out string error)
+    {
+        if (templateSlot == null)
+        {
+            error = "Template Slot atanmamis.";
+            return true;
+        }
+
+        Transform parent = templateSlot.transform.parent;
+        if (parent == null)
+        {
+            error = "Template Slot bir parent altinda olmali.";
+            return true;
+        }
+
+        if (columnNeighbor != null && columnNeighbor.transform.parent != parent)
+        {
+            error = "Column Neighbor, Template Slot ile ayni parent altinda olmali.";
+            return true;
+        }
+
+        if (rowNeighbor != null && rowNeighbor.transform.parent != parent)
+        {
+            error = "Row Neighbor, Template Slot ile ayni parent altinda olmali.";
+            return true;
+        }
+
+        error = null;
+        return false;
+    }
+
+    private bool CanEditGrid()
+    {
+        if (Application.isPlaying)
+        {
+            Debug.LogWarning($"ShelfSlotDuplicator ({name}): Bu arac Edit Mode'da kullanilmali. " +
+                             "Play Mode'da uretilen nesneler oyun durunca kaybolur.");
+            return false;
+        }
+
+        if (TryGetValidationError(out string error))
+        {
+            Debug.LogError($"ShelfSlotDuplicator ({name}): {error}");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void MarkSceneDirty()
+    {
+#if UNITY_EDITOR
+        if (!Application.isPlaying && gameObject.scene.IsValid())
+        {
+            UnityEditor.EditorUtility.SetDirty(this);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        }
+#endif
     }
 }
