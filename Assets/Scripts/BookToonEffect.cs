@@ -8,6 +8,7 @@ public class BookToonEffect : MonoBehaviour
     void Awake()
     {
         ApplyToRenderers();
+        BookEdgeLines.ApplyToBook(gameObject);
     }
 
     public static void ApplyToBook(GameObject book)
@@ -17,9 +18,13 @@ public class BookToonEffect : MonoBehaviour
 
         BookToonEffect effect = book.GetComponent<BookToonEffect>();
         if (effect == null)
+        {
             effect = book.AddComponent<BookToonEffect>();
-        else
-            effect.ApplyToRenderers();
+            return;
+        }
+
+        effect.ApplyToRenderers();
+        BookEdgeLines.ApplyToBook(book);
     }
 
     private void ApplyToRenderers()
