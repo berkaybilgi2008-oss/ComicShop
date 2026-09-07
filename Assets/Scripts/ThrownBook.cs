@@ -29,7 +29,7 @@ public class ThrownBook : MonoBehaviour
     [Tooltip("Bir yere carptiktan sonraki surtunme. Kitabin donerek kaymaya " +
              "devam etmesini engeller.")]
     [Min(0f)] public float impactLinearDamping = 0.9f;
-    [Min(0f)] public float impactAngularDamping = 0.35f;
+    [Min(0f)] public float impactAngularDamping = 0.75f;
 
     [Header("Temizlik")]
     [Tooltip("Kitap bu sure icinde durmazsa bilesen yine de kendini kaldirir.")]
