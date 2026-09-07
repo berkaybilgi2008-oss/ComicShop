@@ -41,11 +41,15 @@ public class ThrownBook : MonoBehaviour
     private float originalAngularDamping;
     private Vector3 spinAxis = Vector3.right;
     private bool hasHit;
+    private Transform thrower;
+    private Vector3 previousPosition;
+    private readonly RaycastHit[] obstructionHits = new RaycastHit[32];
 
     void Awake()
     {
         body = GetComponent<Rigidbody>();
         spawnTime = Time.time;
+        previousPosition = transform.position;
 
         if (body != null)
         {
@@ -58,19 +62,62 @@ public class ThrownBook : MonoBehaviour
     }
 
     /// <summary>Firlatan taraf donme eksenini bildirir.</summary>
-    public void Configure(Vector3 axis)
+    public void Configure(Vector3 axis, Transform source = null)
     {
+        thrower = source;
         if (axis.sqrMagnitude > 0.0001f)
             spinAxis = axis.normalized;
     }
 
     void FixedUpdate()
     {
+        if (body != null && !hasHit && !body.isKinematic) CheckPlayerHit();
         if (body == null || hasHit || !lockSpinAxis)
             return;
 
         // Acisal hizin eksen disi bileseni atilir -> yalpalama olmaz.
         body.angularVelocity = spinAxis * Vector3.Dot(body.angularVelocity, spinAxis);
+    }
+
+    private void CheckPlayerHit()
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return;
+        Vector3 end = body.position + body.linearVelocity * Time.fixedDeltaTime;
+        Vector3 travel = end - previousPosition;
+        Vector3 start = previousPosition;
+        previousPosition = body.position;
+        if (travel.sqrMagnitude < 0.000001f || body.linearVelocity.sqrMagnitude < 4f) return;
+        Ray ray = new Ray(start, travel.normalized);
+        float closest = travel.magnitude;
+        PlayerKnockdown target = null;
+        foreach (var player in PlayerKnockdown.Players)
+        {
+            if (player == null || player.IsDown || player.transform == thrower) continue;
+            Bounds bounds = player.HitBounds;
+            bounds.Expand(0.12f);
+            if (bounds.IntersectRay(ray, out float distance) && distance <= closest)
+            { closest = distance; target = player; }
+        }
+        if (target == null) return;
+        // Remote CharacterControllers are disabled: use their calibrated bounds
+        // for hits, and a non-alloc physics sweep to reject hits through walls.
+        int count = Physics.SphereCastNonAlloc(ray, 0.06f, obstructionHits, closest,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        if (count == obstructionHits.Length) return;
+        for (int i = 0; i < count; i++)
+        {
+            Transform hit = obstructionHits[i].collider.transform;
+            if (hit.IsChildOf(transform) || hit.IsChildOf(target.transform) ||
+                (thrower != null && hit.IsChildOf(thrower))) continue;
+            return;
+        }
+        Vector3 point = ray.GetPoint(closest);
+        Bounds hitBounds = target.HitBounds;
+        bool head = point.y >= hitBounds.max.y - hitBounds.size.y * 0.22f;
+        target.Hit(body.linearVelocity, head);
+        RegisterHit(); // One knockdown per throw; floor-bounced books do not hit again.
+        body.linearVelocity *= 0.25f;
     }
 
     void Update()
