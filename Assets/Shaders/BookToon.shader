@@ -4,12 +4,13 @@ Shader "Custom/BookToon"
     {
         _BaseMap ("Texture", 2D) = "white" {}
         _BaseColor ("Color", Color) = (1,1,1,1)
-        _CreaseColor ("Crease Color", Color) = (0,0,0,1)
-        _CreaseStrength ("Crease Strength", Range(1,100)) = 28
-        _CreaseThreshold ("Crease Threshold", Range(0,1)) = 0.035
-        _SilhouetteColor ("Silhouette Color", Color) = (0,0,0,1)
-        _SilhouetteStrength ("Silhouette Strength", Range(0,4)) = 1.15
-        _SilhouettePower ("Silhouette Power", Range(1,12)) = 4
+        _ShadowColor ("Comic Shadow", Color) = (0.38,0.40,0.46,1)
+        _LightThreshold ("Light Threshold", Range(0,1)) = 0.58
+        _ShadowSoftness ("Shadow Softness", Range(0.001,0.25)) = 0.035
+        _InkColor ("Ink Color", Color) = (0.015,0.01,0.008,1)
+        _InkStrength ("Ink Strength", Range(0,2)) = 1.0
+        _InkThreshold ("Ink Threshold", Range(0,1)) = 0.22
+        _CreaseStrength ("Crease Strength", Range(0,4)) = 1.35
     }
 
     SubShader
@@ -25,6 +26,7 @@ Shader "Custom/BookToon"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
@@ -34,12 +36,13 @@ Shader "Custom/BookToon"
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
                 float4 _BaseColor;
-                float4 _CreaseColor;
+                float4 _ShadowColor;
+                float _LightThreshold;
+                float _ShadowSoftness;
+                float4 _InkColor;
+                float _InkStrength;
+                float _InkThreshold;
                 float _CreaseStrength;
-                float _CreaseThreshold;
-                float4 _SilhouetteColor;
-                float _SilhouetteStrength;
-                float _SilhouettePower;
             CBUFFER_END
 
             struct Attributes
@@ -69,38 +72,58 @@ Shader "Custom/BookToon"
                 return OUT;
             }
 
+            half3 ToonBand(half3 albedo, half3 lightColor, half3 lightDirection,
+                           half3 normalWS, half attenuation)
+            {
+                half ndotl = saturate(dot(normalize(normalWS), normalize(lightDirection)));
+                half band = smoothstep(_LightThreshold - _ShadowSoftness,
+                                       _LightThreshold + _ShadowSoftness, ndotl);
+                half3 toonLight = lerp(_ShadowColor.rgb, half3(1,1,1), band);
+                return albedo * toonLight * lightColor * attenuation;
+            }
+
             half4 frag(Varyings IN) : SV_Target
             {
                 half4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
                 half3 n = normalize(IN.normalWS);
 
-                // Three clear comic-book lighting bands while preserving the source texture.
                 Light mainLight = GetMainLight();
-                half ndotl = saturate(dot(n, normalize(mainLight.direction)));
-                half3 ambient = SampleSH(n);
-                half band = ndotl >= 0.62h ? 1.0h : (ndotl >= 0.28h ? 0.62h : 0.30h);
-                half3 lit = ambient * 0.45h + mainLight.color * band * mainLight.shadowAttenuation;
-                half3 diffuse = albedo.rgb * max(lit, 0.10h);
+                half3 color = ToonBand(
+                    albedo.rgb,
+                    mainLight.color,
+                    mainLight.direction,
+                    n,
+                    mainLight.distanceAttenuation * mainLight.shadowAttenuation);
 
-                // Screen-space normal change gives a restrained comic crease line.
-                // Unlike generated edge geometry, it can never create detached triangles.
-                half normalChange = max(length(ddx(n)), length(ddy(n)));
-                half crease = smoothstep(0.05h, 0.85h,
-                    saturate((normalChange - _CreaseThreshold) * _CreaseStrength));
+                #if defined(_ADDITIONAL_LIGHTS)
+                uint count = GetAdditionalLightsCount();
+                for (uint i = 0u; i < count; i++)
+                {
+                    Light light = GetAdditionalLight(i, IN.positionWS);
+                    color += ToonBand(
+                        albedo.rgb,
+                        light.color,
+                        light.direction,
+                        n,
+                        light.distanceAttenuation * light.shadowAttenuation);
+                }
+                #endif
 
-                // Camera-facing silhouette accent without an inverted-hull pass.
-                // This avoids the large black polygon artifacts caused by expanding
-                // irregular FBX normals in object space.
+                // Strong, stable comic ink based on the actual visible surface.
+                // No generated line mesh, no vertex-data access, no detached geometry.
                 half3 viewDir = GetWorldSpaceNormalizeViewDir(IN.positionWS);
-                half facing = saturate(dot(n, viewDir));
-                half silhouette = pow(saturate(1.0h - facing), _SilhouettePower) * _SilhouetteStrength;
-                silhouette = smoothstep(0.12h, 0.85h, silhouette);
+                half facing = saturate(abs(dot(n, viewDir)));
+                half silhouetteInk = 1.0h - smoothstep(_InkThreshold, _InkThreshold + 0.16h, facing);
 
-                half edge = max(crease, silhouette);
-                half3 edgeColor = lerp(_CreaseColor.rgb, _SilhouetteColor.rgb, silhouette);
-                diffuse = lerp(diffuse, edgeColor, edge);
+                // Highlight real mesh transitions using screen-space normal change.
+                half normalChange = max(length(ddx(n)), length(ddy(n)));
+                half creaseInk = smoothstep(0.10h, 0.55h,
+                    saturate(normalChange * _CreaseStrength));
 
-                return half4(diffuse, albedo.a);
+                half ink = saturate(max(silhouetteInk, creaseInk) * _InkStrength);
+                color = lerp(color, _InkColor.rgb, ink);
+
+                return half4(color, albedo.a);
             }
             ENDHLSL
         }
