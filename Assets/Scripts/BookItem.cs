@@ -43,6 +43,7 @@ public class BookItem : MonoBehaviour
     private int settlingContactCount;
     private float contactStep = float.NegativeInfinity;
     private int settleAttempts;
+    private int impactTipAttempts;
     private float settleNotBefore;
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
 
@@ -84,13 +85,52 @@ public class BookItem : MonoBehaviour
         body.isKinematic = true;
     }
 
-    void OnCollisionEnter(Collision collision) { RecordSettlingContacts(collision); }
+    void OnCollisionEnter(Collision collision)
+    {
+        RecordSettlingContacts(collision);
+        AssistEdgeImpact(collision);
+    }
     void OnCollisionStay(Collision collision) { RecordSettlingContacts(collision); }
     void OnCollisionExit(Collision collision)
     {
         settlingContactCount = 0;
         contactStep = float.NegativeInfinity;
         stillTimer = 0f;
+    }
+
+    private void AssistEdgeImpact(Collision collision)
+    {
+        if (IsHeld || currentSlot != null || body == null || body.isKinematic ||
+            physicsCollider == null || impactTipAttempts >= 2 || Physics.gravity.sqrMagnitude < 0.0001f)
+            return;
+
+        Vector3 up = -Physics.gravity.normalized;
+        bool hitSupportingSurface = false;
+        for (int i = 0; i < collision.contactCount; i++)
+        {
+            if (Mathf.Abs(Vector3.Dot(collision.GetContact(i).normal, up)) >= 0.6f)
+            {
+                hitSupportingSurface = true;
+                break;
+            }
+        }
+        if (!hitSupportingSurface) return;
+
+        ResolveLocalAxes();
+        Vector3 cover = transform.TransformDirection(localCoverNormal).normalized;
+        float faceUp = Vector3.Dot(cover, up);
+        // The cover is steeper than about 53 degrees: it landed on an edge.
+        if (Mathf.Abs(faceUp) >= 0.6f) return;
+
+        Vector3 targetNormal = faceUp >= 0f ? up : -up;
+        Vector3 torqueAxis = Vector3.Cross(cover, targetNormal);
+        if (torqueAxis.sqrMagnitude < 0.0001f) return;
+
+        body.WakeUp();
+        body.AddTorque(torqueAxis.normalized * 2.25f, ForceMode.VelocityChange);
+        impactTipAttempts++;
+        stillTimer = 0f;
+        settleNotBefore = Time.time + 0.75f;
     }
 
     private void RecordSettlingContacts(Collision collision)
@@ -321,6 +361,7 @@ public class BookItem : MonoBehaviour
     {
         IsHeld = held;
         settleAttempts = 0;
+        impactTipAttempts = 0;
         settleNotBefore = Time.time;
         settlingContactCount = 0;
         contactStep = float.NegativeInfinity;
