@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: -8479386117535357666}
   - component: {fileID: -7917262805429166699}
   - component: {fileID: -4390204739488591778}
+  - component: {fileID: -3683331118402627051}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -246,6 +247,27 @@ MonoBehaviour:
   audioListener: {fileID: 0}
   ownerOnlyComponents: []
   connectHudToLocalPlayer: 1
+--- !u!114 &-3683331118402627051
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1739931180370153639}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88aabee6e9a4c2e48b6a54d62289f535, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::YaratikGucu
+  tus: 111
+  mod: 0
+  raftakileriDeAl: 1
+  maksAdet: 0
+  sadeceEditorVeDevBuild: 1
+  dokmeMesafesi: 1.3
+  dokmeYaricapi: 0.45
+  dokmeYuksekligi: 0.9
+  konsolaYaz: 1
 --- !u!1 &1917522945680463905
 GameObject:
   m_ObjectHideFlags: 0
