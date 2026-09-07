@@ -5,9 +5,9 @@ using UnityEngine;
 public class BookEdgeLines : MonoBehaviour
 {
     [Header("Yuzey Birlesim Cizgileri")]
-    [Range(1f, 80f)] public float creaseAngle = 12f;
-    [Min(0.0001f)] public float lineWidth = 0.012f;
-    [Min(0f)] public float surfaceOffset = 0.0012f;
+    [Range(1f, 80f)] public float creaseAngle = 10f;
+    [Min(0.0001f)] public float lineWidth = 0.04f;
+    [Min(0f)] public float surfaceOffset = 0.002f;
     [Min(0.000001f)] public float vertexWeldTolerance = 0.00005f;
     public Color lineColor = Color.black;
 
