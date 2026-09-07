@@ -2,12 +2,12 @@ Shader "Custom/BookEdgeLine"
 {
     Properties
     {
-        _Color ("Color", Color) = (0,0,0,1)
+        _Color ("Edge Color", Color) = (0,0,0,1)
     }
 
     SubShader
     {
-        Tags { "RenderType"="Transparent" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry+1" }
+        Tags { "RenderType"="Opaque" "RenderPipeline"="UniversalPipeline" "Queue"="Geometry+1" }
 
         Pass
         {
@@ -26,15 +26,8 @@ Shader "Custom/BookEdgeLine"
                 float4 _Color;
             CBUFFER_END
 
-            struct Attributes
-            {
-                float3 positionOS : POSITION;
-            };
-
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-            };
+            struct Attributes { float3 positionOS : POSITION; };
+            struct Varyings { float4 positionCS : SV_POSITION; };
 
             Varyings vert(Attributes IN)
             {
