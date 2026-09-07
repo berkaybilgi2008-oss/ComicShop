@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -121,13 +122,15 @@ public class BookRecallMachine : MonoBehaviour
 
     void Update()
     {
-        if (Time.time - lastLostCheckTime >= lostCheckInterval)
+        bool networkScene = ConnectionManager.Instance != null;
+        bool authority = !networkScene || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
+        if (authority && Time.time - lastLostCheckTime >= lostCheckInterval)
         {
             lastLostCheckTime = Time.time;
             ScanLostBooks();
         }
 
-        if (Input.GetKeyDown(useKey) && IsPlayerLooking())
+        if (Cursor.lockState == CursorLockMode.Locked && Input.GetKeyDown(useKey) && IsPlayerLooking())
         {
             if (recallMode == RecallMode.AllLostBooks)
                 TryRecallAllLost();
@@ -143,6 +146,7 @@ public class BookRecallMachine : MonoBehaviour
     /// <summary>Kayip olan butun kitaplari geri getirir. Kurtarma araci olarak asil kullanim bu.</summary>
     public bool TryRecallAllLost()
     {
+        if (ForwardClientRequest()) return false;
         if (!IsReady)
         {
             Debug.Log($"Isinlama makinesi: {CooldownRemaining:0.0} saniye daha bekle.");
@@ -178,6 +182,7 @@ public class BookRecallMachine : MonoBehaviour
     /// <summary>Verilen ID'li kitabin raftaki olmayan bir kopyasini cagirir.</summary>
     public bool TryRecall(int bookID)
     {
+        if (ForwardClientRequest()) return false;
         if (!IsReady)
         {
             Debug.Log($"Isinlama makinesi: {CooldownRemaining:0.0} saniye daha bekle.");
@@ -480,10 +485,33 @@ public class BookRecallMachine : MonoBehaviour
     // Etkilesim
     // ------------------------------------------------------------------
 
+    public void ResetSession()
+    {
+        recoveryCounts.Clear();
+        lostSince.Clear();
+        lastRecallTime = -9999f;
+        lastLostCheckTime = Time.time;
+        playerCamera = null;
+    }
+
+    private bool ForwardClientRequest()
+    {
+        if (ConnectionManager.Instance == null) return false;
+        var manager = NetworkManager.Singleton;
+        if (manager != null && manager.IsServer) return false;
+        var player = NetworkPlayerSetup.LocalPlayer;
+        if (player != null && player.playerCamera != null)
+            player.RecallRpc(transform.position, player.playerCamera.transform.forward);
+        return true;
+    }
+
     private bool IsPlayerLooking()
     {
-        if (playerCamera == null)
+        if (ConnectionManager.Instance != null)
+            playerCamera = NetworkPlayerSetup.LocalPlayer != null ? NetworkPlayerSetup.LocalPlayer.playerCamera : null;
+        if (playerCamera == null || !playerCamera.enabled)
         {
+            if (ConnectionManager.Instance != null) return false;
             playerCamera = Camera.main;
             if (playerCamera == null)
                 return false;

@@ -14,6 +14,8 @@ GameObject:
   - component: {fileID: 5803203215176672540}
   - component: {fileID: 5362157238105092910}
   - component: {fileID: 571618341128090750}
+  - component: {fileID: 8100000000000000001}
+  - component: {fileID: 8100000000000000002}
   m_Layer: 8
   m_Name: Book
   m_TagString: Untagged
@@ -150,3 +152,33 @@ MonoBehaviour:
   bookID: 0
   outlineMaterial: {fileID: 2100000, guid: cd388d05880adb54c82dd2dcfdfb0d7b, type: 2}
   outlineScale: 1.07
+--- !u!114 &8100000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5900836606748428891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1347672060
+  AlwaysReplicateAsRoot: 1
+  SynchronizeTransform: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 1
+  AutoObjectParentSync: 0
+--- !u!114 &8100000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5900836606748428891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b75cb878820e4d90ab6e70d0547b8a29, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkBook

@@ -20,15 +20,19 @@ public class PlayerController : MonoBehaviour
     private Vector3 velocity;
     private float pitch = 0f;
 
-    void Start()
+    void Awake()
     {
         controller = GetComponent<CharacterController>();
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (cameraTransform == null)
+        {
+            Camera camera = GetComponentInChildren<Camera>(true);
+            if (camera != null) cameraTransform = camera.transform;
+        }
     }
 
     void Update()
     {
+        if (Cursor.lockState != CursorLockMode.Locked || cameraTransform == null || !controller.enabled) return;
         HandleLook();
         HandleMove();
     }

@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using Unity.Netcode;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
@@ -62,6 +63,11 @@ public static class ComicShopBookSetup
             .ToArray();
         foreach (string oldAsset in oldData)
             AssetDatabase.DeleteAsset(oldAsset);
+
+        var networkPrefabs = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>("Assets/DefaultNetworkPrefabs.asset");
+        if (networkPrefabs != null)
+            foreach (var entry in networkPrefabs.PrefabList.ToArray())
+                if (entry.Prefab == null) networkPrefabs.Remove(entry);
 
         BookData[] data = new BookData[15];
 
@@ -145,10 +151,17 @@ public static class ComicShopBookSetup
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             }
 
+            var networkObject = bookRoot.AddComponent<NetworkObject>();
+            networkObject.AutoObjectParentSync = false;
+            networkObject.AlwaysReplicateAsRoot = true;
+            networkObject.DontDestroyWithOwner = true;
+            bookRoot.AddComponent<NetworkBook>();
             PrefabUtility.SaveAsPrefabAsset(bookRoot, prefabPath);
             UnityEngine.Object.DestroyImmediate(bookRoot);
 
             GameObject savedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (networkPrefabs != null && !networkPrefabs.Contains(savedPrefab))
+                networkPrefabs.Add(new NetworkPrefab { Prefab = savedPrefab });
             BookData asset = ScriptableObject.CreateInstance<BookData>();
             asset.BookID = i;
             asset.BrandID = 0;
@@ -157,6 +170,7 @@ public static class ComicShopBookSetup
             data[i] = asset;
         }
 
+        if (networkPrefabs != null) EditorUtility.SetDirty(networkPrefabs);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
