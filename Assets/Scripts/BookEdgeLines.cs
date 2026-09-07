@@ -6,8 +6,8 @@ public class BookEdgeLines : MonoBehaviour
 {
     [Header("Yuzey Birlesim Cizgileri")]
     [Range(1f, 80f)] public float creaseAngle = 12f;
-    [Min(0.0001f)] public float lineWidth = 0.025f;
-    [Min(0f)] public float surfaceOffset = 0.002f;
+    [Min(0.0001f)] public float lineWidth = 0.012f;
+    [Min(0f)] public float surfaceOffset = 0.0012f;
     [Min(0.000001f)] public float vertexWeldTolerance = 0.00005f;
     public Color lineColor = Color.black;
 
@@ -48,9 +48,7 @@ public class BookEdgeLines : MonoBehaviour
     private void BuildForMesh(MeshFilter filter)
     {
         Mesh source = filter.sharedMesh;
-        if (source == null) return;
-
-        if (source.name == "Cube" || source.name.StartsWith("Cube.")) return;
+        if (source == null || source.name == "Cube" || source.name.StartsWith("Cube.")) return;
         if (!source.isReadable) return;
 
         try
@@ -152,7 +150,8 @@ public class BookEdgeLines : MonoBehaviour
         lineObject.AddComponent<MeshFilter>().sharedMesh = edgeMesh;
         MeshRenderer renderer = lineObject.AddComponent<MeshRenderer>();
         renderer.sharedMaterial = GetLineMaterial();
-        renderer.sharedMaterial.SetColor("_Color", lineColor);
+        if (renderer.sharedMaterial != null)
+            renderer.sharedMaterial.SetColor("_Color", lineColor);
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         renderer.receiveShadows = false;
     }
