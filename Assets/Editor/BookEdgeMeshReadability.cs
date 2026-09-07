@@ -6,14 +6,13 @@ public static class BookEdgeMeshReadability
 {
     static BookEdgeMeshReadability()
     {
-        EditorApplication.delayCall += EnsureReadable;
+        EditorApplication.delayCall += EnsureReadableDelayed;
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
 
-    [InitializeOnLoadMethod]
-    private static void Initialize()
+    private static void EnsureReadableDelayed()
     {
-        EditorApplication.delayCall += EnsureReadable;
+        EnsureReadable();
     }
 
     [MenuItem("Tools/Comic Shop/Enable Book Edge Mesh Read/Write")]
