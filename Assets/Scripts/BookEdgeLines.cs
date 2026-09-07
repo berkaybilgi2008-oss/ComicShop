@@ -45,6 +45,11 @@ public class BookEdgeLines : MonoBehaviour
             properties.SetVector("_InkBoundsMin", bounds.min);
             properties.SetVector("_InkBoundsMax", bounds.max);
             properties.SetVector("_InkWidths", widths);
+            int thin = size.x < size.y ? 0 : 1;
+            if (size.z < size[thin]) thin = 2;
+            Vector3 coverAxis = Vector3.zero;
+            coverAxis[thin] = 1f;
+            properties.SetVector("_InkCoverAxis", coverAxis);
             renderer.SetPropertyBlock(properties);
         }
     }
