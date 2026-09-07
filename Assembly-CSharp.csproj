@@ -68,23 +68,30 @@
     <Compile Include="Assets\Scripts\GameHUD.cs" />
     <Compile Include="Assets\Scripts\ShelfSlot.cs" />
     <Compile Include="Assets\Scripts\BookSpawner.cs" />
+    <Compile Include="Assets\Scripts\Net\NetworkBook.cs" />
     <Compile Include="Assets\Scripts\BookItem.cs" />
     <Compile Include="Assets\Scripts\GameStats.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotDuplicator.cs" />
     <Compile Include="Assets\Scripts\Net\ConnectionManager.cs" />
+    <Compile Include="Assets\Scripts\HeldBookVisualSpacing.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Crosshair.cs" />
     <Compile Include="Assets\Scripts\ThrownBook.cs" />
     <Compile Include="Assets\Scripts\BookcaseSlotGenerator.cs" />
     <Compile Include="Assets\Scripts\BookData.cs" />
     <Compile Include="Assets\Scripts\Net\ClientNetworkTransform.cs" />
+    <Compile Include="Assets\Scripts\ComicShopSyncTest.cs" />
     <Compile Include="Assets\Scripts\Net\NetworkPlayerSetup.cs" />
+    <Compile Include="Assets\Scripts\HeldBookHandOffset.cs" />
     <Compile Include="Assets\Scripts\BookRecallMachine.cs" />
+    <Compile Include="Assets\Scripts\BookToonEffect.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotGenerator.cs" />
     <Compile Include="Assets\Scripts\InteractionSettingsSanitizer.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
+    <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\Scripts\BrandConfig.cs" />
+    <Compile Include="Assets\Scripts\BookEdgeLines.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
@@ -97,12 +104,14 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface-Mobile.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SpaceWarp.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\SDFFunctions.hlsl" />
+    <None Include="Assets\Shaders\BookToon.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Custom-Atlas.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD.shader" />
     <None Include="Assets\TextMesh Pro\Resources\LineBreaking Leading Characters.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMPro_Properties.cginc" />
+    <None Include="Assets\ComicShopCel.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorLight.uss" />
     <None Include="Assets\TextMesh Pro\Shaders\TMPro_Surface.cginc" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SpaceWarp.shader" />
@@ -114,6 +123,7 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF Overlay.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Mobile.shader" />
     <None Include="Assets\TextMesh Pro\Fonts\LiberationSans - OFL.txt" />
+    <None Include="Assets\Shaders\BookEdgeLine.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorDark.uss" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD SpaceWarp.shader" />
