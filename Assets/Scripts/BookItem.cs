@@ -101,7 +101,7 @@ public class BookItem : MonoBehaviour
     private void AssistEdgeImpact(Collision collision)
     {
         if (IsHeld || currentSlot != null || body == null || body.isKinematic ||
-            physicsCollider == null || impactTipAttempts >= 2 || Physics.gravity.sqrMagnitude < 0.0001f)
+            physicsCollider == null || impactTipAttempts >= 1 || Physics.gravity.sqrMagnitude < 0.0001f)
             return;
 
         Vector3 up = -Physics.gravity.normalized;
@@ -116,6 +116,11 @@ public class BookItem : MonoBehaviour
         }
         if (!hitSupportingSurface) return;
 
+        // Books absorb most of the upward rebound from floors and piles.
+        float upwardSpeed = Vector3.Dot(body.linearVelocity, up);
+        if (upwardSpeed > 0f)
+            body.linearVelocity -= up * (upwardSpeed * 0.85f);
+
         ResolveLocalAxes();
         Vector3 cover = transform.TransformDirection(localCoverNormal).normalized;
         float faceUp = Vector3.Dot(cover, up);
@@ -127,7 +132,7 @@ public class BookItem : MonoBehaviour
         if (torqueAxis.sqrMagnitude < 0.0001f) return;
 
         body.WakeUp();
-        body.AddTorque(torqueAxis.normalized * 2.25f, ForceMode.VelocityChange);
+        body.AddTorque(torqueAxis.normalized * 0.75f, ForceMode.VelocityChange);
         impactTipAttempts++;
         stillTimer = 0f;
         settleNotBefore = Time.time + 0.75f;
