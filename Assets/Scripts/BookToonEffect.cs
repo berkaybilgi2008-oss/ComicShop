@@ -1,74 +1,72 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 [DisallowMultipleComponent]
 public class BookToonEffect : MonoBehaviour
 {
-    private static Shader toonShader;
+    private static readonly Dictionary<Material, Material> Materials = new Dictionary<Material, Material>();
+    private bool edgesBuilt;
 
-    void Awake()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetCache()
     {
-        ApplyToRenderers();
-        BookEdgeLines.ApplyToBook(gameObject);
+        foreach (Material material in Materials.Values)
+            if (material != null) Object.Destroy(material);
+        Materials.Clear();
+    }
+    private void Awake()
+    {
+        BuildBlackEdgeLines();
     }
 
     public static void ApplyToBook(GameObject book)
     {
-        if (book == null)
-            return;
-
+        if (book == null) return;
         BookToonEffect effect = book.GetComponent<BookToonEffect>();
         if (effect == null)
-            effect = book.AddComponent<BookToonEffect>();
-        else
         {
-            effect.ApplyToRenderers();
-            BookEdgeLines.ApplyToBook(book);
-        }
-    }
-
-    private void ApplyToRenderers()
-    {
-        if (toonShader == null)
-            toonShader = Shader.Find("Custom/BookToon");
-
-        if (toonShader == null)
-        {
-            Debug.LogWarning("BookToonEffect: Custom/BookToon shader bulunamadi.");
+            book.AddComponent<BookToonEffect>();
             return;
         }
+        effect.BuildBlackEdgeLines();
+    }
 
-        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        foreach (Renderer renderer in renderers)
+    private void BuildBlackEdgeLines()
+    {
+        Shader shader = Resources.Load<Shader>("BookCel");
+        if (shader == null) return;
+        foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>(true))
         {
-            if (renderer == null)
-                continue;
-
-            Material[] materials = renderer.materials;
-            for (int i = 0; i < materials.Length; i++)
+            if (renderer.transform.name.EndsWith("_CreaseLines")) continue;
+            Material[] slots = renderer.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < slots.Length; i++)
             {
-                Material material = materials[i];
-                if (material == null || material.shader == toonShader)
-                    continue;
-
-                Texture texture = null;
-                Color color = Color.white;
-
-                if (material.HasProperty("_BaseMap"))
-                    texture = material.GetTexture("_BaseMap");
-                else if (material.HasProperty("_MainTex"))
-                    texture = material.GetTexture("_MainTex");
-
-                if (material.HasProperty("_BaseColor"))
-                    color = material.GetColor("_BaseColor");
-                else if (material.HasProperty("_Color"))
-                    color = material.GetColor("_Color");
-
-                material.shader = toonShader;
-                material.SetTexture("_BaseMap", texture);
-                material.SetColor("_BaseColor", color);
+                Material source = slots[i];
+                if (source == null || source.shader == shader) continue;
+                if (!Materials.TryGetValue(source, out Material cel) || cel == null)
+                {
+                    cel = new Material(shader) { name = source.name + "_BookCel", enableInstancing = true };
+                    string map = source.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
+                    if (source.HasProperty(map))
+                    {
+                        cel.SetTexture("_BaseMap", source.GetTexture(map));
+                        cel.SetTextureScale("_BaseMap", source.GetTextureScale(map));
+                        cel.SetTextureOffset("_BaseMap", source.GetTextureOffset(map));
+                    }
+                    if (source.HasProperty("_BaseColor")) cel.SetColor("_BaseColor", source.GetColor("_BaseColor"));
+                    else if (source.HasProperty("_Color")) cel.SetColor("_BaseColor", source.GetColor("_Color"));
+                    Materials[source] = cel;
+                }
+                slots[i] = cel;
+                changed = true;
             }
-
-            renderer.materials = materials;
+            if (changed) renderer.sharedMaterials = slots;
+        }
+        if (!edgesBuilt)
+        {
+            edgesBuilt = true;
+            BookEdgeLines.ApplyToBook(gameObject);
         }
     }
 

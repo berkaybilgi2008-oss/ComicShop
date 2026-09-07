@@ -4,22 +4,21 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class BookEdgeLines : MonoBehaviour
 {
-    [Header("Yuzey Birlesim Cizgileri")]
-    [Range(1f, 80f)] public float creaseAngle = 12f;
-    [Min(0.0001f)] public float lineWidth = 0.012f;
-    [Min(0f)] public float surfaceOffset = 0.0012f;
+    [Header("Siyah Kitap Kenar Cizgileri")]
+    [Range(1f, 80f)] public float creaseAngle = 10f;
+    [Min(0.0001f)] public float lineWidth = 0.0018f;
+    [Min(0f)] public float surfaceOffset = 0.0005f;
     [Min(0.000001f)] public float vertexWeldTolerance = 0.00005f;
     public Color lineColor = Color.black;
 
     private const string GeneratedName = "__BookCreaseLines";
     private static Material lineMaterial;
-    private static bool warnedUnreadable;
 
     public static void ApplyToBook(GameObject book)
     {
         if (book == null) return;
         BookEdgeLines effect = book.GetComponent<BookEdgeLines>();
-        if (effect == null) effect = book.AddComponent<BookEdgeLines>();
+        if (effect == null) { book.AddComponent<BookEdgeLines>(); return; }
         effect.Rebuild();
     }
 
@@ -28,14 +27,25 @@ public class BookEdgeLines : MonoBehaviour
     private void OnDestroy()
     {
         Transform generated = transform.Find(GeneratedName);
-        if (generated != null) Destroy(generated.gameObject);
+        if (generated != null)
+        {
+            foreach (MeshFilter mesh in generated.GetComponentsInChildren<MeshFilter>())
+                if (mesh.sharedMesh != null) Destroy(mesh.sharedMesh);
+            Destroy(generated.gameObject);
+        }
     }
 
-    [ContextMenu("Rebuild Book Crease Lines")]
     public void Rebuild()
     {
         Transform old = transform.Find(GeneratedName);
-        if (old != null) DestroyImmediate(old.gameObject);
+        if (old != null)
+        {
+            foreach (MeshFilter mesh in old.GetComponentsInChildren<MeshFilter>())
+                if (mesh.sharedMesh != null) Destroy(mesh.sharedMesh);
+            old.gameObject.SetActive(false);
+            old.SetParent(null, true);
+            Destroy(old.gameObject);
+        }
 
         MeshFilter[] filters = GetComponentsInChildren<MeshFilter>(true);
         foreach (MeshFilter filter in filters)
@@ -48,60 +58,44 @@ public class BookEdgeLines : MonoBehaviour
     private void BuildForMesh(MeshFilter filter)
     {
         Mesh source = filter.sharedMesh;
-        if (source == null) return;
-
-        // Unity'nin prefab icindeki Cube/Cube.001 yardimci meshleri edge sistemi icin gerekli degil.
-        // Bunlar Read/Write kapali olabildigi icin dogrudan atliyoruz.
-        if (source.name == "Cube" || source.name.StartsWith("Cube.")) return;
+        if (source == null || source.name == "Cube" || source.name.StartsWith("Cube.")) return;
         if (!source.isReadable) return;
 
-        try
+        Vector3[] positions = source.vertices;
+        int[] triangles = source.triangles;
+        if (positions.Length < 3 || triangles.Length < 3) return;
+
+        Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
+        int[] weldedVertex = new int[positions.Length];
+        List<Vector3> weldedPositions = new List<Vector3>();
+        for (int i = 0; i < positions.Length; i++)
         {
-            Vector3[] positions = source.vertices;
-            int[] triangles = source.triangles;
-            if (positions.Length < 3 || triangles.Length < 3) return;
-
-            Dictionary<PositionKey, int> welded = new Dictionary<PositionKey, int>();
-            int[] weldedVertex = new int[positions.Length];
-            List<Vector3> weldedPositions = new List<Vector3>();
-            for (int i = 0; i < positions.Length; i++)
+            PositionKey key = new PositionKey(positions[i], vertexWeldTolerance);
+            int id;
+            if (!welded.TryGetValue(key, out id))
             {
-                PositionKey key = new PositionKey(positions[i], vertexWeldTolerance);
-                int id;
-                if (!welded.TryGetValue(key, out id))
-                {
-                    id = weldedPositions.Count;
-                    welded.Add(key, id);
-                    weldedPositions.Add(positions[i]);
-                }
-                weldedVertex[i] = id;
+                id = weldedPositions.Count;
+                welded.Add(key, id);
+                weldedPositions.Add(positions[i]);
             }
-
-            Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
-            for (int i = 0; i + 2 < triangles.Length; i += 3)
-            {
-                int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
-                int wa = weldedVertex[a], wb = weldedVertex[b], wc = weldedVertex[c];
-                if (wa == wb || wb == wc || wc == wa) continue;
-                Vector3 normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
-                if (normal.sqrMagnitude < 0.0000001f) continue;
-                normal.Normalize();
-                AddEdge(edges, wa, wb, normal);
-                AddEdge(edges, wb, wc, normal);
-                AddEdge(edges, wc, wa, normal);
-            }
-
-            BuildLines(filter, weldedPositions, edges);
+            weldedVertex[i] = id;
         }
-        catch (System.InvalidOperationException)
+
+        Dictionary<EdgeKey, EdgeData> edges = new Dictionary<EdgeKey, EdgeData>();
+        for (int i = 0; i + 2 < triangles.Length; i += 3)
         {
-            // Bir importer/runtime uyumsuzlugu edge sistemini oyundan dusurmesin.
-            if (!warnedUnreadable)
-            {
-                Debug.LogWarning("BookEdgeLines: Bir mesh okunamadi; bu mesh icin edge cizgisi atlandi.");
-                warnedUnreadable = true;
-            }
+            int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
+            int wa = weldedVertex[a], wb = weldedVertex[b], wc = weldedVertex[c];
+            if (wa == wb || wb == wc || wc == wa) continue;
+            Vector3 normal = Vector3.Cross(positions[b] - positions[a], positions[c] - positions[a]);
+            if (normal.sqrMagnitude < 0.0000001f) continue;
+            normal.Normalize();
+            AddEdge(edges, wa, wb, normal);
+            AddEdge(edges, wb, wc, normal);
+            AddEdge(edges, wc, wa, normal);
         }
+
+        BuildLines(filter, weldedPositions, edges);
     }
 
     private void BuildLines(MeshFilter filter, List<Vector3> positions, Dictionary<EdgeKey, EdgeData> edges)
@@ -133,8 +127,8 @@ public class BookEdgeLines : MonoBehaviour
             if (side.sqrMagnitude < 0.000001f) side = Vector3.Cross(tangent, nA).normalized;
             if (side.sqrMagnitude < 0.000001f) continue;
 
-            Vector3 offset = bisector * surfaceOffset;
-            Vector3 half = side * (lineWidth * 0.5f);
+            Vector3 offset = bisector * Mathf.Min(surfaceOffset, 0.0005f);
+            Vector3 half = side * (Mathf.Min(lineWidth, 0.0025f) * 0.5f);
             int start = lineVertices.Count;
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset - half));
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset + half));
@@ -182,9 +176,10 @@ public class BookEdgeLines : MonoBehaviour
     {
         if (lineMaterial == null)
         {
-            Shader shader = Shader.Find("Custom/BookEdgeLine");
+            Shader shader = Resources.Load<Shader>("BookEdgeLine");
             if (shader == null) return null;
             lineMaterial = new Material(shader) { name = "BookEdgeLine_Runtime" };
+            lineMaterial.SetColor("_Color", Color.black);
         }
         return lineMaterial;
     }
