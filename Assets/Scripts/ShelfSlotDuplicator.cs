@@ -56,10 +56,6 @@ public class ShelfSlotDuplicator : MonoBehaviour
     [Header("Uretim Ayarlari")]
     public string namePrefix = "ShelfSlot";
 
-    [Tooltip("Template'in izgaradaki yerini ve komsu yonlerini RAF modelinin " +
-             "sinirlarina gore otomatik bulur. Slotlar ters tarafa cikiyorsa acik birak.")]
-    public bool autoFitGridToShelf = true;
-
     [Tooltip("Uretmeden once eski uretilmis gozleri sil. Kapaliyken tekrar " +
              "calistirirsan eski ve yeni izgara ust uste biner.")]
     public bool clearBeforeGenerate = true;
@@ -67,10 +63,6 @@ public class ShelfSlotDuplicator : MonoBehaviour
     [Tooltip("Bir hucrede zaten slot var mi kontrolunun toleransi -- hucre " +
              "adiminin orani olarak. 0.25 = adimin dortte biri.")]
     [Range(0.05f, 0.49f)] public float occupancyTolerance = 0.25f;
-
-    private int resolvedTemplateColumn = 1;
-    private int resolvedTemplateRow = 1;
-    private Vector3 resolvedPlaneShift = Vector3.zero;
 
     // ==================================================================
     // 0) RAPOR
@@ -83,16 +75,14 @@ public class ShelfSlotDuplicator : MonoBehaviour
                      out Vector3 colLocal, out Vector3 rowLocal))
             return;
 
-        Vector3 fittedOriginLocal = originLocal + resolvedPlaneShift;
         float tol = Tolerans(colLocal, rowLocal);
 
         string log =
             $"[ShelfSlotDuplicator] '{name}' PLAN\n" +
             $"  Parent           : {(parent != null ? parent.name : "(sahne koku)")}\n" +
             $"  Parent lossyScale: {Fmt(parent != null ? parent.lossyScale : Vector3.one)}\n" +
-            $"  Template         : {templateSlot.name}  (izgarada R{resolvedTemplateRow}C{resolvedTemplateColumn})\n" +
+            $"  Template         : {templateSlot.name}  (izgarada R{templateRow}C{templateColumn})\n" +
             $"  Template local   : {Fmt(originLocal)}\n" +
-            $"  Rafa tasima      : {Fmt(resolvedPlaneShift)} (local)\n" +
             $"  Sutun adimi      : local {Fmt(colLocal)} -> dunyada {Dunya(parent, colLocal):0.000} m " +
             $"({(columnNeighbor != null ? "olculdu: " + columnNeighbor.name : "elle girildi")})\n" +
             $"  Satir adimi      : local {Fmt(rowLocal)} -> dunyada {Dunya(parent, rowLocal):0.000} m " +
@@ -105,7 +95,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
         {
             for (int c = 1; c <= columns; c++)
             {
-                Vector3 hedef = HucreLocal(fittedOriginLocal, colLocal, rowLocal, r, c);
+                Vector3 hedef = HucreLocal(originLocal, colLocal, rowLocal, r, c);
                 if (BuluHucreDolu(parent, hedef, tol, out ShelfSlot mevcut))
                 {
                     dolu++;
@@ -140,8 +130,6 @@ public class ShelfSlotDuplicator : MonoBehaviour
         if (!Hazirla(out Transform parent, out Vector3 originLocal,
                      out Vector3 colLocal, out Vector3 rowLocal))
             return;
-
-        ApplyResolvedPlaneShift(ref originLocal);
 
         if (clearBeforeGenerate)
             ClearGenerated();
@@ -279,20 +267,12 @@ public class ShelfSlotDuplicator : MonoBehaviour
             return false;
         }
 
-        if (templateColumn < 1 || templateRow < 1 ||
-            templateColumn > columns || templateRow > rows)
+        if (templateColumn > columns || templateRow > rows)
         {
             Debug.LogError($"[ShelfSlotDuplicator] Template izgaranin disinda: " +
                            $"R{templateRow}C{templateColumn} ama izgara {rows}x{columns}.", this);
             return false;
         }
-
-        resolvedTemplateColumn = templateColumn;
-        resolvedTemplateRow = templateRow;
-        resolvedPlaneShift = Vector3.zero;
-
-        if (autoFitGridToShelf)
-            AutoFitGrid(parent, originLocal, ref colLocal, ref rowLocal);
 
         return true;
     }
@@ -311,191 +291,8 @@ public class ShelfSlotDuplicator : MonoBehaviour
     private Vector3 HucreLocal(Vector3 originLocal, Vector3 colLocal, Vector3 rowLocal, int row, int col)
     {
         return originLocal
-             + colLocal * (col - resolvedTemplateColumn)
-             + rowLocal * (row - resolvedTemplateRow);
-    }
-
-    /// <summary>
-    /// Template'in hangi hucre oldugunu ve iki eksenin isaretini otomatik dener.
-    /// RAF Renderer sinirlarinin disina en az tasan, merkezine en iyi oturan
-    /// kombinasyon kazanir. Boylece kullanici komsuyu ters tarafta secse bile
-    /// izgara rafin disina dogru cogalmaz.
-    /// </summary>
-    private void AutoFitGrid(
-        Transform parent,
-        Vector3 originLocal,
-        ref Vector3 colLocal,
-        ref Vector3 rowLocal)
-    {
-        if (!TryGetShelfBounds(parent, out Bounds shelfBounds))
-            return;
-
-        Vector3 originalColumn = colLocal;
-        Vector3 originalRow = rowLocal;
-        Vector3 bestColumn = originalColumn;
-        Vector3 bestRow = originalRow;
-        int bestTemplateColumn = resolvedTemplateColumn;
-        int bestTemplateRow = resolvedTemplateRow;
-        float bestScore = float.PositiveInfinity;
-
-        int columnDirectionCount = columns > 1 ? 2 : 1;
-        int rowDirectionCount = rows > 1 ? 2 : 1;
-
-        for (int columnDirection = 0; columnDirection < columnDirectionCount; columnDirection++)
-        {
-            Vector3 candidateColumn = originalColumn * (columnDirection == 0 ? 1f : -1f);
-
-            for (int rowDirection = 0; rowDirection < rowDirectionCount; rowDirection++)
-            {
-                Vector3 candidateRow = originalRow * (rowDirection == 0 ? 1f : -1f);
-
-                for (int anchorRow = 1; anchorRow <= rows; anchorRow++)
-                {
-                    for (int anchorColumn = 1; anchorColumn <= columns; anchorColumn++)
-                    {
-                        float score = ScoreGridFit(
-                            parent,
-                            shelfBounds,
-                            originLocal,
-                            candidateColumn,
-                            candidateRow,
-                            anchorRow,
-                            anchorColumn);
-
-                        if (score < bestScore)
-                        {
-                            bestScore = score;
-                            bestColumn = candidateColumn;
-                            bestRow = candidateRow;
-                            bestTemplateColumn = anchorColumn;
-                            bestTemplateRow = anchorRow;
-                        }
-                    }
-                }
-            }
-        }
-
-        colLocal = bestColumn;
-        rowLocal = bestRow;
-        resolvedTemplateColumn = bestTemplateColumn;
-        resolvedTemplateRow = bestTemplateRow;
-
-        Vector3 normal = Vector3.Cross(bestColumn, bestRow);
-        if (normal.sqrMagnitude < 1e-12f)
-            return;
-
-        normal.Normalize();
-        Vector3 shelfCenterLocal = parent.InverseTransformPoint(shelfBounds.center);
-        Vector3 gridCenterLocal = originLocal
-            + bestColumn * (((columns + 1f) * 0.5f) - bestTemplateColumn)
-            + bestRow * (((rows + 1f) * 0.5f) - bestTemplateRow);
-
-        // Sutun ve satir eksenlerine dokunmadan yalnizca rafin derinlik
-        // ekseninde kaydir. Boylece elle ayarlanmis goz araliklari korunur.
-        resolvedPlaneShift = normal * Vector3.Dot(
-            shelfCenterLocal - gridCenterLocal,
-            normal);
-    }
-
-    private void ApplyResolvedPlaneShift(ref Vector3 originLocal)
-    {
-        if (resolvedPlaneShift.sqrMagnitude < 1e-12f)
-            return;
-
-#if UNITY_EDITOR
-        MoveReferenceSlot(templateSlot, resolvedPlaneShift);
-        MoveReferenceSlot(columnNeighbor, resolvedPlaneShift);
-        MoveReferenceSlot(rowNeighbor, resolvedPlaneShift);
-#endif
-
-        originLocal += resolvedPlaneShift;
-        resolvedPlaneShift = Vector3.zero;
-        MarkDirty();
-    }
-
-#if UNITY_EDITOR
-    private static void MoveReferenceSlot(ShelfSlot slot, Vector3 localShift)
-    {
-        if (slot == null)
-            return;
-
-        Undo.RecordObject(slot.transform, "Raf slotlarini rafa hizala");
-        slot.transform.localPosition += localShift;
-        EditorUtility.SetDirty(slot.transform);
-    }
-#endif
-
-    private bool TryGetShelfBounds(Transform parent, out Bounds bounds)
-    {
-        bounds = new Bounds();
-        if (parent == null)
-            return false;
-
-        bool found = false;
-
-        Renderer[] renderers = parent.GetComponentsInChildren<Renderer>();
-        foreach (Renderer renderer in renderers)
-        {
-            if (renderer == null || !renderer.enabled)
-                continue;
-
-            if (renderer.GetComponentInParent<ShelfSlot>() != null)
-                continue;
-
-            if (!found)
-            {
-                bounds = renderer.bounds;
-                found = true;
-            }
-            else
-            {
-                bounds.Encapsulate(renderer.bounds);
-            }
-        }
-
-        return found;
-    }
-
-    private float ScoreGridFit(
-        Transform parent,
-        Bounds shelfBounds,
-        Vector3 originLocal,
-        Vector3 colLocal,
-        Vector3 rowLocal,
-        int anchorRow,
-        int anchorColumn)
-    {
-        Vector3 extents = shelfBounds.extents;
-        extents.x = Mathf.Max(extents.x, 0.01f);
-        extents.y = Mathf.Max(extents.y, 0.01f);
-        extents.z = Mathf.Max(extents.z, 0.01f);
-
-        float score = 0f;
-        for (int row = 1; row <= rows; row++)
-        {
-            for (int column = 1; column <= columns; column++)
-            {
-                Vector3 localPoint = originLocal
-                    + colLocal * (column - anchorColumn)
-                    + rowLocal * (row - anchorRow);
-                Vector3 point = parent != null ? parent.TransformPoint(localPoint) : localPoint;
-                Vector3 normalized = new Vector3(
-                    (point.x - shelfBounds.center.x) / extents.x,
-                    (point.y - shelfBounds.center.y) / extents.y,
-                    (point.z - shelfBounds.center.z) / extents.z);
-
-                float outsideX = Mathf.Max(0f, Mathf.Abs(normalized.x) - 1.05f);
-                float outsideY = Mathf.Max(0f, Mathf.Abs(normalized.y) - 1.05f);
-                float outsideZ = Mathf.Max(0f, Mathf.Abs(normalized.z) - 1.05f);
-                float outsidePenalty = outsideX * outsideX
-                                     + outsideY * outsideY
-                                     + outsideZ * outsideZ;
-
-                score += outsidePenalty * 1000f + normalized.sqrMagnitude;
-            }
-        }
-
-        return score;
+             + colLocal * (col - templateColumn)
+             + rowLocal * (row - templateRow);
     }
 
     private float Tolerans(Vector3 colLocal, Vector3 rowLocal)
