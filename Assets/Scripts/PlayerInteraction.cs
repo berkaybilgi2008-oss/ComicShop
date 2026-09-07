@@ -523,12 +523,8 @@ public class PlayerInteraction : MonoBehaviour
 
     Quaternion GetHeldLocalRotation(BookItem book)
     {
-        if (book == null || rightHandPoint == null)
-            return Quaternion.identity;
-
-        Transform view = playerCamera != null ? playerCamera.transform : rightHandPoint;
-        Quaternion worldRotation = book.GetAlignedRotation(-view.forward, view.up);
-        return Quaternion.Inverse(rightHandPoint.rotation) * worldRotation;
+        // Preserve the authored hand anchor and each prefab's calibrated pose.
+        return book != null ? book.NativeRotation : Quaternion.identity;
     }
 
     IEnumerator MoveBookIntoHand(BookItem book)

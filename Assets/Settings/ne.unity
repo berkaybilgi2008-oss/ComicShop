@@ -219,8 +219,8 @@ Transform:
   m_GameObject: {fileID: 128921265}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.00006599905, z: -0.000059998292}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00004000, z: -0.00016000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -262,11 +262,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -308,8 +308,8 @@ Transform:
   m_GameObject: {fileID: 196728486}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.004473996, z: -0.00005999748}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00397000, z: -0.00016000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -351,11 +351,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -704,8 +704,8 @@ Transform:
   m_GameObject: {fileID: 444994224}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: -0.0043420005, z: -0.000059999144}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00405000, z: -0.00016000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -747,11 +747,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -798,8 +798,8 @@ Transform:
   m_GameObject: {fileID: 507786584}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.008882001, z: 0.0043100026}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00798000, z: 0.00431000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -841,11 +841,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -887,8 +887,8 @@ Transform:
   m_GameObject: {fileID: 519413507}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.00006599605, z: -0.004429998}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00004000, z: -0.00463000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -930,11 +930,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -976,8 +976,8 @@ Transform:
   m_GameObject: {fileID: 521269384}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: -0.00875, z: -0.0044299993}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00806000, z: -0.00463000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -1019,11 +1019,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1497,8 +1497,8 @@ Transform:
   m_GameObject: {fileID: 927025655}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: -0.004342001, z: -0.0044299993}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00405000, z: -0.00463000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -1540,11 +1540,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1586,8 +1586,8 @@ Transform:
   m_GameObject: {fileID: 1131708994}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.008882003, z: -0.000059996648}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00798000, z: -0.00016000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -1629,11 +1629,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1675,8 +1675,8 @@ Transform:
   m_GameObject: {fileID: 1258369804}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.008882, z: -0.0044299965}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00798000, z: -0.00463000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -1718,11 +1718,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1771,11 +1771,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1799,8 +1799,8 @@ Transform:
   m_GameObject: {fileID: 1360390108}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00121, y: -0.004342, z: 0.00431}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00405000, z: 0.00431000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -1860,11 +1860,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -1888,8 +1888,8 @@ Transform:
   m_GameObject: {fileID: 1507323932}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00121, y: -0.00875, z: -0.00006}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00806000, z: -0.00016000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -2045,8 +2045,8 @@ Transform:
   m_GameObject: {fileID: 1722810008}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.0044739977, z: -0.004429997}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00397000, z: -0.00463000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -2088,11 +2088,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -2134,8 +2134,8 @@ Transform:
   m_GameObject: {fileID: 1825950803}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.004473999, z: 0.0043100026}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: 0.00397000, z: 0.00431000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -2177,11 +2177,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -2286,8 +2286,8 @@ Transform:
   m_GameObject: {fileID: 1877744835}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -0.0012100001, y: 0.00006599724, z: 0.004310001}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00004000, z: 0.00431000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -2329,11 +2329,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -2428,8 +2428,8 @@ Transform:
   m_GameObject: {fileID: 1962727975}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.00121, y: -0.00875, z: 0.00431}
-  m_LocalScale: {x: 1, y: 1.93, z: 1.8790683}
+  m_LocalPosition: {x: -0.00121, y: -0.00806000, z: 0.00431000}
+  m_LocalScale: {x: 1, y: 1.8, z: 1.8790683}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 460708734}
@@ -2471,11 +2471,11 @@ MonoBehaviour:
   capacity: 10
   placementMode: 0
   spreadAxis: 2
-  edgePadding: 0.08
+  edgePadding: 0.048
   alignToBottom: 1
-  restBookOnSurface: 1
+  restBookOnSurface: 0
   bottomLift: -0.01
-  worldOffset: {x: 0.15, y: 0, z: 0.043}
+  worldOffset: {x: 0.15, y: 0.39, z: 0.0015}
   bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
   maxPointDistance: 3
   placementPoints:
@@ -2525,7 +2525,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 1baf66b0ea4a18f4482495d182c1c644, type: 3}
       propertyPath: m_LocalScale.y
-      value: 200
+      value: 210
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1baf66b0ea4a18f4482495d182c1c644, type: 3}
       propertyPath: m_LocalScale.z
@@ -2537,7 +2537,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1baf66b0ea4a18f4482495d182c1c644, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.99
+      value: 0.81
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 1baf66b0ea4a18f4482495d182c1c644, type: 3}
       propertyPath: m_LocalPosition.z
