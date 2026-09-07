@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Elde tasinan kitaplarin goruntusunu duzenler: aktif kitap gecisinde
 /// once acilir, sonra yukselir ve en sonunda stack konumuna oturur.
-/// Bu scriptin amaci test icin tek ve belirgin bir rotasyon degisikligi uygulamaktir.
+/// Rotasyonu PlayerInteraction yonetir; bu bilesen yalnizca gecis konumunu duzenler.
 /// </summary>
 public class HeldBookVisualSpacing : MonoBehaviour
 {
@@ -13,10 +13,6 @@ public class HeldBookVisualSpacing : MonoBehaviour
     [Min(0.01f)] public float cycleDuration = 0.24f;
     [Range(0.1f, 0.8f)] public float sidePhase = 0.35f;
     [Range(0.5f, 0.95f)] public float settleStart = 0.78f;
-
-    [Header("SYNC TEST - Elde Kitap Yonu")]
-    [Tooltip("Duz test rotasyonu. 90 = kitap eldeyken acik bir sekilde doner.")]
-    public float testHeldRotationY = 90f;
 
     private PlayerInteraction interaction;
     private int lastActiveIndex = -1;
@@ -45,8 +41,15 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
     void LateUpdate()
     {
-        if (interaction == null || interaction.rightHandPoint == null)
+        if (interaction == null || !interaction.enabled || interaction.rightHandPoint == null)
             return;
+
+        if (interaction.IsThrowPoseActive)
+        {
+            CancelTransitionWithoutMovingBook();
+            lastActiveIndex = interaction.ActiveHeldIndex;
+            return;
+        }
 
         int activeIndex = interaction.ActiveHeldIndex;
         bool wheelChangedBook = Mathf.Abs(Input.mouseScrollDelta.y) > 0.01f;
@@ -62,14 +65,12 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         if (!animating)
         {
-            ApplyTestRotationToHeldBooks();
             return;
         }
 
         if (animatingBook == null || !IsBookStillHeld(animatingBook))
         {
             animating = false;
-            ApplyTestRotationToHeldBooks();
             return;
         }
 
@@ -106,36 +107,15 @@ public class HeldBookVisualSpacing : MonoBehaviour
 
         animatingBook.transform.SetParent(interaction.rightHandPoint, false);
         animatingBook.transform.localPosition = local;
-        animatingBook.transform.localRotation = GetHeldTestRotation(animatingBook);
         animatingBook.transform.localScale = animatingBook.OriginalScale * interaction.heldScaleMultiplier;
 
         if (t >= 1f)
         {
             animatingBook.transform.localPosition = new Vector3(0f, targetY, 0f);
-            animatingBook.transform.localRotation = GetHeldTestRotation(animatingBook);
             animatingBook.transform.localScale = animatingBook.OriginalScale * interaction.heldScaleMultiplier;
             animating = false;
             animatingBook = null;
         }
-    }
-
-    void ApplyTestRotationToHeldBooks()
-    {
-        var books = interaction.HeldBooksList;
-        for (int i = 0; i < books.Count; i++)
-        {
-            BookItem book = books[i];
-            if (book == null || book.transform.parent != interaction.rightHandPoint)
-                continue;
-            book.transform.localRotation = GetHeldTestRotation(book);
-        }
-    }
-
-    Quaternion GetHeldTestRotation(BookItem book)
-    {
-        // Bu testte kitap rotasyonu, mevcut NativeRotation'a ikinci bir Y donusu
-        // ekliyor. Boylece degisikligin Unity'ye ulasip ulasmadigi cok net gorulur.
-        return Quaternion.AngleAxis(testHeldRotationY, Vector3.up) * book.NativeRotation;
     }
 
     bool IsBookStillHeld(BookItem book)
