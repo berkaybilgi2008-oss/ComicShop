@@ -6,8 +6,8 @@ public class BookEdgeLines : MonoBehaviour
 {
     [Header("Siyah Kitap Kenar Cizgileri")]
     [Range(1f, 80f)] public float creaseAngle = 10f;
-    [Min(0.0001f)] public float lineWidth = 0.04f;
-    [Min(0f)] public float surfaceOffset = 0.002f;
+    [Min(0.0001f)] public float lineWidth = 0.0018f;
+    [Min(0f)] public float surfaceOffset = 0.0005f;
     [Min(0.000001f)] public float vertexWeldTolerance = 0.00005f;
     public Color lineColor = Color.black;
 
@@ -18,7 +18,7 @@ public class BookEdgeLines : MonoBehaviour
     {
         if (book == null) return;
         BookEdgeLines effect = book.GetComponent<BookEdgeLines>();
-        if (effect == null) effect = book.AddComponent<BookEdgeLines>();
+        if (effect == null) { book.AddComponent<BookEdgeLines>(); return; }
         effect.Rebuild();
     }
 
@@ -27,13 +27,25 @@ public class BookEdgeLines : MonoBehaviour
     private void OnDestroy()
     {
         Transform generated = transform.Find(GeneratedName);
-        if (generated != null) Destroy(generated.gameObject);
+        if (generated != null)
+        {
+            foreach (MeshFilter mesh in generated.GetComponentsInChildren<MeshFilter>())
+                if (mesh.sharedMesh != null) Destroy(mesh.sharedMesh);
+            Destroy(generated.gameObject);
+        }
     }
 
     public void Rebuild()
     {
         Transform old = transform.Find(GeneratedName);
-        if (old != null) DestroyImmediate(old.gameObject);
+        if (old != null)
+        {
+            foreach (MeshFilter mesh in old.GetComponentsInChildren<MeshFilter>())
+                if (mesh.sharedMesh != null) Destroy(mesh.sharedMesh);
+            old.gameObject.SetActive(false);
+            old.SetParent(null, true);
+            Destroy(old.gameObject);
+        }
 
         MeshFilter[] filters = GetComponentsInChildren<MeshFilter>(true);
         foreach (MeshFilter filter in filters)
@@ -115,8 +127,8 @@ public class BookEdgeLines : MonoBehaviour
             if (side.sqrMagnitude < 0.000001f) side = Vector3.Cross(tangent, nA).normalized;
             if (side.sqrMagnitude < 0.000001f) continue;
 
-            Vector3 offset = bisector * surfaceOffset;
-            Vector3 half = side * (lineWidth * 0.5f);
+            Vector3 offset = bisector * Mathf.Min(surfaceOffset, 0.0005f);
+            Vector3 half = side * (Mathf.Min(lineWidth, 0.0025f) * 0.5f);
             int start = lineVertices.Count;
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset - half));
             lineVertices.Add(worldToRoot.MultiplyPoint3x4(p0World + offset + half));
@@ -164,7 +176,7 @@ public class BookEdgeLines : MonoBehaviour
     {
         if (lineMaterial == null)
         {
-            Shader shader = Shader.Find("Custom/BookEdgeLine");
+            Shader shader = Resources.Load<Shader>("BookEdgeLine");
             if (shader == null) return null;
             lineMaterial = new Material(shader) { name = "BookEdgeLine_Runtime" };
             lineMaterial.SetColor("_Color", Color.black);
