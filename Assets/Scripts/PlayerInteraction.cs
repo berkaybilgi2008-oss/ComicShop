@@ -520,6 +520,16 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
     }
 
+    Quaternion GetHeldLocalRotation(BookItem book)
+    {
+        if (book == null || rightHandPoint == null)
+            return Quaternion.identity;
+
+        Transform view = playerCamera != null ? playerCamera.transform : rightHandPoint;
+        Quaternion worldRotation = book.GetAlignedRotation(-view.forward, view.up);
+        return Quaternion.Inverse(rightHandPoint.rotation) * worldRotation;
+    }
+
     IEnumerator MoveBookIntoHand(BookItem book)
     {
         if (book == null || rightHandPoint == null)
@@ -533,7 +543,7 @@ public class PlayerInteraction : MonoBehaviour
 
         book.transform.SetParent(rightHandPoint, true);
         Vector3 targetLocalPosition = GetHeldLocalPosition(GetDisplayIndexForBook(book));
-        Quaternion targetLocalRotation = book.NativeRotation;
+        Quaternion targetLocalRotation = GetHeldLocalRotation(book);
         Vector3 targetLocalScale = book.OriginalScale * heldScaleMultiplier;
 
         Vector3 currentLocalPosition = book.transform.localPosition;
@@ -804,7 +814,7 @@ public class PlayerInteraction : MonoBehaviour
             int displayIndex = displayOrder.IndexOf(i);
             book.transform.SetParent(rightHandPoint, false);
             book.transform.localPosition = GetHeldLocalPosition(displayIndex);
-            book.transform.localRotation = book.NativeRotation;
+            book.transform.localRotation = GetHeldLocalRotation(book);
             book.transform.localScale = book.OriginalScale * heldScaleMultiplier;
         }
     }
