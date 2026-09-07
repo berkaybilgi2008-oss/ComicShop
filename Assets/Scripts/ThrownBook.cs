@@ -5,8 +5,8 @@ using UnityEngine;
 ///
 /// Iki isi var:
 ///   1) Kitap ucarken kendi duzleminde temiz doner (yalpalamaz).
-///   2) Firlatilan kitap yerdeki diger kitaplara CARPAR ama onlari SAVURMAZ,
-///      boylece yigin dagilmaz ve ayni anda onlarca rigidbody uyanmaz.
+///   2) Temastan sonra kendi donusunu yavaslatir. Diger dinamik kitaplarin
+///      hizini sifirlamaz; aksi halde dusme ve yerlesme engellenir.
 ///
 /// Fizik normal calisir: yercekimi hep aciktir, hiz hava surtunmesiyle
 /// yavas yavas duser. Hicbir yerde "sure doldu, dur" gibi yapay bir mudahale yok.
@@ -82,16 +82,10 @@ public class ThrownBook : MonoBehaviour
     void OnCollisionEnter(Collision collision)
     {
         RegisterHit();
-        DampenHitBook(collision);
 
         // ILERIDE: buraya oyuncuya carpma / bayiltma kontrolu gelecek.
         // PlayerController hit = collision.collider.GetComponentInParent<PlayerController>();
         // if (hit != null) { ... }
-    }
-
-    void OnCollisionStay(Collision collision)
-    {
-        DampenHitBook(collision);
     }
 
     /// <summary>Ilk temas: artik normal bir kitap gibi davransin.</summary>
@@ -103,24 +97,6 @@ public class ThrownBook : MonoBehaviour
         hasHit = true;
         body.linearDamping = impactLinearDamping;
         body.angularDamping = impactAngularDamping;
-    }
-
-    /// <summary>Carpilan kitabin hizini sifirlar: temas olur, savrulma olmaz.</summary>
-    private void DampenHitBook(Collision collision)
-    {
-        if (collision.collider == null)
-            return;
-
-        BookItem other = collision.collider.GetComponentInParent<BookItem>();
-        if (other == null || other.gameObject == gameObject || other.IsHeld)
-            return;
-
-        Rigidbody otherBody = other.GetComponent<Rigidbody>();
-        if (otherBody == null || otherBody.isKinematic)
-            return;
-
-        otherBody.linearVelocity = Vector3.zero;
-        otherBody.angularVelocity = Vector3.zero;
     }
 
     void OnDestroy()

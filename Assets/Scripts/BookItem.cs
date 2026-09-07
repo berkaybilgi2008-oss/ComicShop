@@ -36,6 +36,15 @@ public class BookItem : MonoBehaviour
     public float sleepAngularVelocity = 0.03f;
     public float sleepDelay = 0.25f;
     private float stillTimer;
+    private Rigidbody body;
+    private Collider physicsCollider;
+    // Fixed storage: no contact-array allocation or scene scan per physics step.
+    private readonly ContactPoint[] settlingContacts = new ContactPoint[32];
+    private int settlingContactCount;
+    private float contactStep = float.NegativeInfinity;
+    private int settleAttempts;
+    private float settleNotBefore;
+    private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
 
     [Header("Elde Tutulan Kitap Kontrolu")]
     [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
@@ -47,35 +56,127 @@ public class BookItem : MonoBehaviour
     {
         originalScale = transform.localScale;
         outlineObjects = null;
+        body = GetComponent<Rigidbody>();
+        physicsCollider = GetComponentInChildren<Collider>();
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        if (IsHeld) return;
-        Rigidbody rb = GetComponent<Rigidbody>();
-        if (rb == null || rb.isKinematic) return;
+        if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        if (Time.time < settleNotBefore) return;
 
-        if (rb.linearVelocity.sqrMagnitude <= sleepLinearVelocity * sleepLinearVelocity &&
-            rb.angularVelocity.sqrMagnitude <= sleepAngularVelocity * sleepAngularVelocity)
+        if (body.linearVelocity.sqrMagnitude > sleepLinearVelocity * sleepLinearVelocity ||
+            body.angularVelocity.sqrMagnitude > sleepAngularVelocity * sleepAngularVelocity)
         {
-            stillTimer += Time.deltaTime;
-            SupportState supportState = GetSupportState();
-            if (stillTimer >= sleepDelay && supportState == SupportState.Stable)
-            {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
-                rb.isKinematic = true;
-                rb.Sleep();
-                stillTimer = 0f;
-            }
+            stillTimer = 0f;
+            return;
         }
-        else stillTimer = 0f;
+
+        stillTimer += Time.fixedDeltaTime;
+        if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
+        stillTimer = 0f;
+        // Only query the existing support chain when actually ready to freeze.
+        if (GetSupportState() != SupportState.Stable) return;
+        if (!CanFreezeAfterSettling()) return;
+
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.isKinematic = true;
+    }
+
+    void OnCollisionEnter(Collision collision) { RecordSettlingContacts(collision); }
+    void OnCollisionStay(Collision collision) { RecordSettlingContacts(collision); }
+    void OnCollisionExit(Collision collision)
+    {
+        settlingContactCount = 0;
+        contactStep = float.NegativeInfinity;
+        stillTimer = 0f;
+    }
+
+    private void RecordSettlingContacts(Collision collision)
+    {
+        if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        if (contactStep != Time.fixedTime)
+        {
+            contactStep = Time.fixedTime;
+            settlingContactCount = 0;
+        }
+        for (int i = 0; i < collision.contactCount && settlingContactCount < settlingContacts.Length; i++)
+            settlingContacts[settlingContactCount++] = collision.GetContact(i);
+    }
+
+    private bool CanFreezeAfterSettling()
+    {
+        // Sleeping bodies stop sending Stay; their last contacts remain useful.
+        if (settlingContactCount == 0 ||
+            (!body.IsSleeping() && Time.fixedTime - contactStep > Time.fixedDeltaTime * 2.5f))
+        {
+            body.WakeUp();
+            return false;
+        }
+        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f) return true;
+        ResolveLocalAxes();
+        Vector3 up = -Physics.gravity.normalized;
+        Vector3 cover = transform.TransformDirection(localCoverNormal).normalized;
+        Vector3 fall = Vector3.ProjectOnPlane(cover, up);
+        // Broad-face resting poses need no artificial flattening.
+        if (fall.sqrMagnitude < 0.5f) return true;
+        fall.Normalize();
+        Vector3 center = body.worldCenterOfMass;
+        float minSupport = float.PositiveInfinity;
+        float maxSupport = float.NegativeInfinity;
+        float supportHeight = 0f;
+        int supports = 0;
+        bool braced = false;
+        float height = Vector3.Dot(physicsCollider.bounds.extents, new Vector3(
+            Mathf.Abs(up.x), Mathf.Abs(up.y), Mathf.Abs(up.z))) * 2f;
+
+        for (int i = 0; i < settlingContactCount; i++)
+        {
+            ContactPoint contact = settlingContacts[i];
+            Vector3 offset = contact.point - center;
+            float vertical = Vector3.Dot(offset, up);
+            float normalUp = Vector3.Dot(contact.normal, up);
+            // A wall/another book supporting the upper body is a legitimate lean.
+            if (vertical > -height * 0.2f && Mathf.Abs(normalUp) < 0.7f)
+                braced = true;
+            if (normalUp < 0.5f || vertical >= 0f) continue;
+            float position = Vector3.Dot(offset, fall);
+            minSupport = Mathf.Min(minSupport, position);
+            maxSupport = Mathf.Max(maxSupport, position);
+            supportHeight += -vertical;
+            supports++;
+        }
+        if (supports == 0) { body.WakeUp(); return false; }
+        if (braced) return true;
+        // Bounded assistance: do not keep wedged piles awake with repeated kicks.
+        if (settleAttempts >= 2) return true;
+        float lever = supportHeight / supports;
+        bool outsideSupport = minSupport > 0.002f || maxSupport < -0.002f;
+        bool narrowEdge = maxSupport - minSupport < lever * 0.6f;
+        if (!outsideSupport && !narrowEdge) return true;
+
+        float direction;
+        if (outsideSupport) direction = minSupport > 0f ? -1f : 1f;
+        else
+        {
+            // Tip towards the already lower face; exact vertical gets a stable tie-break.
+            float faceUp = Vector3.Dot(cover, up);
+            direction = faceUp < 0f ? 1f : -1f;
+        }
+        body.WakeUp();
+        body.AddTorque(Vector3.Cross(up, fall * direction) * (0.9f + 0.3f * settleAttempts),
+            ForceMode.VelocityChange);
+        settleAttempts++;
+        settleNotBefore = Time.time + 0.75f;
+        settlingContactCount = 0;
+        return false;
     }
 
     SupportState GetSupportState()
     {
-        HashSet<BookItem> visited = new HashSet<BookItem>();
-        return GetSupportStateRecursive(this, visited);
+        supportVisited.Clear();
+        return GetSupportStateRecursive(this, supportVisited);
     }
 
     SupportState GetSupportStateRecursive(BookItem book, HashSet<BookItem> visited)
@@ -219,6 +320,10 @@ public class BookItem : MonoBehaviour
     public void SetHeld(bool held)
     {
         IsHeld = held;
+        settleAttempts = 0;
+        settleNotBefore = Time.time;
+        settlingContactCount = 0;
+        contactStep = float.NegativeInfinity;
         if (held) SetHighlight(false);
 
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
