@@ -70,6 +70,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
 
     private int resolvedTemplateColumn = 1;
     private int resolvedTemplateRow = 1;
+    private Vector3 resolvedPlaneShift = Vector3.zero;
 
     // ==================================================================
     // 0) RAPOR
@@ -82,6 +83,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
                      out Vector3 colLocal, out Vector3 rowLocal))
             return;
 
+        Vector3 fittedOriginLocal = originLocal + resolvedPlaneShift;
         float tol = Tolerans(colLocal, rowLocal);
 
         string log =
@@ -90,6 +92,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
             $"  Parent lossyScale: {Fmt(parent != null ? parent.lossyScale : Vector3.one)}\n" +
             $"  Template         : {templateSlot.name}  (izgarada R{resolvedTemplateRow}C{resolvedTemplateColumn})\n" +
             $"  Template local   : {Fmt(originLocal)}\n" +
+            $"  Rafa tasima      : {Fmt(resolvedPlaneShift)} (local)\n" +
             $"  Sutun adimi      : local {Fmt(colLocal)} -> dunyada {Dunya(parent, colLocal):0.000} m " +
             $"({(columnNeighbor != null ? "olculdu: " + columnNeighbor.name : "elle girildi")})\n" +
             $"  Satir adimi      : local {Fmt(rowLocal)} -> dunyada {Dunya(parent, rowLocal):0.000} m " +
@@ -102,7 +105,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
         {
             for (int c = 1; c <= columns; c++)
             {
-                Vector3 hedef = HucreLocal(originLocal, colLocal, rowLocal, r, c);
+                Vector3 hedef = HucreLocal(fittedOriginLocal, colLocal, rowLocal, r, c);
                 if (BuluHucreDolu(parent, hedef, tol, out ShelfSlot mevcut))
                 {
                     dolu++;
@@ -137,6 +140,8 @@ public class ShelfSlotDuplicator : MonoBehaviour
         if (!Hazirla(out Transform parent, out Vector3 originLocal,
                      out Vector3 colLocal, out Vector3 rowLocal))
             return;
+
+        ApplyResolvedPlaneShift(ref originLocal);
 
         if (clearBeforeGenerate)
             ClearGenerated();
@@ -284,6 +289,7 @@ public class ShelfSlotDuplicator : MonoBehaviour
 
         resolvedTemplateColumn = templateColumn;
         resolvedTemplateRow = templateRow;
+        resolvedPlaneShift = Vector3.zero;
 
         if (autoFitGridToShelf)
             AutoFitGrid(parent, originLocal, ref colLocal, ref rowLocal);
@@ -373,7 +379,51 @@ public class ShelfSlotDuplicator : MonoBehaviour
         rowLocal = bestRow;
         resolvedTemplateColumn = bestTemplateColumn;
         resolvedTemplateRow = bestTemplateRow;
+
+        Vector3 normal = Vector3.Cross(bestColumn, bestRow);
+        if (normal.sqrMagnitude < 1e-12f)
+            return;
+
+        normal.Normalize();
+        Vector3 shelfCenterLocal = parent.InverseTransformPoint(shelfBounds.center);
+        Vector3 gridCenterLocal = originLocal
+            + bestColumn * (((columns + 1f) * 0.5f) - bestTemplateColumn)
+            + bestRow * (((rows + 1f) * 0.5f) - bestTemplateRow);
+
+        // Sutun ve satir eksenlerine dokunmadan yalnizca rafin derinlik
+        // ekseninde kaydir. Boylece elle ayarlanmis goz araliklari korunur.
+        resolvedPlaneShift = normal * Vector3.Dot(
+            shelfCenterLocal - gridCenterLocal,
+            normal);
     }
+
+    private void ApplyResolvedPlaneShift(ref Vector3 originLocal)
+    {
+        if (resolvedPlaneShift.sqrMagnitude < 1e-12f)
+            return;
+
+#if UNITY_EDITOR
+        MoveReferenceSlot(templateSlot, resolvedPlaneShift);
+        MoveReferenceSlot(columnNeighbor, resolvedPlaneShift);
+        MoveReferenceSlot(rowNeighbor, resolvedPlaneShift);
+#endif
+
+        originLocal += resolvedPlaneShift;
+        resolvedPlaneShift = Vector3.zero;
+        MarkDirty();
+    }
+
+#if UNITY_EDITOR
+    private static void MoveReferenceSlot(ShelfSlot slot, Vector3 localShift)
+    {
+        if (slot == null)
+            return;
+
+        Undo.RecordObject(slot.transform, "Raf slotlarini rafa hizala");
+        slot.transform.localPosition += localShift;
+        EditorUtility.SetDirty(slot.transform);
+    }
+#endif
 
     private bool TryGetShelfBounds(Transform parent, out Bounds bounds)
     {
