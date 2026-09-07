@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// Bir raf gozu (bolme). Kitaplar artik elle yerlestirilen "Point" child'larina
@@ -79,6 +80,70 @@ public class ShelfSlot : MonoBehaviour
     public int OwnerBookID => ownerBookID;
     public bool IsAvailable => FilledCount < capacity;
     public bool IsClaimed => ownerBookID >= 0;
+
+    public ulong NetworkKey { get; private set; }
+    private static readonly Dictionary<ulong, ShelfSlot> networkSlots = new Dictionary<ulong, ShelfSlot>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetRegistry() => networkSlots.Clear();
+
+    public static void BuildNetworkRegistry()
+    {
+        networkSlots.Clear();
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+        {
+            string path = slot.gameObject.scene.path;
+            var indices = new Stack<string>();
+            for (Transform t = slot.transform; t != null; t = t.parent)
+                indices.Push(t.GetSiblingIndex() + ":" + t.name);
+            path += "/" + string.Join("/", indices);
+            // Stable FNV-1a, unlike string.GetHashCode()/instance IDs across processes.
+            ulong key = 14695981039346656037UL;
+            unchecked { foreach (char c in path) { key ^= c; key *= 1099511628211UL; } }
+            if (key == 0 || networkSlots.ContainsKey(key))
+                throw new System.InvalidOperationException("Duplicate shelf network identity: " + path);
+            slot.NetworkKey = key;
+            networkSlots.Add(key, slot);
+        }
+    }
+
+    public static ShelfSlot FindNetworkSlot(ulong key)
+    {
+        if (!networkSlots.TryGetValue(key, out var slot) || slot == null)
+        {
+            BuildNetworkRegistry();
+            networkSlots.TryGetValue(key, out slot);
+        }
+        return slot;
+    }
+
+    public int GetBookIndex(BookItem book)
+    {
+        EnsureArray();
+        return System.Array.IndexOf(placedBooks, book);
+    }
+
+    public BookItem PeekLastBook()
+    {
+        EnsureArray();
+        for (int i = placedBooks.Length - 1; i >= 0; i--)
+            if (placedBooks[i] != null) return placedBooks[i];
+        return null;
+    }
+
+    // Replay the host's committed slot/index, including late joins and holes in a shelf.
+    public void ApplyNetworkPlacement(BookItem book, int index)
+    {
+        EnsureArray();
+        if (book == null || index < 0 || index >= placedBooks.Length || placedBooks[index] == book) return;
+        if (placedBooks[index] != null) RemoveBook(placedBooks[index]);
+        if (book.currentSlot != null) book.currentSlot.RemoveBook(book);
+        placedBooks[index] = book;
+        FilledCount++;
+        ownerBookID = book.bookID;
+        book.currentSlot = this;
+        GameStats.RegisterPlacement(book.bookID);
+    }
 
     void Awake()
     {

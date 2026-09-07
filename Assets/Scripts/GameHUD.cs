@@ -14,7 +14,8 @@ public class GameHUD : MonoBehaviour
 
     void Update()
     {
-        if (hudText == null || playerInteraction == null) return;
+        if (hudText == null) return;
+        if (playerInteraction == null) { hudText.text = ""; return; }
 
         sb.Clear();
         sb.Append(GameStats.CompletedBookGroupCount).Append("/").Append(GameStats.totalBookTypes)

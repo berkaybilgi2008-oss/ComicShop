@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,14 +22,49 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int testBookTypeCount = 15;
 
+    private bool sessionSpawned;
+
     void Start()
+    {
+        if (FindFirstObjectByType<NetworkManager>() != null) return;
+        InitializeStats();
+        SpawnBooks(BookTypeCount);
+    }
+
+    private int BookTypeCount => bookTypes != null && bookTypes.Length > 0
+        ? bookTypes.Length : Mathf.Min(testBookTypeCount, BrandConfig.TotalBookTypeCount);
+
+    public void PrepareSession(NetworkManager manager)
+    {
+        sessionSpawned = false;
+        InitializeStats();
+        for (int index = 0; index < BookTypeCount; index++)
+        {
+            var data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
+            var prefab = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
+            if (prefab == null || prefab.GetComponent<NetworkObject>() == null || prefab.GetComponent<NetworkBook>() == null)
+                throw new System.InvalidOperationException($"BookSpawner: kitap {index} prefabinda NetworkObject/NetworkBook eksik.");
+            bool registered = manager.NetworkConfig.Prefabs.Contains(prefab);
+            foreach (var list in manager.NetworkConfig.Prefabs.NetworkPrefabsLists)
+                if (list != null && list.Contains(prefab)) registered = true;
+            if (!registered) manager.AddNetworkPrefab(prefab);
+        }
+    }
+
+    public void SpawnSession()
+    {
+        if (sessionSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
+        sessionSpawned = true;
+        SpawnBooks(BookTypeCount);
+    }
+
+    private void InitializeStats()
     {
         int bookTypeCount = bookTypes != null && bookTypes.Length > 0
             ? bookTypes.Length
             : Mathf.Min(testBookTypeCount, BrandConfig.TotalBookTypeCount);
 
         GameStats.Initialize(bookTypeCount, copiesPerBook);
-        SpawnBooks(bookTypeCount);
     }
 
     void SpawnBooks(int bookTypeCount)
@@ -96,6 +132,13 @@ public class BookSpawner : MonoBehaviour
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null)
             rb.AddTorque(Random.insideUnitSphere * 2f, ForceMode.Impulse);
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        {
+            var networkBook = book.GetComponent<NetworkBook>();
+            networkBook.Initialize(bookID, brandID);
+            networkBook.NetworkObject.Spawn(true);
+        }
     }
 
     int GetBrandID(int bookID)
