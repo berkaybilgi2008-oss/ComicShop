@@ -26,7 +26,8 @@ public class ShelfSlotDuplicatorEditor : Editor
         else
         {
             EditorGUILayout.HelpBox(
-                "Template + sag komsu + alt komsu araliklariyla eksik gozler olusturulur.",
+                "Template + iki komsu araligiyla eksik gozler olusturulur. Yon Duzeltme aciksa " +
+                "izgaranin raf bosluklarina dogru buyuyen yonu otomatik secilir.",
                 MessageType.Info);
         }
 
