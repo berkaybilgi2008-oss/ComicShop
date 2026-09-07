@@ -42,7 +42,8 @@ public class BookItem : MonoBehaviour
     private readonly ContactPoint[] settlingContacts = new ContactPoint[32];
     private int settlingContactCount;
     private float contactStep = float.NegativeInfinity;
-    private int settleAttempts;
+    private float edgeAssistUntil;
+    private Vector3 edgeAssistTarget;
     private int impactTipAttempts;
     private float settleNotBefore;
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
@@ -64,6 +65,7 @@ public class BookItem : MonoBehaviour
     void FixedUpdate()
     {
         if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        if (ContinueEdgeSettling()) return;
         if (Time.time < settleNotBefore) return;
 
         if (body.linearVelocity.sqrMagnitude > sleepLinearVelocity * sleepLinearVelocity ||
@@ -194,8 +196,6 @@ public class BookItem : MonoBehaviour
         }
         if (supports == 0) { body.WakeUp(); return false; }
         if (braced) return true;
-        // Bounded assistance: do not keep wedged piles awake with repeated kicks.
-        if (settleAttempts >= 2) return true;
         float lever = supportHeight / supports;
         bool outsideSupport = minSupport > 0.002f || maxSupport < -0.002f;
         bool narrowEdge = maxSupport - minSupport < lever * 0.6f;
@@ -209,13 +209,39 @@ public class BookItem : MonoBehaviour
             float faceUp = Vector3.Dot(cover, up);
             direction = faceUp < 0f ? 1f : -1f;
         }
-        body.WakeUp();
-        body.AddTorque(Vector3.Cross(up, fall * direction) * (0.9f + 0.3f * settleAttempts),
-            ForceMode.VelocityChange);
-        settleAttempts++;
-        settleNotBefore = Time.time + 0.75f;
-        settlingContactCount = 0;
+        // Keep helping through the initial lean instead of giving up after two
+        // impulses. A stuck episode ends after two seconds and rechecks contacts;
+        // only a broad face or a real brace may qualify for freezing.
+        edgeAssistTarget = direction < 0f ? up : -up;
+        edgeAssistUntil = Time.time + 2f;
+        ContinueEdgeSettling();
         return false;
+    }
+
+    private bool ContinueEdgeSettling()
+    {
+        if (edgeAssistUntil <= 0f) return false;
+        Vector3 cover = transform.TransformDirection(localCoverNormal).normalized;
+        bool hasRecentContact = settlingContactCount > 0 &&
+            (body.IsSleeping() || Time.fixedTime - contactStep <= Time.fixedDeltaTime * 2.5f);
+        if (Time.time >= edgeAssistUntil || !hasRecentContact ||
+            Vector3.Dot(cover, edgeAssistTarget) >= 0.8f)
+        {
+            edgeAssistUntil = 0f;
+            stillTimer = 0f;
+            settleNotBefore = Time.time + 0.25f;
+            return false;
+        }
+
+        Vector3 axis = Vector3.Cross(cover, edgeAssistTarget).normalized;
+        float speed = Vector3.Dot(body.angularVelocity, axis);
+        // Limited angular acceleration, no upward impulse or transform teleport.
+        // This runs only for a resting edge book, never for the frozen population.
+        float acceleration = Mathf.Clamp((2f - speed) * 12f, 0f, 24f);
+        body.WakeUp();
+        body.AddTorque(axis * acceleration, ForceMode.Acceleration);
+        stillTimer = 0f;
+        return true;
     }
 
     SupportState GetSupportState()
@@ -365,7 +391,7 @@ public class BookItem : MonoBehaviour
     public void SetHeld(bool held)
     {
         IsHeld = held;
-        settleAttempts = 0;
+        edgeAssistUntil = 0f;
         impactTipAttempts = 0;
         settleNotBefore = Time.time;
         settlingContactCount = 0;
