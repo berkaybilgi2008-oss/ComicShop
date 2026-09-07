@@ -107,6 +107,7 @@ public class PlayerInteraction : MonoBehaviour
     private float chargeStartTime;
     private Crosshair crosshair;
     private bool isChargingThrow;
+    public bool IsThrowPoseActive => isChargingThrow || isThrowing;
     private bool isThrowing;
     private float chargeAmount;
     private BookItem chargingBook;
@@ -621,7 +622,7 @@ public class PlayerInteraction : MonoBehaviour
 
             int displayIndex = displayOrder.IndexOf(i);
             targetPositions[i] = GetHeldLocalPosition(displayIndex);
-            targetRotations[i] = book.NativeRotation;
+            targetRotations[i] = GetHeldLocalRotation(book);
             targetScales[i] = book.OriginalScale * heldScaleMultiplier;
         }
 
