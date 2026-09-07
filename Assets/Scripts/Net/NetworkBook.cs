@@ -286,6 +286,7 @@ public class NetworkBook : NetworkBehaviour
 
     private void Release(Vector3 velocity, Vector3 axis, float spin, bool charged)
     {
+        var throwingPlayer = GetPlayer(Holder);
         transform.SetParent(null, true);
         transform.localScale = item.OriginalScale;
         var value = state.Value;
@@ -309,7 +310,7 @@ public class NetworkBook : NetworkBehaviour
         {
             var flight = GetComponent<ThrownBook>();
             if (flight == null) flight = gameObject.AddComponent<ThrownBook>();
-            flight.Configure(axis);
+            flight.Configure(axis, throwingPlayer != null ? throwingPlayer.transform : null);
         }
     }
 

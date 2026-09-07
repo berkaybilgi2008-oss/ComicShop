@@ -19,10 +19,13 @@ public class PlayerController : MonoBehaviour
     private CharacterController controller;
     private Vector3 velocity;
     private float pitch = 0f;
+    private PlayerKnockdown knockdown;
 
     void Awake()
     {
         controller = GetComponent<CharacterController>();
+        knockdown = GetComponent<PlayerKnockdown>();
+        if (knockdown == null) knockdown = gameObject.AddComponent<PlayerKnockdown>();
         if (cameraTransform == null)
         {
             Camera camera = GetComponentInChildren<Camera>(true);
@@ -32,6 +35,7 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if (knockdown != null && knockdown.IsDown) { velocity = Vector3.zero; return; }
         if (Cursor.lockState != CursorLockMode.Locked || cameraTransform == null || !controller.enabled) return;
         HandleLook();
         HandleMove();
