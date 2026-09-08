@@ -1,0 +1,15 @@
+Book_00_ap1 = 270, 0, 180
+Book_01_ap2 = 270, 0, 180
+Book_02_ap3 = 270, 0, 180
+Book_03_chaır1 = 270, 0, 180
+Book_04_chaır2 = 270, 0, 180
+Book_05_chaır3 = 270, 0, 180
+Book_06_chrom1 = 0, 0, 180
+Book_07_chrom2 = 0, 0, 180
+Book_08_chrom3 = 0, 0, 180
+Book_09_voıdwalker1 = 0, 0, 180
+Book_10_voıdwalker2 = 0, 0, 180
+Book_11_voıdwalker3 = 270, 0, 0
+Book_12_wood1 = 0, 0, 180
+Book_13_wood2 = 0, 0, 180
+Book_14_wood3 = 0, 0, 180

@@ -17,13 +17,17 @@ public static class InteractionSettingsSanitizer
             if (interaction == null)
                 continue;
 
-            // Eski sahne serilestirmesi mouse yerine E/Q kaydetmis olabilir.
-            interaction.pickupKey = KeyCode.Mouse0;
-            interaction.dropKey = KeyCode.Mouse1;
-
-            // Elde kitaplar arasindaki dikey ilerleme 0.05 birim olsun.
-            interaction.stackSpacing = 0.05f;
-            interaction.heldScaleMultiplier = 0.55f;
+            Apply(interaction);
         }
+    }
+    public static void Apply(PlayerInteraction interaction)
+    {
+        // Eski sahne serilestirmesi mouse yerine E/Q kaydetmis olabilir.
+        interaction.pickupKey = KeyCode.Mouse0;
+        interaction.dropKey = KeyCode.Mouse1;
+
+        // Elde kitaplar arasindaki dikey ilerleme 0.044 birim olsun.
+        interaction.stackSpacing = 0.044f;
+        interaction.heldScaleMultiplier = 0.55f;
     }
 }

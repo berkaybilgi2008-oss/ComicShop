@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using Unity.Netcode;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
@@ -13,6 +14,13 @@ public static class ComicShopBookSetup
     private const string OutputPrefabFolder = "Assets/Prefabs/VeridianBooks";
     private const string OutputDataFolder = "Assets/BookData/VERIDIAN";
     private const int BookLayer = 8;
+
+    /// <summary>
+    /// Butun kitaplar icin ORTAK duzeltme. Kitabin rafta/elde dogru durmasini saglar.
+    /// Modelden modele DEGISMEZ -- degisen tek sey FBX'in import acisidir ve onu
+    /// asagida geri aliyoruz.
+    /// </summary>
+    private static readonly Quaternion StandardBookRotation = Quaternion.Euler(270f, 0f, 180f);
 
     [MenuItem("ComicShop/Setup 15 VERIDIAN Books")]
     public static void Setup()
@@ -56,6 +64,11 @@ public static class ComicShopBookSetup
         foreach (string oldAsset in oldData)
             AssetDatabase.DeleteAsset(oldAsset);
 
+        var networkPrefabs = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>("Assets/DefaultNetworkPrefabs.asset");
+        if (networkPrefabs != null)
+            foreach (var entry in networkPrefabs.PrefabList.ToArray())
+                if (entry.Prefab == null) networkPrefabs.Remove(entry);
+
         BookData[] data = new BookData[15];
 
         for (int i = 0; i < modelPaths.Length; i++)
@@ -95,7 +108,14 @@ public static class ComicShopBookSetup
             bookItem.brandID = 0;
             bookItem.coverRenderer = coverRenderer;
             bookItem.nativeRotation = nativeRotation;
-            bookItem.baseRotationEuler = nativeRotation.eulerAngles;
+            // Runtime, kitabin kok rotasyonunu tamamen eziyor
+            // (BookSpawner: rotation = randomSpawn * NativeRotation).
+            // O yuzden FBX'in kendi import acisini GERI ALIP ortak duzeltmeyi
+            // uyguluyoruz. Boylece model hangi eksende export edilmis olursa olsun
+            // butun kitaplar ayni yone bakar; kitap basina elle deger girmeye
+            // gerek kalmaz.
+            bookItem.baseRotationEuler =
+                (Quaternion.Inverse(nativeRotation) * StandardBookRotation).eulerAngles;
 
             if (baseBookItem != null)
             {
@@ -131,10 +151,17 @@ public static class ComicShopBookSetup
                 rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             }
 
+            var networkObject = bookRoot.AddComponent<NetworkObject>();
+            networkObject.AutoObjectParentSync = false;
+            networkObject.AlwaysReplicateAsRoot = true;
+            networkObject.DontDestroyWithOwner = true;
+            bookRoot.AddComponent<NetworkBook>();
             PrefabUtility.SaveAsPrefabAsset(bookRoot, prefabPath);
             UnityEngine.Object.DestroyImmediate(bookRoot);
 
             GameObject savedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (networkPrefabs != null && !networkPrefabs.Contains(savedPrefab))
+                networkPrefabs.Add(new NetworkPrefab { Prefab = savedPrefab });
             BookData asset = ScriptableObject.CreateInstance<BookData>();
             asset.BookID = i;
             asset.BrandID = 0;
@@ -143,6 +170,7 @@ public static class ComicShopBookSetup
             data[i] = asset;
         }
 
+        if (networkPrefabs != null) EditorUtility.SetDirty(networkPrefabs);
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
