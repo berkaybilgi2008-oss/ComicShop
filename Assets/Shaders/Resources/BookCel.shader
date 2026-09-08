@@ -3,27 +3,25 @@ Shader "ComicShop/Book Cel"
     Properties
     {
         [MainTexture] _BaseMap("Original cover", 2D) = "white" {}
-        [MainColor] _BaseColor("Tint", Color) = (1,1,1,1)
-        _ShadowTint("Cool paper shadow", Color) = (0.48,0.49,0.63,1)
-        _MidTint("Midtone", Color) = (0.80,0.78,0.85,1)
-        _LightTint("Warm paper light", Color) = (1.06,1.02,0.94,1)
-        _Saturation("Cover saturation", Range(0,2)) = 1.12
-        _Posterize("Subtle printed colour bands", Range(0,1)) = 0.22
-        _Rim("Soft edge highlight", Range(0,0.3)) = 0.06
+        [MainColor] _BaseColor("Original tint", Color) = (1,1,1,1)
+        _ContourScale("Contour thickness", Range(1,2)) = 1.3
+        _CreaseOpacity("Small corner creases", Range(0,1)) = 0.42
+        [HideInInspector] _InkCoverAxis("Cover axis", Vector) = (0,0,1,0)
+        [HideInInspector] _InkBoundsMin("Bounds minimum", Vector) = (-0.5,-0.5,-0.5,0)
+        [HideInInspector] _InkBoundsMax("Bounds maximum", Vector) = (0.5,0.5,0.5,0)
+        [HideInInspector] _InkWidths("Edge widths", Vector) = (0.015,0.015,0.015,0)
     }
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry" }
         Pass
         {
-            Name "BookCelForward"
+            Name "CoverAndTwelveEdges"
             Tags { "LightMode"="UniversalForwardOnly" }
+            ZWrite On
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
-            #pragma multi_compile_instancing
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -31,65 +29,68 @@ Shader "ComicShop/Book Cel"
             SAMPLER(sampler_BaseMap);
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
-                half4 _BaseColor, _ShadowTint, _MidTint, _LightTint;
-                half _Saturation, _Posterize, _Rim;
+                half4 _BaseColor;
+                float4 _InkBoundsMin, _InkBoundsMax, _InkWidths;
+                float4 _InkCoverAxis;
+                half _ContourScale, _CreaseOpacity;
             CBUFFER_END
-            struct Attributes
-            {
-                float4 positionOS : POSITION;
-                float3 normalOS : NORMAL;
-                float2 uv : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
+            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
-                float3 positionWS : TEXCOORD1;
+                float3 positionOS : TEXCOORD1;
                 half3 normalWS : TEXCOORD2;
-                float4 shadowCoord : TEXCOORD3;
-                half fog : TEXCOORD4;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-                UNITY_VERTEX_OUTPUT_STEREO
+                half fog : TEXCOORD3;
             };
             Varyings Vert(Attributes input)
             {
-                Varyings output = (Varyings)0;
-                UNITY_SETUP_INSTANCE_ID(input);
-                UNITY_TRANSFER_INSTANCE_ID(input, output);
-                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
-                VertexPositionInputs position = GetVertexPositionInputs(input.positionOS.xyz);
-                output.positionCS = position.positionCS;
-                output.positionWS = position.positionWS;
+                Varyings output;
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.positionOS = input.positionOS.xyz;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
-                output.shadowCoord = GetShadowCoord(position);
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
-                output.fog = ComputeFogFactor(position.positionCS.z);
+                output.fog = ComputeFogFactor(output.positionCS.z);
                 return output;
+            }
+            float Crease(float2 p, float2 a, float2 b)
+            {
+                float2 segment = b - a;
+                float t = saturate(dot(p - a, segment) / dot(segment, segment));
+                float d = length(p - (a + t * segment));
+                float width = lerp(0.0018, 0.00025, t);
+                float aa = max(length(fwidth(p)), 0.0001);
+                float stroke = 1 - smoothstep(width - aa, width + aa, d);
+                // Fade fine pen marks out at a distance rather than shimmer.
+                return stroke * saturate(width / aa) * (1 - smoothstep(0.85, 1, t));
             }
             half4 Frag(Varyings input) : SV_Target
             {
-                UNITY_SETUP_INSTANCE_ID(input);
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
-                half3 normal = normalize(input.normalWS);
                 half3 cover = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb * _BaseColor.rgb;
+                // Bright neutral fill keeps the cover readable on every face.
+                half3 normal = normalize(input.normalWS);
+                Light light = GetMainLight();
+                half diffuse = saturate(dot(normal, light.direction));
+                half lightEnergy = saturate(dot(light.color, half3(0.2126,0.7152,0.0722)) * light.distanceAttenuation);
                 half luminance = dot(cover, half3(0.2126,0.7152,0.0722));
-                cover = max(0, lerp(luminance.xxx, cover, _Saturation));
-                cover = lerp(cover, floor(cover * 12 + 0.5) / 12, _Posterize);
-                Light light = GetMainLight(input.shadowCoord);
-                half diffuse = saturate(dot(normal, light.direction) * 0.5 + 0.5);
-                half lighting = diffuse * lerp(0.35h, 1.0h, light.shadowAttenuation);
-                half middle = smoothstep(0.32h, 0.36h, lighting);
-                half bright = smoothstep(0.68h, 0.72h, lighting);
-                half3 bands = lerp(_ShadowTint.rgb, _MidTint.rgb, middle);
-                bands = lerp(bands, _LightTint.rgb, bright);
-                half3 ambient = max(SampleSH(normal), half3(0.16,0.16,0.16));
-                half3 illumination = clamp(ambient * 0.45 + light.color * light.distanceAttenuation * 0.8,
-                    half3(0.55,0.55,0.55), half3(1.15,1.15,1.15));
-                half facing = saturate(dot(normal, GetWorldSpaceNormalizeViewDir(input.positionWS)));
-                half rim = smoothstep(0.62h, 0.92h, 1 - facing) * _Rim * bright;
-                half3 color = cover * bands * illumination + rim * _LightTint.rgb;
-                return half4(MixFog(color, input.fog), 1);
+                cover = max(0, lerp(luminance.xxx, cover, 1.06h));
+                // Three bright toon bands; preserve the printed cover texture.
+                half band = diffuse < 0.33h ? 0.88h : (diffuse < 0.70h ? 0.96h : 1.06h);
+                cover *= lerp(0.96h, band, lightEnergy);
+                float3 distance = max(0, min(input.positionOS - _InkBoundsMin.xyz, _InkBoundsMax.xyz - input.positionOS));
+                float3 relative = distance / max(_InkWidths.xyz * _ContourScale, float3(1e-6,1e-6,1e-6));
+                // Second closest box plane: covers the 12 edges, not face interiors.
+                float second = min(max(relative.x, relative.y), min(max(relative.x, relative.z), max(relative.y, relative.z)));
+                float aa = max(fwidth(second), 0.001);
+                half ink = 1 - smoothstep(1 - aa, 1 + aa, second);
+                float3 box = saturate((input.positionOS - _InkBoundsMin.xyz) / max(_InkBoundsMax.xyz - _InkBoundsMin.xyz, float3(1e-6,1e-6,1e-6)));
+                float2 face = _InkCoverAxis.x > 0.5 ? box.yz : (_InkCoverAxis.y > 0.5 ? box.xz : box.xy);
+                float faceDepth = dot(box, _InkCoverAxis.xyz);
+                float onCover = step(0.49, abs(faceDepth - 0.5));
+                float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
+                                   Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
+                ink = max(ink, crease * onCover * _CreaseOpacity);
+                return half4(MixFog(lerp(cover, half3(0,0,0), ink), input.fog), 1);
             }
             ENDHLSL
         }

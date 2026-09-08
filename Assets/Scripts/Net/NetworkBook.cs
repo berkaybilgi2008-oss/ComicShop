@@ -151,6 +151,13 @@ public class NetworkBook : NetworkBehaviour
             transform.localScale = current.Scale;
         }
         hasState = true;
+        // A recalled book can change position and holder in the same network
+        // tick. Start the owner's hand animation at the authoritative recall pose.
+        if (changedHolder && HeldByLocal && !IsServer)
+        {
+            transform.SetPositionAndRotation(current.Position, current.Rotation);
+            transform.localScale = current.Scale;
+        }
         BindLocalHand();
     }
 
@@ -232,6 +239,7 @@ public class NetworkBook : NetworkBehaviour
     private bool WithinReach(PlayerInteraction player)
     {
         if (player == null) return false;
+        if (player.TryGetComponent<NetworkPlayerSetup>(out var setup) && setup.IsDown) return false;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         var collider = GetComponentInChildren<Collider>();
         Vector3 closest = collider != null ? collider.ClosestPoint(eye) : transform.position;
@@ -248,6 +256,11 @@ public class NetworkBook : NetworkBehaviour
         foreach (var book in FindObjectsByType<NetworkBook>(FindObjectsSortMode.None))
             if (book.IsSpawned && book.Holder == sender) count++;
         if (count >= player.maxHeldBooks) return;
+        Claim(sender);
+    }
+
+    private void Claim(ulong sender)
+    {
         if (item.currentSlot != null) item.currentSlot.RemoveBook(item);
         var flight = GetComponent<ThrownBook>();
         if (flight != null) { flight.enabled = false; Destroy(flight); }
@@ -265,7 +278,8 @@ public class NetworkBook : NetworkBehaviour
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
         var slot = ShelfSlot.FindNetworkSlot(slotKey);
-        if (player == null || Holder != rpc.Receive.SenderClientId || slot == null) return;
+        if (player == null || Holder != rpc.Receive.SenderClientId || slot == null ||
+            player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         var collider = slot.GetComponentInChildren<Collider>();
         if (collider == null || Vector3.Distance(eye, collider.ClosestPoint(eye)) > player.interactRange + 0.5f) return;
@@ -297,7 +311,8 @@ public class NetworkBook : NetworkBehaviour
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
         if (player == null || Holder != rpc.Receive.SenderClientId) return;
-        if (!ValidPose(player, position, rotation) || !Finite(velocity) || !Finite(spinAxis) ||
+        if (player.GetComponent<NetworkPlayerSetup>().IsDown ||
+            !ValidPose(player, position, rotation) || !Finite(velocity) || !Finite(spinAxis) ||
             float.IsNaN(spin) || float.IsInfinity(spin))
         {
             // The local throw animation already removed this book from inventory.
@@ -316,6 +331,7 @@ public class NetworkBook : NetworkBehaviour
 
     private void Release(Vector3 velocity, Vector3 axis, float spin, bool charged)
     {
+        var throwingPlayer = GetPlayer(Holder);
         transform.SetParent(null, true);
         transform.localScale = item.OriginalScale;
         var value = state.Value;
@@ -339,7 +355,7 @@ public class NetworkBook : NetworkBehaviour
         {
             var flight = GetComponent<ThrownBook>();
             if (flight == null) flight = gameObject.AddComponent<ThrownBook>();
-            flight.Configure(axis);
+            flight.Configure(axis, throwingPlayer != null ? throwingPlayer.transform : null);
         }
     }
 
@@ -360,6 +376,29 @@ public class NetworkBook : NetworkBehaviour
             Vector3.Distance(player.transform.position, position) <= 5f;
     }
     private static bool Finite(Vector3 v) => !float.IsNaN(v.sqrMagnitude) && !float.IsInfinity(v.sqrMagnitude);
+
+    // Only the server-side player RPC calls this; no client transform mutation.
+    public bool RecallForPlayer(ulong playerId, Vector3 point, bool take)
+    {
+        if (!IsServer || !IsSpawned || Holder != NoHolder || IsPlacementAnimating || !Finite(point)) return false;
+        var player = GetPlayer(playerId);
+        if (player == null || player.GetComponent<NetworkPlayerSetup>().IsDown) return false;
+        if (take)
+        {
+            int count = 0;
+            foreach (var book in FindObjectsByType<NetworkBook>(FindObjectsSortMode.None))
+                if (book.IsSpawned && book.Holder == playerId) count++;
+            if (count >= player.maxHeldBooks) return false;
+        }
+        if (item.currentSlot != null) item.currentSlot.RemoveBook(item);
+        var flight = GetComponent<ThrownBook>();
+        if (flight != null) { flight.enabled = false; Destroy(flight); }
+        transform.SetParent(null, true);
+        transform.position = point;
+        Release(Vector3.zero, Vector3.zero, 0, false);
+        if (take) Claim(playerId);
+        return true;
+    }
 
     public static void ReleaseAllForPlayer(ulong id)
     {

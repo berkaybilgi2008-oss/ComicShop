@@ -206,8 +206,61 @@ public static class MultiplayerRegressionChecks
         yield return WaitFor(() => !connection.IsRunning, 10f, "connection timeout cleanup");
         Check(connection.StartHost(), "Host could not restart after client timeout");
         yield return WaitFor(() => NetworkPlayerSetup.LocalPlayer != null, 10f, "host after timeout");
+        yield return GameplayFeatures();
         connection.Disconnect();
         yield return WaitFor(() => !connection.IsRunning, 10f, "final shutdown");
+    }
+
+    private static IEnumerator GameplayFeatures()
+    {
+        var setup = NetworkPlayerSetup.LocalPlayer;
+        var interaction = setup.GetComponent<PlayerInteraction>();
+        var power = setup.GetComponent<YaratikGucu>();
+        Check(power != null, "YaratikGucu missing from player");
+        var books = Object.FindObjectsByType<NetworkBook>(FindObjectsSortMode.None);
+        Check(books.Length > 0, "No books for gameplay regression");
+        var book = books[0];
+        foreach (var renderer in book.GetComponentsInChildren<MeshRenderer>())
+        {
+            foreach (var material in renderer.sharedMaterials)
+                Check(material != null && material.shader.name == "ComicShop/Book Cel", "Book cel material missing");
+            var properties = new MaterialPropertyBlock();
+            renderer.GetPropertyBlock(properties);
+            Check(properties.GetVector("_InkWidths").sqrMagnitude > 0, "Book contour bounds missing");
+        }
+        book.GetComponent<Rigidbody>().isKinematic = true;
+        book.transform.position = setup.playerCamera.transform.position + setup.playerCamera.transform.forward;
+        Physics.SyncTransforms();
+        book.PickUpRpc();
+        yield return WaitFor(() => interaction.HeldBooksList.Count == 1, 3f, "power initial pickup");
+        int oldMax = power.maksAdet;
+        var oldMode = power.mod;
+        try
+        {
+            power.maksAdet = 2;
+            power.mod = YaratikGucu.Mod.ElimeGetir;
+            setup.YaratikGucuRpc(book.GetComponent<BookItem>().bookID);
+            int expected = Mathf.Min(3, interaction.maxHeldBooks);
+            yield return WaitFor(() => interaction.HeldBooksList.Count == expected, 3f, "server-authoritative O power");
+            AuditCurrentState();
+            setup.KnockDown(Vector3.back * 4f, true);
+            Check(setup.IsDown && setup.GetComponent<PlayerKnockdown>().IsDown, "Knockdown state not applied");
+            setup.StandUpRpc();
+            Check(setup.IsDown, "Player could stand before recovery time");
+            double ready = setup.NetworkManager.ServerTime.Time + 3.1;
+            yield return WaitFor(() => setup.NetworkManager.ServerTime.Time >= ready, 5f, "knockdown recovery timer");
+            setup.StandUpRpc();
+            Check(!setup.IsDown && !setup.GetComponent<PlayerKnockdown>().IsDown, "Stand-up did not clear state");
+            NetworkBook.ReleaseAllForPlayer(setup.OwnerClientId);
+            yield return WaitFor(() => interaction.HeldBooksList.Count == 0, 3f, "release power books");
+            AuditCurrentState();
+            Debug.Log("[MP GAMEPLAY PASS] cel material/contours, O power, knockdown timer and stand-up. Projectile hits and remote presentation still require two peers.");
+        }
+        finally
+        {
+            power.maksAdet = oldMax;
+            power.mod = oldMode;
+        }
     }
 
     private static IEnumerator WaitFor(Func<bool> condition, float seconds, string label)

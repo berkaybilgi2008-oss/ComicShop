@@ -131,6 +131,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        if (TryGetComponent<PlayerKnockdown>(out var knocked) && knocked.IsDown) return;
         if (Cursor.lockState != CursorLockMode.Locked)
         {
             if (isChargingThrow)
@@ -522,6 +523,12 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
     }
 
+    public void CancelForKnockdown()
+    {
+        CancelHandAnimations();
+        RepositionHeldBooksImmediate();
+    }
+
     Quaternion GetHeldLocalRotation(BookItem book)
     {
         // Preserve the authored hand anchor and each prefab's calibrated pose.
@@ -889,7 +896,7 @@ public class PlayerInteraction : MonoBehaviour
 
             // Sarjli atista kitap diger kitaplara CARPAR ama onlari SAVURMAZ.
             if (charged && book.GetComponent<ThrownBook>() == null)
-                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis);
+                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
