@@ -170,6 +170,8 @@ public static class MultiplayerRegressionChecks
             Check(target.TryGetPlacementPose(target.GetBookIndex(book.GetComponent<BookItem>()),
                 book.GetComponent<BookItem>(), out Vector3 finalPose, out _), "Final shelf pose unavailable");
             Check(Vector3.Distance(book.transform.position, finalPose) < 0.001f, "Placement missed its final pose");
+            Check(body.interpolation == RigidbodyInterpolation.None,
+                "Shelved book retained Rigidbody interpolation");
             AuditCurrentState();
             book.PickUpRpc();
             yield return WaitFor(() => player.HeldBooksList.Count == 1 && target.FilledCount == 0, 3f, "take from shelf");

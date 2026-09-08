@@ -112,7 +112,16 @@ public class NetworkBook : NetworkBehaviour
         }
         if (!HeldByLocal) transform.SetParent(null, true);
         if (changedHolder || !IsServer) item.SetHeld(current.Holder != NoHolder);
-        if (body != null) body.isKinematic = !IsServer || current.Holder != NoHolder || current.Kinematic;
+        if (body != null)
+        {
+            body.isKinematic = !IsServer || current.Holder != NoHolder || current.Kinematic;
+            // Network/hand/shelf motion is already smoothed explicitly. Leaving
+            // Rigidbody interpolation enabled here makes the rendered Transform
+            // lag behind an exact shelf pose by one physics step.
+            body.interpolation = IsServer && current.Holder == NoHolder && current.Slot == 0
+                ? RigidbodyInterpolation.Interpolate
+                : RigidbodyInterpolation.None;
+        }
         if (current.Slot != 0 && item.currentSlot == null)
         {
             var slot = ShelfSlot.FindNetworkSlot(current.Slot);
