@@ -87,6 +87,20 @@ public class ShelfSlot : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetRegistry() => networkSlots.Clear();
 
+    public static void ResetNetworkSession()
+    {
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+        {
+            slot.EnsureArray();
+            foreach (var book in slot.placedBooks)
+                if (book != null && book.currentSlot == slot) book.currentSlot = null;
+            System.Array.Clear(slot.placedBooks, 0, slot.placedBooks.Length);
+            slot.FilledCount = 0;
+            slot.ownerBookID = -1;
+        }
+        networkSlots.Clear();
+    }
+
     public static void BuildNetworkRegistry()
     {
         networkSlots.Clear();

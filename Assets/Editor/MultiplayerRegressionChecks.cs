@@ -15,6 +15,42 @@ public static class MultiplayerRegressionChecks
     private static string originalAddress;
     private static float originalTimeout;
 
+    [MenuItem("ComicShop/Tests/Audit Current Multiplayer State (Play Mode)")]
+    public static void AuditCurrentState()
+    {
+        Check(EditorApplication.isPlaying && NetworkManager.Singleton != null &&
+            NetworkManager.Singleton.IsListening, "Start a host or join a host first");
+        int placed = 0;
+        var occupied = new HashSet<string>();
+        var books = Object.FindObjectsByType<NetworkBook>(FindObjectsSortMode.None);
+        foreach (var book in books)
+        {
+            Check(book.IsSpawned, "Unspawned network book in active scene");
+            var item = book.GetComponent<BookItem>();
+            Check(item.IsHeld == (book.Holder != NetworkBook.NoHolder), "Held state mismatch");
+            if (!book.IsServer)
+                Check(book.GetComponent<Rigidbody>().isKinematic, "Client is simulating shared book physics");
+            if (book.SlotKey == 0)
+            {
+                Check(item.currentSlot == null, "Stale local shelf reference");
+                continue;
+            }
+            var slot = ShelfSlot.FindNetworkSlot(book.SlotKey);
+            Check(slot != null && item.currentSlot == slot && slot.GetBookIndex(item) == book.SlotIndex,
+                "Shelf snapshot differs from authoritative book state");
+            Check(occupied.Add(book.SlotKey + ":" + book.SlotIndex), "Two books occupy the same shelf index");
+            Check(book.Holder == NetworkBook.NoHolder, "A shelved book still has a holder");
+            placed++;
+        }
+        int slotCount = 0;
+        foreach (var slot in Object.FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+            slotCount += slot.FilledCount;
+        Check(slotCount == placed && GameStats.TotalPlaced == placed, "Shelf/stat counters differ");
+        Check(books.Length == GameStats.TotalBooks, "Book total differs from session configuration");
+        Debug.Log($"[MP AUDIT PASS] books={books.Length}, placed={placed}, groups={GameStats.CompletedBookGroupCount}. " +
+            "Run on both peers after actions/late join settle and compare totals; this is not a transport test.");
+    }
+
     [MenuItem("ComicShop/Tests/Run Multiplayer Regression (Play Mode)")]
     public static void Run()
     {
@@ -100,6 +136,15 @@ public static class MultiplayerRegressionChecks
             double animationEnd = EditorApplication.timeSinceStartup + 0.5;
             yield return WaitFor(() => EditorApplication.timeSinceStartup >= animationEnd, 2f, "pickup animation");
 
+            // Reproduce the local inventory removal before a rejected throw.
+            player.ForgetNetworkBook(book.GetComponent<BookItem>());
+            book.ReleaseRpc(new Vector3(float.NaN, 0f, 0f), Quaternion.identity,
+                Vector3.zero, Vector3.zero, 0f, false);
+            yield return WaitFor(() => player.HeldBooksList.Count == 1, 3f, "rejected release restores inventory");
+            Check(book.Holder == NetworkManager.Singleton.LocalClientId, "Rejected release changed ownership");
+            animationEnd = EditorApplication.timeSinceStartup + 0.5;
+            yield return WaitFor(() => EditorApplication.timeSinceStartup >= animationEnd, 2f, "restored hand animation");
+
             ShelfSlot target = null;
             foreach (var slot in Object.FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
                 if (slot.Matches(book.GetComponent<BookItem>()) &&
@@ -125,6 +170,7 @@ public static class MultiplayerRegressionChecks
             Check(target.TryGetPlacementPose(target.GetBookIndex(book.GetComponent<BookItem>()),
                 book.GetComponent<BookItem>(), out Vector3 finalPose, out _), "Final shelf pose unavailable");
             Check(Vector3.Distance(book.transform.position, finalPose) < 0.001f, "Placement missed its final pose");
+            AuditCurrentState();
             book.PickUpRpc();
             yield return WaitFor(() => player.HeldBooksList.Count == 1 && target.FilledCount == 0, 3f, "take from shelf");
             Check(GameStats.TotalPlaced == 0, "Taking from shelf did not update stats");
@@ -149,6 +195,8 @@ public static class MultiplayerRegressionChecks
             Check(NetworkPlayerSetup.LocalPlayer == null, "Stale local player after shutdown");
             Check(Object.FindObjectsByType<NetworkBook>(FindObjectsSortMode.None).Length == 0, "Books survived session teardown");
             Check(GameStats.TotalPlaced == 0, "Stale shelf stats after shutdown");
+            foreach (var slot in Object.FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+                Check(slot.FilledCount == 0 && !slot.IsClaimed, "Stale shelf claim after shutdown");
         }
         connection.address = "127.0.0.1";
         connection.connectionTimeout = 2f;

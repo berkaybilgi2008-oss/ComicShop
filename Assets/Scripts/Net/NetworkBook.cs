@@ -50,6 +50,8 @@ public class NetworkBook : NetworkBehaviour
     public bool IsPlacementAnimating { get; private set; }
     public ulong Holder => state.Value.Holder;
     public bool HeldByLocal => IsSpawned && Holder != NoHolder && Holder == NetworkManager.LocalClientId;
+    public ulong SlotKey => state.Value.Slot;
+    public int SlotIndex => state.Value.SlotIndex;
 
     private void Awake()
     {
@@ -69,6 +71,8 @@ public class NetworkBook : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        hasState = false;
+        IsPlacementAnimating = false;
         state.OnValueChanged += ApplyState;
         if (!IsServer) BookToonEffect.ApplyToBook(gameObject);
         ApplyState(default, state.Value);
@@ -76,6 +80,7 @@ public class NetworkBook : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        hasState = false;
         IsPlacementAnimating = false;
         state.OnValueChanged -= ApplyState;
         if (boundPlayer != null) boundPlayer.ForgetNetworkBook(item);
@@ -151,6 +156,14 @@ public class NetworkBook : NetworkBehaviour
     {
         if (!IsSpawned) return;
         BindLocalHand();
+        // Different books' NetworkVariables can arrive in either order. A book
+        // vacating an index must not permanently erase its replacement locally.
+        if (!IsServer && state.Value.Slot != 0)
+        {
+            var slot = ShelfSlot.FindNetworkSlot(state.Value.Slot);
+            if (slot != null && (item.currentSlot != slot || slot.GetBookIndex(item) != state.Value.SlotIndex))
+                slot.ApplyNetworkPlacement(item, state.Value.SlotIndex);
+        }
         if (IsPlacementAnimating)
         {
             var target = state.Value;
@@ -274,8 +287,16 @@ public class NetworkBook : NetworkBehaviour
         float spin, bool charged, RpcParams rpc = default)
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
-        if (player == null || Holder != rpc.Receive.SenderClientId || !ValidPose(player, position, rotation) ||
-            !Finite(velocity) || !Finite(spinAxis) || float.IsNaN(spin) || float.IsInfinity(spin)) return;
+        if (player == null || Holder != rpc.Receive.SenderClientId) return;
+        if (!ValidPose(player, position, rotation) || !Finite(velocity) || !Finite(spinAxis) ||
+            float.IsNaN(spin) || float.IsInfinity(spin))
+        {
+            // The local throw animation already removed this book from inventory.
+            // A rejected request must put it back instead of leaving a ghost holder.
+            var setup = player.GetComponent<NetworkPlayerSetup>();
+            if (setup != null) setup.RestoreRejectedReleaseRpc(new NetworkObjectReference(NetworkObject));
+            return;
+        }
         transform.SetParent(null, true);
         transform.SetPositionAndRotation(position, rotation);
         float maxSpeed = Mathf.Max(player.maxThrowSpeed * player.releaseSnap,

@@ -60,7 +60,10 @@ public class NetworkPlayerSetup : NetworkBehaviour
     [Rpc(SendTo.Server, RequireOwnership = true)]
     public void RecallRpc(Vector3 machinePosition, Vector3 lookDirection)
     {
-        if (playerCamera == null || lookDirection.sqrMagnitude < 0.9f || lookDirection.sqrMagnitude > 1.1f) return;
+        float magnitude = lookDirection.sqrMagnitude;
+        if (playerCamera == null || float.IsNaN(machinePosition.sqrMagnitude) ||
+            float.IsInfinity(machinePosition.sqrMagnitude) || float.IsNaN(magnitude) ||
+            magnitude < 0.9f || magnitude > 1.1f) return;
         foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
         {
             if ((machine.transform.position - machinePosition).sqrMagnitude > 0.001f) continue;
@@ -71,6 +74,16 @@ public class NetworkPlayerSetup : NetworkBehaviour
             else machine.TryRecall(machine.targetBookID);
             return;
         }
+    }
+
+    [Rpc(SendTo.Owner)]
+    public void RestoreRejectedReleaseRpc(NetworkObjectReference bookReference, RpcParams rpc = default)
+    {
+        if (rpc.Receive.SenderClientId != Unity.Netcode.NetworkManager.ServerClientId ||
+            !IsOwner || interaction == null || !bookReference.TryGet(out NetworkObject bookObject)) return;
+        var book = bookObject.GetComponent<NetworkBook>();
+        if (book != null && book.HeldByLocal)
+            interaction.AcceptNetworkBook(bookObject.GetComponent<BookItem>());
     }
 
     private void SetLocal(bool local)

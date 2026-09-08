@@ -1,5 +1,24 @@
 # Multiplayer oturum ve etkileşim düzeltmesi
 
+## 2026-09-08: birleşim sonrası sağlamlaştırma
+
+- Farklı kitapların raf güncellemeleri ters sırada gelirse istemci raf indeksi, her kitabın son yetkili durumuyla yeniden eşleştirilir. Tek bir kayıp yerel raf kaydı artık kalıcı olmaz.
+- Geçersiz/uzak atış isteği reddedildiğinde kitap sahibine güvenilir geri bildirim gönderilir; yerel envanterden önceden çıkarılmış kitap tekrar ele alınır.
+- Ağdan bırakılan kitabın geçici kitap-kitap çarpışma istisnaları temizlenir.
+- Transport kapandıktan sonra raf sahipliği ve sayaçlar sıfırlanır. Canlı oturum sırasında temizlik yapılmaz.
+- Kurtarma RPC'sinde NaN/sonsuz koordinatlar reddedilir; yeniden spawn edilen nesnenin önceki animasyon durumu temizlenir.
+- O tuşundaki yerel `YaratikGucu` test hilesi, kitapları sunucu durumunu atlayarak taşıdığı için ağ oturumunda engellenir; offline davranışı korunur. Ağda mevcut ortak kurtarma makinesi kullanılabilir.
+
+`python Tools/validate_multiplayer.py` yalnızca depo bağlantılarını kontrol eder; Unity derlemesi değildir.
+Play Mode testine reddedilmiş atıştan envanter kurtarma ve kapanış sonrası boş raf kontrolü eklendi.
+İki pencere bağlandıktan, işlemler ve ağ güncellemeleri durulduktan sonra her pencerede
+**ComicShop → Tests → Audit Current Multiplayer State (Play Mode)** çalıştırılabilir.
+Bu araç yerel raf kayıtlarını ağdaki kitap durumlarıyla ve GameStats ile karşılaştırır.
+İki penceredeki özet sayıları da karşılaştırılmalıdır; tek başına ağ aktarımını test etmez.
+
+Bu sürümde Unity Editor/derleyici ortamı bulunmadığından bu yeni Play Mode kontrolleri çalıştırılmadı.
+Mevcut IP bağlantısının kapsamı korunur; Steam daveti, Relay/lobi, host migration ve karakter görseli eklenmedi.
+
 Kaynak: `142179e` — Unity 6000.5.9f1, Netcode for GameObjects 2.13.2.
 Oyun sahnesi: `Assets/Settings/ne.unity`.
 
