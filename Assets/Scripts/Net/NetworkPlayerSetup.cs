@@ -10,6 +10,35 @@ public class NetworkPlayerSetup : NetworkBehaviour
     public MonoBehaviour[] ownerOnlyComponents;
     public bool connectHudToLocalPlayer = true;
     private PlayerInteraction interaction;
+    private PlayerKnockdown knockdown;
+    private readonly NetworkVariable<bool> headHit = new NetworkVariable<bool>(false);
+    private readonly NetworkVariable<double> standAt = new NetworkVariable<double>(-1d);
+
+    public void KnockDown(Vector3 impulse, bool head)
+    {
+        if (!IsServer || standAt.Value >= 0) return;
+        headHit.Value = head;
+        standAt.Value = NetworkManager.ServerTime.Time + (head ? 3d : 0.6d);
+        KnockbackRpc(impulse, standAt.Value, head);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void KnockbackRpc(Vector3 impulse, double until, bool head, RpcParams rpc = default)
+    {
+        if (rpc.Receive.SenderClientId != Unity.Netcode.NetworkManager.ServerClientId) return;
+        if (knockdown == null) return;
+        knockdown.SetState(until, head);
+        if (IsOwner) knockdown.Kick(impulse);
+    }
+
+    [Rpc(SendTo.Server, RequireOwnership = true)]
+    public void StandUpRpc()
+    {
+        if (standAt.Value >= 0 && NetworkManager.ServerTime.Time >= standAt.Value)
+            standAt.Value = -1d;
+    }
+
+    private void ApplyKnockdown(double before, double after) => knockdown.SetState(after, headHit.Value);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetStatics() => LocalPlayer = null;
@@ -17,6 +46,8 @@ public class NetworkPlayerSetup : NetworkBehaviour
     private void Awake()
     {
         interaction = GetComponent<PlayerInteraction>();
+        knockdown = GetComponent<PlayerKnockdown>();
+        if (knockdown == null) knockdown = gameObject.AddComponent<PlayerKnockdown>();
         if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>(true);
         if (audioListener == null) audioListener = GetComponentInChildren<AudioListener>(true);
         // Awake runs before network ownership is assigned. No prefab may read input yet.
@@ -25,7 +56,9 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        standAt.OnValueChanged += ApplyKnockdown;
         SetLocal(IsOwner);
+        knockdown.SetState(standAt.Value, headHit.Value);
         gameObject.name = IsOwner ? $"Player_LOCAL_{OwnerClientId}" : $"Player_{OwnerClientId}";
         if (!IsOwner) return;
         LocalPlayer = this;
@@ -46,6 +79,8 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        standAt.OnValueChanged -= ApplyKnockdown;
+        knockdown.SetState(-1d);
         // Books remain server-owned and must survive the departing player's destruction.
         if (IsServer) NetworkBook.ReleaseAllForPlayer(OwnerClientId);
         if (interaction != null) interaction.ResetInteraction();
