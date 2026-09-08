@@ -5,10 +5,11 @@ Shader "ComicShop/Book Cel"
         [MainTexture] _BaseMap("Original cover", 2D) = "white" {}
         [MainColor] _BaseColor("Original tint", Color) = (1,1,1,1)
         _ContourScale("Contour thickness", Range(1,2)) = 1.3
-        _CreaseOpacity("Small corner creases", Range(0,1)) = 0.42
+        _CreaseOpacity("Small corner creases", Range(0,1)) = 0.8
+        _IllustrationInk("Hand drawn book details", Range(0,1)) = 0.85
         _ToonStrength("Surface toon strength", Range(0,1)) = 0.65
-        _EdgeHighlight("Printed edge highlight", Range(0,0.2)) = 0.065
-        _PaperDetail("Subtle paper detail", Range(0,0.1)) = 0.025
+        _EdgeHighlight("Printed edge highlight", Range(0,0.2)) = 0.02
+        _PaperDetail("Subtle paper detail", Range(0,0.1)) = 0
         [HideInInspector] _InkCoverAxis("Cover axis", Vector) = (0,0,1,0)
         [HideInInspector] _InkBoundsMin("Bounds minimum", Vector) = (-0.5,-0.5,-0.5,0)
         [HideInInspector] _InkBoundsMax("Bounds maximum", Vector) = (0.5,0.5,0.5,0)
@@ -37,6 +38,7 @@ Shader "ComicShop/Book Cel"
                 float4 _InkCoverAxis;
                 half _ContourScale, _CreaseOpacity;
                 half _ToonStrength, _EdgeHighlight, _PaperDetail;
+                half _IllustrationInk;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -67,6 +69,23 @@ Shader "ComicShop/Book Cel"
                 float stroke = 1 - smoothstep(width - aa, width + aa, d);
                 // Fade fine pen marks out at a distance rather than shimmer.
                 return stroke * saturate(width / aa) * (1 - smoothstep(0.85, 1, t));
+            }
+            float BookPen(float2 p)
+            {
+                // Broken binding seam and asymmetric corner folds: keep the artwork clear.
+                float pen = Crease(p, float2(0.038,0.12), float2(0.041,0.43));
+                pen = max(pen, Crease(p, float2(0.041,0.48), float2(0.037,0.86)));
+                pen = max(pen, Crease(p, float2(0.026,0.925), float2(0.086,0.975)));
+                pen = max(pen, Crease(p, float2(0.086,0.975), float2(0.105,0.963)));
+                pen = max(pen, Crease(p, float2(0.96,0.11), float2(0.895,0.032)));
+                pen = max(pen, Crease(p, float2(0.895,0.032), float2(0.872,0.038)));
+                // Sparse tapered pen hatching beside folds, not an all-over noise layer.
+                pen = max(pen, Crease(p, float2(0.048,0.9), float2(0.073,0.876)));
+                pen = max(pen, Crease(p, float2(0.055,0.889), float2(0.077,0.871)));
+                pen = max(pen, Crease(p, float2(0.932,0.069), float2(0.951,0.047)));
+                pen = max(pen, Crease(p, float2(0.923,0.06), float2(0.938,0.044)));
+                pen = max(pen, Crease(p, float2(0.96,0.71), float2(0.963,0.8)));
+                return pen;
             }
             half4 Frag(Varyings input) : SV_Target
             {
@@ -109,6 +128,13 @@ Shader "ComicShop/Book Cel"
                 float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
                                    Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
                 ink = max(ink, crease * onCover * _CreaseOpacity);
+                ink = max(ink, BookPen(face) * onCover * _IllustrationInk);
+                // Two inset ink seams follow the thickness on side faces.
+                float seamDistance = min(abs(faceDepth-0.16), abs(faceDepth-0.84));
+                float seamAA = max(fwidth(faceDepth), 0.0001);
+                float sideSeam = (1-smoothstep(0.009-seamAA, 0.009+seamAA, seamDistance))
+                    * saturate(0.009/seamAA) * (1-onCover);
+                ink = max(ink, sideSeam * _IllustrationInk * 0.65);
                 return half4(MixFog(lerp(cover, half3(0,0,0), ink), input.fog), 1);
             }
             ENDHLSL
