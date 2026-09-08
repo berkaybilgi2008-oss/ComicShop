@@ -29,6 +29,13 @@ def validate():
     manifest = json.loads(read("Packages/manifest.json"))["dependencies"]
     lock = json.loads(read("Packages/packages-lock.json"))["dependencies"]
     assert manifest["com.unity.netcode.gameobjects"] == lock["com.unity.netcode.gameobjects"]["version"]
+    assert manifest["com.unity.services.multiplayer"] == "2.3.1"
+    online_transport = read("Assets/Scripts/Net/OnlineSessionTransport.cs")
+    for required in ["IOnlineSessionTransport", "CreateAllocationAsync", "JoinAllocationAsync", "dtls"]:
+        assert required in online_transport, required
+    connection = read("Assets/Scripts/Net/ConnectionManager.cs")
+    for required in ["InternetRelay", "StartRelayHost", "StartRelayClient", "ProtocolVersion = 3"]:
+        assert required in connection, required
 
     prefabs = [ROOT / "Assets/Prefabs/Book.prefab"] + sorted((ROOT / "Assets/Prefabs/VeridianBooks").glob("*.prefab"))
     assert len(prefabs) == 16, "Expected fallback + 15 authored books"
