@@ -99,6 +99,9 @@ public class ConnectionManager : MonoBehaviour
         }
         try
         {
+            // Player NetworkVariable layout changed with synchronized knockdown.
+            // Reject older builds instead of allowing incompatible state layouts.
+            networkManager.NetworkConfig.ProtocolVersion = 2;
             ShelfSlot.BuildNetworkRegistry();
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
                 spawner.PrepareSession(networkManager);

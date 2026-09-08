@@ -1,5 +1,17 @@
 # Multiplayer oturum ve etkileşim düzeltmesi
 
+## Oynanış özelliklerinin geri bağlanması
+
+- Son parlak kitap görünümü geri getirildi: mevcut kapak resmi/UV/tint korunur, yüzeyde üç açık toon bandı, 12 kenar kontürü ve iki küçük köşe izi. Mesh Read/Write gerektirmeyen material property block kullanılır. `BookEdgeLines.borderFraction` varsayılanı 0.015; Inspector'dan değiştirip Rebuild Book Crease Lines ile yenilenebilir.
+- O / YaratikGucu ağda yeniden kullanılabilir. İstemci yalnızca kendi oyuncusundan istek gönderir. Sunucu elinde o türden kitap olduğunu, envanter kapasitesini, raf seçeneğini, dev-build kısıtını ve saniyede bir istek sınırını kontrol eder. Diğer oyuncuların elindeki ve yerleştirilmekte olan kitaplar alınmaz. Mevcut ElimeGetir/OnumeDok seçenekleri sunucudaki oyuncu prefabı ayarlarıyla çalışır.
+- Şarjlı kitap atışı hedef oyuncuyu geri iter/yere düşürür. Baş bölgesi isabetinde 3 saniye, diğer isabette 0.6 saniye sonra Space ile kalkılabilir. İsabet sunucuda swept bounds + engel taramasıyla hesaplanır; atan oyuncu ve duvarın arkasındaki hedef dışlanır. Aynı atış yalnızca bir düşürme yapar. Durum tek atomik NetworkVariable ile yayılır; geç katılan oyuncu mevcut durumu alır.
+- Yerdeyken yürüme, kitap alma/yerleştirme, atış, O ve kurtarma makinesi istekleri engellenir. Elde tutulan kitaplar korunur. Bağlantı kapanışı mevcut temizleme akışını korur.
+- ProtocolVersion=2 ile eski buildlerin yeni oyuncu durumuyla bağlanması engellenir. İki taraf da aynı sürümde olmalıdır.
+
+Doğrulama: C# sözdizimi ayrıştırması ve depo/prefab/GUID kontrolleri burada çalıştırıldı. Yeni özelliklerin Unity derlemesi, shader derlemesi ve iki oyunculu oynanış testi bu ortamda çalıştırılmadı.
+Mevcut regresyon testi sonunda yeni cel/O/kalkma kontrolleri `[MP GAMEPLAY PASS]` üretir; bu mesaj gerçek fırlatma isabeti ve iki istemci testinin yerine geçmez.
+Kabul: iki taraf kapakları aynı görmeli; O ile çağrılan kopyalar iki tarafta aynı konum/sahiplikte olmalı; şarjlı kitapla diğer oyuncu düşmeli, erken Space işe yaramamalı, süre sonrası Space kaldırmalı; duvarın arkasındaki oyuncu etkilenmemeli; yere düşmüş oyuncu varken üçüncü katılım da aynı durumu görmeli.
+
 ## 2026-09-08: birleşim sonrası sağlamlaştırma
 
 - Raf/elde/ağ hareketi sırasında Rigidbody interpolation kapatılır; yerdeki host fiziğinde açık kalır. Böylece raf animasyonunun son karesinde fizik konumu doğruyken görünen Transform'un bir fizik adımı geride kalması engellenir. Kullanıcının Unity Play Mode regresyon testi bu düzeltmeyle `[MP TEST PASS]` verdi.

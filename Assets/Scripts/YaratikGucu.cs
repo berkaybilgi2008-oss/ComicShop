@@ -79,7 +79,7 @@ public class YaratikGucu : MonoBehaviour
 
     void Update()
     {
-        if (calisiyor || !Input.GetKeyDown(tus))
+        if (calisiyor || Cursor.lockState != CursorLockMode.Locked || !Input.GetKeyDown(tus))
             return;
 
         if (sadeceEditorVeDevBuild && !Application.isEditor && !Debug.isDebugBuild)
@@ -88,11 +88,11 @@ public class YaratikGucu : MonoBehaviour
         if (etkilesim == null || !etkilesim.enabled)
             return;
 
-        // This offline helper directly moves books/removes shelf entries. Doing
-        // that on a network client bypasses the authoritative NetworkBook state.
         if (ConnectionManager.Instance != null && ConnectionManager.Instance.IsRunning)
         {
-            Yaz("Bu yerel test kisayolu ag oturumunda kapali. Kitap kurtarmak icin ortak kurtarma makinesini kullan.", true);
+            var setup = GetComponent<NetworkPlayerSetup>();
+            if (setup != null && setup.IsSpawned && setup.IsOwner && !setup.IsDown && etkilesim.ActiveHeldBook != null)
+                setup.YaratikGucuRpc(etkilesim.ActiveHeldBook.bookID);
             return;
         }
 
