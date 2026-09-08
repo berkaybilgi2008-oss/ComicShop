@@ -2,6 +2,7 @@
 
 ## 2026-09-08: birleşim sonrası sağlamlaştırma
 
+- Raf/elde/ağ hareketi sırasında Rigidbody interpolation kapatılır; yerdeki host fiziğinde açık kalır. Böylece raf animasyonunun son karesinde fizik konumu doğruyken görünen Transform'un bir fizik adımı geride kalması engellenir. Kullanıcının Unity Play Mode regresyon testi bu düzeltmeyle `[MP TEST PASS]` verdi.
 - Farklı kitapların raf güncellemeleri ters sırada gelirse istemci raf indeksi, her kitabın son yetkili durumuyla yeniden eşleştirilir. Tek bir kayıp yerel raf kaydı artık kalıcı olmaz.
 - Geçersiz/uzak atış isteği reddedildiğinde kitap sahibine güvenilir geri bildirim gönderilir; yerel envanterden önceden çıkarılmış kitap tekrar ele alınır.
 - Ağdan bırakılan kitabın geçici kitap-kitap çarpışma istisnaları temizlenir.
