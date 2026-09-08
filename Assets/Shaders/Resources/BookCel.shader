@@ -6,6 +6,9 @@ Shader "ComicShop/Book Cel"
         [MainColor] _BaseColor("Original tint", Color) = (1,1,1,1)
         _ContourScale("Contour thickness", Range(1,2)) = 1.3
         _CreaseOpacity("Small corner creases", Range(0,1)) = 0.42
+        _ToonStrength("Surface toon strength", Range(0,1)) = 0.65
+        _EdgeHighlight("Printed edge highlight", Range(0,0.2)) = 0.065
+        _PaperDetail("Subtle paper detail", Range(0,0.1)) = 0.025
         [HideInInspector] _InkCoverAxis("Cover axis", Vector) = (0,0,1,0)
         [HideInInspector] _InkBoundsMin("Bounds minimum", Vector) = (-0.5,-0.5,-0.5,0)
         [HideInInspector] _InkBoundsMax("Bounds maximum", Vector) = (0.5,0.5,0.5,0)
@@ -33,6 +36,7 @@ Shader "ComicShop/Book Cel"
                 float4 _InkBoundsMin, _InkBoundsMax, _InkWidths;
                 float4 _InkCoverAxis;
                 half _ContourScale, _CreaseOpacity;
+                half _ToonStrength, _EdgeHighlight, _PaperDetail;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -75,8 +79,12 @@ Shader "ComicShop/Book Cel"
                 half luminance = dot(cover, half3(0.2126,0.7152,0.0722));
                 cover = max(0, lerp(luminance.xxx, cover, 1.06h));
                 // Three bright toon bands; preserve the printed cover texture.
-                half band = diffuse < 0.33h ? 0.88h : (diffuse < 0.70h ? 0.96h : 1.06h);
-                cover *= lerp(0.96h, band, lightEnergy);
+                float bandAA = max(fwidth(diffuse), 0.008);
+                half middle = smoothstep(0.33 - bandAA, 0.33 + bandAA, diffuse);
+                half bright = smoothstep(0.70 - bandAA, 0.70 + bandAA, diffuse);
+                half3 shade = lerp(half3(0.87,0.89,0.94), half3(0.97,0.97,0.98), middle);
+                shade = lerp(shade, half3(1.07,1.045,1.01), bright);
+                cover *= lerp(half3(1,1,1), shade, _ToonStrength * lightEnergy);
                 float3 distance = max(0, min(input.positionOS - _InkBoundsMin.xyz, _InkBoundsMax.xyz - input.positionOS));
                 float3 relative = distance / max(_InkWidths.xyz * _ContourScale, float3(1e-6,1e-6,1e-6));
                 // Second closest box plane: covers the 12 edges, not face interiors.
@@ -87,6 +95,17 @@ Shader "ComicShop/Book Cel"
                 float2 face = _InkCoverAxis.x > 0.5 ? box.yz : (_InkCoverAxis.y > 0.5 ? box.xz : box.xy);
                 float faceDepth = dot(box, _InkCoverAxis.xyz);
                 float onCover = step(0.49, abs(faceDepth - 0.5));
+                // Narrow inset light catches the bound edge without washing out cover art.
+                float edgeDistance = min(min(face.x, 1-face.x), min(face.y, 1-face.y));
+                float edgeAA = max(fwidth(edgeDistance), 0.0001);
+                float edgeLight = 1-smoothstep(0.002, 0.006 + edgeAA, abs(edgeDistance-0.024));
+                edgeLight *= saturate(0.004 / edgeAA) * onCover;
+                cover += (1-saturate(cover)) * half3(1,0.94,0.82) * edgeLight * _EdgeHighlight;
+                // Object-space print grain stays attached to the book. Fade before aliasing.
+                float2 grainUV = face * 180;
+                float grainFade = 1-smoothstep(0.25, 0.75, max(length(ddx(grainUV)), length(ddy(grainUV))));
+                float grain = sin(grainUV.x * 6.2831853) * sin(grainUV.y * 6.2831853);
+                cover *= 1 + grain * grainFade * _PaperDetail * onCover;
                 float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
                                    Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
                 ink = max(ink, crease * onCover * _CreaseOpacity);
