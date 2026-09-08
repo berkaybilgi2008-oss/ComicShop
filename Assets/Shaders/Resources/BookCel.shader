@@ -48,6 +48,7 @@ Shader "ComicShop/Book Cel"
                 float3 positionOS : TEXCOORD1;
                 half3 normalWS : TEXCOORD2;
                 half fog : TEXCOORD3;
+                float3 normalOS : TEXCOORD4;
             };
             Varyings Vert(Attributes input)
             {
@@ -55,6 +56,7 @@ Shader "ComicShop/Book Cel"
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.positionOS = input.positionOS.xyz;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+                output.normalOS = input.normalOS;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 output.fog = ComputeFogFactor(output.positionCS.z);
                 return output;
@@ -64,8 +66,8 @@ Shader "ComicShop/Book Cel"
                 float2 segment = b - a;
                 float t = saturate(dot(p - a, segment) / dot(segment, segment));
                 float d = length(p - (a + t * segment));
-                float width = lerp(0.0018, 0.00025, t);
-                float aa = max(length(fwidth(p)), 0.0001);
+                float width = lerp(0.0032, 0.0006, t);
+                float aa = max(fwidth(d), 0.0001);
                 float stroke = 1 - smoothstep(width - aa, width + aa, d);
                 // Fade fine pen marks out at a distance rather than shimmer.
                 return stroke * saturate(width / aa) * (1 - smoothstep(0.85, 1, t));
@@ -113,7 +115,13 @@ Shader "ComicShop/Book Cel"
                 float3 box = saturate((input.positionOS - _InkBoundsMin.xyz) / max(_InkBoundsMax.xyz - _InkBoundsMin.xyz, float3(1e-6,1e-6,1e-6)));
                 float2 face = _InkCoverAxis.x > 0.5 ? box.yz : (_InkCoverAxis.y > 0.5 ? box.xz : box.xy);
                 float faceDepth = dot(box, _InkCoverAxis.xyz);
-                float onCover = step(0.49, abs(faceDepth - 0.5));
+                // Classify both covers by their normals, not a 1% bounds slice.
+                // Inset cover faces were incorrectly excluded by the old depth test.
+                float onCover = smoothstep(0.65, 0.9,
+                    abs(dot(normalize(input.normalOS), _InkCoverAxis.xyz)));
+                // Mirror the rear layout so the binding mark follows the same physical edge.
+                float2 penFace = face;
+                penFace.y = lerp(1-face.y, face.y, step(0.5, faceDepth));
                 // Narrow inset light catches the bound edge without washing out cover art.
                 float edgeDistance = min(min(face.x, 1-face.x), min(face.y, 1-face.y));
                 float edgeAA = max(fwidth(edgeDistance), 0.0001);
@@ -125,16 +133,11 @@ Shader "ComicShop/Book Cel"
                 float grainFade = 1-smoothstep(0.25, 0.75, max(length(ddx(grainUV)), length(ddy(grainUV))));
                 float grain = sin(grainUV.x * 6.2831853) * sin(grainUV.y * 6.2831853);
                 cover *= 1 + grain * grainFade * _PaperDetail * onCover;
-                float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
-                                   Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
+                float crease = max(Crease(penFace, float2(0.055,0.945), float2(0.12,0.885)),
+                                   Crease(penFace, float2(0.945,0.06), float2(0.905,0.105)));
                 ink = max(ink, crease * onCover * _CreaseOpacity);
-                ink = max(ink, BookPen(face) * onCover * _IllustrationInk);
-                // Two inset ink seams follow the thickness on side faces.
-                float seamDistance = min(abs(faceDepth-0.16), abs(faceDepth-0.84));
-                float seamAA = max(fwidth(faceDepth), 0.0001);
-                float sideSeam = (1-smoothstep(0.009-seamAA, 0.009+seamAA, seamDistance))
-                    * saturate(0.009/seamAA) * (1-onCover);
-                ink = max(ink, sideSeam * _IllustrationInk * 0.65);
+                ink = max(ink, BookPen(penFace) * onCover * _IllustrationInk);
+                // Side faces retain their original printed/page texture and outer contour.
                 return half4(MixFog(lerp(cover, half3(0,0,0), ink), input.fog), 1);
             }
             ENDHLSL
