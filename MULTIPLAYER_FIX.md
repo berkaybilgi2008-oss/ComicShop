@@ -1,5 +1,22 @@
 # Multiplayer oturum ve etkileşim düzeltmesi
 
+## Internet odasi / Unity Relay
+
+- Proje Unity Cloud'a baglandiktan sonra **Internet / Oda Kodu** secenegi farkli aglardaki oyunculari Unity Relay uzerinden baglar. Host **Internet Odasi Kur** ile kod uretir; diger oyuncu ayni kodu **Kodla Katil** alanina girer. Modem portu acmak veya IP paylasmak gerekmez.
+- Relay istemcileri anonim Unity Authentication ile oturum acar. Parola veya oyun ici hesap gerekmez. Oda kodu yalnizca aktif host allocation'i boyunca gecerlidir.
+- `IOnlineSessionTransport` siniri oyun senkronizasyonunu magaza/ulasim katmanindan ayirir. Steamworks hazir oldugunda Steam Lobby + Steam Networking transport bu arayuzun yeni saglayicisi olarak eklenebilir; kitap, raf ve oyuncu RPC'leri degismez.
+- **Yerel Ag / IP** yolu regresyon ve ayni ag testleri icin korunmustur. Internet ve LAN baslatma akislari ayni oturum hazirlama, surum ve kapanis kontrollerini kullanir.
+- `com.unity.services.multiplayer` 2.3.1 paketi Relay, Authentication ve Services Core bagimliliklarini getirir. Unity paketi ilk acilista indirip `packages-lock.json` dosyasini guncelleyebilir.
+- Ag protokol surumu 3'tur; onceki buildler bu buildin odalarina baglanamaz. Iki oyuncu da ayni `main` surumunu kullanmalidir.
+
+### Internetten test
+
+1. Iki bilgisayarda da ayni guncel buildi ac ve Steam'in degil Unity Relay'in test edildigini unutma.
+2. Host **Internet / Oda Kodu -> Internet Odasi Kur** der ve ekrandaki kodu arkadasina yollar.
+3. Diger oyuncu kodu buyuk/kucuk harf fark etmeksizin girip **Kodla Katil** der.
+4. Kitap alma, raf, O gucu, Q firlatma/bayilma, ayrilma ve yeniden oda kurmayi iki tarafta dene.
+5. Steamworks App ID alindiginda test Relay saglayicisi kaldirilmak zorunda degildir; gelistirme fallback'i olarak tutulabilir.
+
 ## Oynanış özelliklerinin geri bağlanması
 
 - Son parlak kitap görünümü geri getirildi: mevcut kapak resmi/UV/tint korunur, yüzeyde üç açık toon bandı, 12 kenar kontürü ve iki küçük köşe izi. Mesh Read/Write gerektirmeyen material property block kullanılır. `BookEdgeLines.borderFraction` varsayılanı 0.015; Inspector'dan değiştirip Rebuild Book Crease Lines ile yenilenebilir.

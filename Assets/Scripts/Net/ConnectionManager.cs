@@ -6,12 +6,18 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkManager))]
 public class ConnectionManager : MonoBehaviour
 {
-    public enum SessionState { Idle, StartingHost, Connecting, Connected, Disconnecting }
+    public enum SessionState { Idle, PreparingOnline, StartingHost, Connecting, Connected, Disconnecting }
+    public enum ConnectionRoute { InternetRelay, DirectIp }
+
     public static ConnectionManager Instance { get; private set; }
+    [Header("Oturum")]
+    public ConnectionRoute connectionRoute = ConnectionRoute.InternetRelay;
     public string address = "127.0.0.1";
     public ushort port = 7777;
+    public string relayJoinCode = "";
     public bool showDebugUI = true;
     [Min(1f)] public float connectionTimeout = 15f;
+    [Min(5f)] public float onlineServiceTimeout = 30f;
     [Range(1, 4)] public int maxPlayers = 4;
     public SessionState State { get; private set; }
     public bool IsRunning => State != SessionState.Idle || TransportBusy;
@@ -20,6 +26,8 @@ public class ConnectionManager : MonoBehaviour
     private NetworkManager networkManager;
     private string status = "Bagli degil";
     private float attemptStarted;
+    private int onlineOperation;
+    private readonly IOnlineSessionTransport relayTransport = new UnityRelaySessionTransport();
     private bool TransportBusy => networkManager != null &&
         (networkManager.IsListening || networkManager.IsClient || networkManager.IsServer ||
          networkManager.ShutdownInProgress);
@@ -76,20 +84,96 @@ public class ConnectionManager : MonoBehaviour
         if (networkManager != null && TransportBusy) networkManager.Shutdown(true);
     }
 
-    public bool StartHost() => StartSession(true);
-    public bool StartClient() => StartSession(false);
+    public bool StartHost()
+    {
+        connectionRoute = ConnectionRoute.DirectIp;
+        return StartSession(true);
+    }
+
+    public bool StartClient()
+    {
+        connectionRoute = ConnectionRoute.DirectIp;
+        return StartSession(false);
+    }
+
+    public async void StartRelayHost()
+    {
+        connectionRoute = ConnectionRoute.InternetRelay;
+        if (!BeginOnlinePreparation("Internet odasi hazirlaniyor...")) return;
+        int operation = onlineOperation;
+        try
+        {
+            await relayTransport.PrepareHostAsync(networkManager, Mathf.Clamp(maxPlayers, 1, 4));
+            if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
+            relayJoinCode = relayTransport.JoinCode;
+            StartPreparedSession(true, $"Internet odasi kuruluyor. Kod: {relayJoinCode}");
+        }
+        catch (Exception exception)
+        {
+            FailOnlinePreparation(operation, exception);
+        }
+    }
+
+    public async void StartRelayClient()
+    {
+        connectionRoute = ConnectionRoute.InternetRelay;
+        relayJoinCode = UnityRelaySessionTransport.NormalizeJoinCode(relayJoinCode);
+        if (relayJoinCode.Length == 0)
+        {
+            SetStatus("Oda kodunu gir.");
+            return;
+        }
+        if (!BeginOnlinePreparation("Oda kodu kontrol ediliyor...")) return;
+        int operation = onlineOperation;
+        try
+        {
+            await relayTransport.PrepareClientAsync(networkManager, relayJoinCode);
+            if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
+            StartPreparedSession(false, $"Internet odasina baglaniliyor: {relayJoinCode}");
+        }
+        catch (Exception exception)
+        {
+            FailOnlinePreparation(operation, exception);
+        }
+    }
+
+    private bool BeginOnlinePreparation(string message)
+    {
+        if (!ValidateStart()) return false;
+        onlineOperation++;
+        State = SessionState.PreparingOnline;
+        attemptStarted = Time.realtimeSinceStartup;
+        SetStatus(message);
+        return true;
+    }
+
+    private void FailOnlinePreparation(int operation, Exception exception)
+    {
+        if (operation != onlineOperation) return;
+        Debug.LogException(exception);
+        relayTransport.Reset();
+        State = SessionState.Idle;
+        SetCursor(false);
+        SetStatus("Internet odasi hatasi: " + FriendlyOnlineError(exception));
+    }
+
+    private static string FriendlyOnlineError(Exception exception)
+    {
+        string message = exception.Message ?? string.Empty;
+        if (message.IndexOf("join", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            message.IndexOf("allocation", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0)
+            return "Oda kodu gecersiz veya odanin suresi dolmus.";
+        return message.Length > 140 ? message.Substring(0, 140) : message;
+    }
 
     private bool StartSession(bool host)
     {
-        if (networkManager == null || IsRunning)
-        {
-            SetStatus("Once mevcut baglantinin kapanmasini bekle.");
-            return false;
-        }
+        if (!ValidateStart()) return false;
         var transport = networkManager.NetworkConfig.NetworkTransport as UnityTransport;
-        if (transport == null || networkManager.NetworkConfig.PlayerPrefab == null)
+        if (transport == null)
         {
-            SetStatus("NetworkManager: UnityTransport veya Player Prefab eksik.");
+            SetStatus("NetworkManager: UnityTransport eksik.");
             return false;
         }
         if (!host && string.IsNullOrWhiteSpace(address))
@@ -99,9 +183,41 @@ public class ConnectionManager : MonoBehaviour
         }
         try
         {
-            // Player NetworkVariable layout changed with synchronized knockdown.
-            // Reject older builds instead of allowing incompatible state layouts.
-            networkManager.NetworkConfig.ProtocolVersion = 2;
+            // Remote address and server listen address are distinct UTP settings.
+            transport.SetConnectionData(host ? "127.0.0.1" : address.Trim(), port,
+                host ? "0.0.0.0" : null);
+            return StartPreparedSession(host,
+                host ? $"Yerel oda kuruluyor (port {port})" : $"Yerel aga baglaniliyor: {address}:{port}");
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+            StopWithStatus($"Baglanti hatasi: {exception.Message}");
+            return false;
+        }
+    }
+
+    private bool ValidateStart()
+    {
+        if (networkManager == null || IsRunning)
+        {
+            SetStatus("Once mevcut baglantinin kapanmasini bekle.");
+            return false;
+        }
+        if (networkManager.NetworkConfig.PlayerPrefab == null)
+        {
+            SetStatus("NetworkManager Player Prefab eksik.");
+            return false;
+        }
+        return true;
+    }
+
+    private bool StartPreparedSession(bool host, string startingMessage)
+    {
+        try
+        {
+            // Synchronized gameplay layout. Both peers must run this build generation.
+            networkManager.NetworkConfig.ProtocolVersion = 3;
             ShelfSlot.BuildNetworkRegistry();
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
                 spawner.PrepareSession(networkManager);
@@ -109,16 +225,12 @@ public class ConnectionManager : MonoBehaviour
                 machine.ResetSession();
 
             networkManager.NetworkConfig.ConnectionApproval = true;
-            // Remote address and server listen address are distinct UTP settings.
-            transport.SetConnectionData(host ? "127.0.0.1" : address.Trim(), port,
-                host ? "0.0.0.0" : null);
             State = host ? SessionState.StartingHost : SessionState.Connecting;
             attemptStarted = Time.realtimeSinceStartup;
-            SetStatus(host ? $"Oda kuruluyor (port {port})" : $"Baglaniliyor: {address}:{port}");
+            SetStatus(startingMessage);
             bool started = host ? networkManager.StartHost() : networkManager.StartClient();
             if (!started)
-                StopWithStatus(host ? $"Oda acilamadi. Port {port} baska bir host tarafindan kullaniliyor olabilir."
-                    : "Baglanti baslatilamadi.");
+                StopWithStatus(host ? "Oda baslatilamadi." : "Baglanti baslatilamadi.");
             return started;
         }
         catch (Exception exception)
@@ -133,6 +245,7 @@ public class ConnectionManager : MonoBehaviour
 
     private void StopWithStatus(string message)
     {
+        onlineOperation++;
         State = SessionState.Disconnecting;
         SetCursor(false);
         SetStatus(message);
@@ -152,9 +265,12 @@ public class ConnectionManager : MonoBehaviour
             SetCursor(false);
             SetStatus(status + " Yeni oturum acabilirsin.");
         }
-        if ((State == SessionState.Connecting || State == SessionState.StartingHost) &&
-            Time.realtimeSinceStartup - attemptStarted >= connectionTimeout)
-            StopWithStatus("Baglanti zaman asimina ugradi. Host ve adresi kontrol et.");
+        float timeout = State == SessionState.PreparingOnline ? onlineServiceTimeout : connectionTimeout;
+        if ((State == SessionState.PreparingOnline || State == SessionState.Connecting ||
+             State == SessionState.StartingHost) && Time.realtimeSinceStartup - attemptStarted >= timeout)
+            StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
+                ? "Internet odasi zaman asimina ugradi. Baglantini ve oda kodunu kontrol et."
+                : "Baglanti zaman asimina ugradi. Host ve adresi kontrol et.");
         if (State == SessionState.Connected && Input.GetKeyDown(KeyCode.Escape))
             SetCursor(Cursor.lockState != CursorLockMode.Locked);
     }
@@ -183,7 +299,10 @@ public class ConnectionManager : MonoBehaviour
         if (id == networkManager.LocalClientId)
         {
             State = SessionState.Connected;
-            SetStatus(networkManager.IsHost ? $"Oda acik (port {port})" : "Odaya katildin.");
+            if (connectionRoute == ConnectionRoute.InternetRelay)
+                SetStatus(networkManager.IsHost ? $"Internet odasi acik. Kod: {relayJoinCode}" : "Internet odasina katildin.");
+            else
+                SetStatus(networkManager.IsHost ? $"Yerel oda acik (port {port})" : "Yerel odaya katildin.");
         }
         else if (networkManager.IsServer) SetStatus($"Oyuncu katildi (ID {id}).");
     }
@@ -207,7 +326,9 @@ public class ConnectionManager : MonoBehaviour
         SetCursor(false);
     }
 
-    private void HandleTransportFailure() => StopWithStatus($"Ag hatasi. Adres ve port {port} ayarini kontrol et.");
+    private void HandleTransportFailure() => StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
+        ? "Relay ag hatasi. Internet baglantini kontrol et."
+        : $"Ag hatasi. Adres ve port {port} ayarini kontrol et.");
 
     public static void SetCursor(bool gameplay)
     {
@@ -225,14 +346,28 @@ public class ConnectionManager : MonoBehaviour
     private void OnGUI()
     {
         if (!showDebugUI || (State == SessionState.Connected && Cursor.lockState == CursorLockMode.Locked)) return;
-        GUILayout.BeginArea(new Rect(12, 12, 290, 250), GUI.skin.box);
+        GUILayout.BeginArea(new Rect(12, 12, 340, 330), GUI.skin.box);
         GUILayout.Label(status, new GUIStyle(GUI.skin.label) { wordWrap = true });
         if (!IsRunning)
         {
-            if (GUILayout.Button("Oda Kur (Host)", GUILayout.Height(30))) StartHost();
-            GUILayout.Label("Host adresi:");
-            address = GUILayout.TextField(address);
-            if (GUILayout.Button("Katil (Client)", GUILayout.Height(30))) StartClient();
+            connectionRoute = (ConnectionRoute)GUILayout.SelectionGrid((int)connectionRoute,
+                new[] { "Internet / Oda Kodu", "Yerel Ag / IP" }, 2);
+            if (connectionRoute == ConnectionRoute.InternetRelay)
+            {
+                if (GUILayout.Button("Internet Odasi Kur", GUILayout.Height(32))) StartRelayHost();
+                GUILayout.Label("Oda kodu:");
+                relayJoinCode = GUILayout.TextField(relayJoinCode, 16).ToUpperInvariant();
+                if (GUILayout.Button("Kodla Katil", GUILayout.Height(32))) StartRelayClient();
+                GUILayout.Label("Kodu diger oyuncuya gonder. IP veya port acmak gerekmez.",
+                    new GUIStyle(GUI.skin.label) { wordWrap = true });
+            }
+            else
+            {
+                if (GUILayout.Button("Yerel Oda Kur (Host)", GUILayout.Height(30))) StartHost();
+                GUILayout.Label("Host adresi:");
+                address = GUILayout.TextField(address);
+                if (GUILayout.Button("Yerel Aga Katil", GUILayout.Height(30))) StartClient();
+            }
         }
         else
         {
