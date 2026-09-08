@@ -142,6 +142,9 @@ public class ConnectionManager : MonoBehaviour
         // Stopped callbacks run inside shutdown. Wait for NGO to dispose its transport.
         if (State == SessionState.Disconnecting && !TransportBusy)
         {
+            // NGO has finished despawning here. Never clear a live session's slots.
+            ShelfSlot.ResetNetworkSession();
+            GameStats.Initialize(0, 1);
             State = SessionState.Idle;
             SetCursor(false);
             SetStatus(status + " Yeni oturum acabilirsin.");

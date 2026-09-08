@@ -489,6 +489,7 @@ public class PlayerInteraction : MonoBehaviour
         if (book == null) return;
         bool removed = heldBooks.Remove(book);
         IgnorePlayerCollision(book, false);
+        RestoreBookToBookCollisions(book);
         if (!removed) return;
         CancelHandAnimations();
         activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
