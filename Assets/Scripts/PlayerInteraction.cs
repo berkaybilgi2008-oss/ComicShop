@@ -127,6 +127,10 @@ public class PlayerInteraction : MonoBehaviour
         crosshair = GetComponent<Crosshair>();
         if (crosshair == null)
             crosshair = gameObject.AddComponent<Crosshair>();
+
+        // Optional character package: bind when present, including spawned players.
+        if (GetComponent<CharacterBookCarryBridge>() == null)
+            gameObject.AddComponent<CharacterBookCarryBridge>();
     }
 
     void Update()

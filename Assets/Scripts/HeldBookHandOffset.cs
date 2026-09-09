@@ -45,6 +45,10 @@ public class HeldBookHandOffset : MonoBehaviour
         if (interaction == null || interaction.rightHandPoint == null)
             return;
 
+        var characterHand = GetComponent<CharacterBookCarryBridge>();
+        if (characterHand != null && characterHand.IsBound)
+            return;
+
         interaction.rightHandPoint.localPosition += Vector3.down * downwardOffset;
         applied = true;
     }
