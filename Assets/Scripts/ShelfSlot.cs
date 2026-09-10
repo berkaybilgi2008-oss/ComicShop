@@ -42,8 +42,11 @@ public class ShelfSlot : MonoBehaviour
     [Tooltip("Kitaplarin yan yana dizilecegi eksen. Auto = en genis YATAY ekseni kendi secer (ONERILEN).")]
     public SpreadAxis spreadAxis = SpreadAxis.Auto;
 
-    [Tooltip("Kutunun kenarlarinda birakilacak bosluk orani.")]
-    [Range(0f, 0.45f)] public float edgePadding = 0.08f;
+    [Tooltip("Sol kenardan ilk kitap merkezine mesafe (dunya birimi, parent scale'den bagimsiz).")]
+    [Min(0f)] public float firstBookInset = 0.04f;
+
+    [Tooltip("Kitap merkezleri arasindaki mesafe (dunya birimi).")]
+    [Min(0.001f)] public float bookSpacing = 0.08f;
 
     [Tooltip("Kitaplar kutunun ALT yuzeyine otursun mu?")]
     public bool alignToBottom = true;
@@ -515,13 +518,15 @@ public class ShelfSlot : MonoBehaviour
         SpreadAxis resolvedAxis = ResolveSpreadAxis(box);
         Vector3 axis = AxisVector(resolvedAxis);
         float axisSize = Mathf.Abs(AxisComponent(box.size, resolvedAxis));
-        float usable = axisSize * Mathf.Clamp01(1f - 2f * edgePadding);
+        Vector3 worldAxis = space.TransformVector(axis);
+        if (worldAxis.sqrMagnitude < 0.00000001f)
+            return false;
 
-        float step = capacity > 1 ? usable / (capacity - 1) : 0f;
-        float offsetAlongAxis = capacity > 1 ? (-usable * 0.5f + step * index) : 0f;
-
-        Vector3 localPos = box.center + axis * offsetAlongAxis;
-        position = space.TransformPoint(localPos);
+        // Start at the negative edge of the shelf's spread axis. Add distances
+        // AFTER transforming so even a 200x parent keeps the 0.04 / 0.08 spacing.
+        Vector3 leftEdge = space.TransformPoint(box.center - axis * (axisSize * 0.5f));
+        position = leftEdge + worldAxis.normalized *
+            (Mathf.Max(0f, firstBookInset) + Mathf.Max(0.001f, bookSpacing) * index);
 
         if (alignToBottom)
             position.y = box.bounds.min.y + bottomLift;
@@ -730,10 +735,7 @@ public class ShelfSlot : MonoBehaviour
         Vector3 worldZ = space.TransformVector(Vector3.forward * box.size.z);
         SpreadAxis resolved = ResolveSpreadAxis(box);
 
-        float axisSize = Mathf.Abs(AxisComponent(box.size, resolved));
-        float usable = axisSize * Mathf.Clamp01(1f - 2f * edgePadding);
-        float step = capacity > 1 ? usable / (capacity - 1) : 0f;
-        float worldStep = space.TransformVector(AxisVector(resolved) * step).magnitude;
+        float worldStep = Mathf.Max(0.001f, bookSpacing);
 
         Debug.Log(
             $"[Slot Bilgisi] '{name}'\n" +
