@@ -58,7 +58,8 @@ public class ShelfSlot : MonoBehaviour
     [Tooltip("Raf tahtasinin ustunde birakilacak bosluk (metre).")]
     public float bottomLift = 0.005f;
 
-    [Tooltip("Ince ayar: hesaplanan konuma DUNYA uzayinda (metre) eklenecek offset.")]
+    [Tooltip("Ince ayar: dunya uzayinda yukseklik/derinlik offset'i. Dizilme eksenindeki " +
+             "bilesen yok sayilir; sol kenar mesafesini First Book Inset ile ayarla.")]
     public Vector3 worldOffset = Vector3.zero;
 
     [Tooltip("Kitabin rafa konuldugundaki ek rotasyonu (slot'un rotasyonu uzerine eklenir).")]
@@ -531,7 +532,8 @@ public class ShelfSlot : MonoBehaviour
         if (alignToBottom)
             position.y = box.bounds.min.y + bottomLift;
 
-        position += worldOffset;
+        // Old scene offsets must not shift the fixed left-edge inset.
+        position += worldOffset - Vector3.Project(worldOffset, worldAxis);
         rotation = space.rotation * Quaternion.Euler(bookRotationOffsetEuler);
         return true;
     }
