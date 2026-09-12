@@ -10,6 +10,9 @@ public class ConnectionManager : MonoBehaviour
     public enum ConnectionRoute { InternetRelay, DirectIp }
 
     public static ConnectionManager Instance { get; private set; }
+    [Header("Sahne Dogus Noktasi")]
+    [Tooltip("Atanirsa oyuncular bu sahne noktasinda dogar. Bos birakilirsa Player Prefab konumu kullanilir.")]
+    public Transform playerSpawnPoint;
     [Header("Oturum")]
     public ConnectionRoute connectionRoute = ConnectionRoute.InternetRelay;
     public string address = "127.0.0.1";
@@ -283,7 +286,7 @@ public class ConnectionManager : MonoBehaviour
         response.CreatePlayerObject = response.Approved;
         response.Pending = false;
         response.Reason = response.Approved ? "" : "Oda dolu.";
-        Transform spawn = networkManager.NetworkConfig.PlayerPrefab.transform;
+        Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
         response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
         response.Rotation = spawn.rotation;
     }
