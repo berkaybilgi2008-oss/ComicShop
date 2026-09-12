@@ -78,13 +78,21 @@ public class BookItem : MonoBehaviour
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;
-        // Only query the existing support chain when actually ready to freeze.
-        if (GetSupportState() != SupportState.Stable) return;
+        // Recheck sleeping books too: their support may have been picked up.
+        if (GetSupportState() != SupportState.Stable)
+        {
+            body.WakeUp();
+            return;
+        }
         if (!CanFreezeAfterSettling()) return;
 
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
-        body.isKinematic = true;
+        // Keep loose books dynamic. Kinematic bodies never wake when a supporting
+        // book is removed, leaving an entire pile suspended in the air. PhysX
+        // sleep saves simulation work while allowing collisions/support loss
+        // to wake the book again. Hands and shelf slots still own kinematic poses.
+        body.Sleep();
     }
 
     void OnCollisionEnter(Collision collision)
