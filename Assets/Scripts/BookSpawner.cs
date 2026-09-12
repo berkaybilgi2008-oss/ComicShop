@@ -4,6 +4,9 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
+    [Header("Sahne Konumu")]
+    [Tooltip("Atanirsa kitaplar bu Transform merkezli ve yonelimli alanda dogar. Bos birakilirsa BookSpawner Transform kullanilir.")]
+    public Transform spawnArea;
     [Header("Varsayilan Prefab ve Alan")]
     [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
@@ -105,7 +108,8 @@ public class BookSpawner : MonoBehaviour
 
         float x = Random.Range(-areaSize.x / 2f, areaSize.x / 2f);
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
-        Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
+        Transform area = spawnArea != null ? spawnArea : transform;
+        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
