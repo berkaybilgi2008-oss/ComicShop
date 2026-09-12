@@ -5,11 +5,8 @@ Shader "ComicShop/Book Cel"
         [MainTexture] _BaseMap("Original cover", 2D) = "white" {}
         [MainColor] _BaseColor("Original tint", Color) = (1,1,1,1)
         _ContourScale("Contour thickness", Range(1,2)) = 1.3
-        _CreaseOpacity("Small corner creases", Range(0,1)) = 0.8
-        _IllustrationInk("Hand drawn book details", Range(0,1)) = 0.85
-        _ToonStrength("Surface toon strength", Range(0,1)) = 0.65
-        _EdgeHighlight("Printed edge highlight", Range(0,0.2)) = 0.02
-        _PaperDetail("Subtle paper detail", Range(0,0.1)) = 0
+        _CreaseOpacity("Small corner creases", Range(0,1)) = 0.42
+        _SurfaceToon("Gentle surface toon", Range(0,1)) = 0.7
         [HideInInspector] _InkCoverAxis("Cover axis", Vector) = (0,0,1,0)
         [HideInInspector] _InkBoundsMin("Bounds minimum", Vector) = (-0.5,-0.5,-0.5,0)
         [HideInInspector] _InkBoundsMax("Bounds maximum", Vector) = (0.5,0.5,0.5,0)
@@ -37,8 +34,7 @@ Shader "ComicShop/Book Cel"
                 float4 _InkBoundsMin, _InkBoundsMax, _InkWidths;
                 float4 _InkCoverAxis;
                 half _ContourScale, _CreaseOpacity;
-                half _ToonStrength, _EdgeHighlight, _PaperDetail;
-                half _IllustrationInk;
+                half _SurfaceToon;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -48,7 +44,6 @@ Shader "ComicShop/Book Cel"
                 float3 positionOS : TEXCOORD1;
                 half3 normalWS : TEXCOORD2;
                 half fog : TEXCOORD3;
-                float3 normalOS : TEXCOORD4;
             };
             Varyings Vert(Attributes input)
             {
@@ -56,7 +51,6 @@ Shader "ComicShop/Book Cel"
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.positionOS = input.positionOS.xyz;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
-                output.normalOS = input.normalOS;
                 output.uv = TRANSFORM_TEX(input.uv, _BaseMap);
                 output.fog = ComputeFogFactor(output.positionCS.z);
                 return output;
@@ -66,28 +60,11 @@ Shader "ComicShop/Book Cel"
                 float2 segment = b - a;
                 float t = saturate(dot(p - a, segment) / dot(segment, segment));
                 float d = length(p - (a + t * segment));
-                float width = lerp(0.0032, 0.0006, t);
-                float aa = max(fwidth(d), 0.0001);
+                float width = lerp(0.0018, 0.00025, t);
+                float aa = max(length(fwidth(p)), 0.0001);
                 float stroke = 1 - smoothstep(width - aa, width + aa, d);
                 // Fade fine pen marks out at a distance rather than shimmer.
                 return stroke * saturate(width / aa) * (1 - smoothstep(0.85, 1, t));
-            }
-            float BookPen(float2 p)
-            {
-                // Broken binding seam and asymmetric corner folds: keep the artwork clear.
-                float pen = Crease(p, float2(0.038,0.12), float2(0.041,0.43));
-                pen = max(pen, Crease(p, float2(0.041,0.48), float2(0.037,0.86)));
-                pen = max(pen, Crease(p, float2(0.026,0.925), float2(0.086,0.975)));
-                pen = max(pen, Crease(p, float2(0.086,0.975), float2(0.105,0.963)));
-                pen = max(pen, Crease(p, float2(0.96,0.11), float2(0.895,0.032)));
-                pen = max(pen, Crease(p, float2(0.895,0.032), float2(0.872,0.038)));
-                // Sparse tapered pen hatching beside folds, not an all-over noise layer.
-                pen = max(pen, Crease(p, float2(0.048,0.9), float2(0.073,0.876)));
-                pen = max(pen, Crease(p, float2(0.055,0.889), float2(0.077,0.871)));
-                pen = max(pen, Crease(p, float2(0.932,0.069), float2(0.951,0.047)));
-                pen = max(pen, Crease(p, float2(0.923,0.06), float2(0.938,0.044)));
-                pen = max(pen, Crease(p, float2(0.96,0.71), float2(0.963,0.8)));
-                return pen;
             }
             half4 Frag(Varyings input) : SV_Target
             {
@@ -99,13 +76,11 @@ Shader "ComicShop/Book Cel"
                 half lightEnergy = saturate(dot(light.color, half3(0.2126,0.7152,0.0722)) * light.distanceAttenuation);
                 half luminance = dot(cover, half3(0.2126,0.7152,0.0722));
                 cover = max(0, lerp(luminance.xxx, cover, 1.06h));
-                // Three bright toon bands; preserve the printed cover texture.
-                float bandAA = max(fwidth(diffuse), 0.008);
-                half middle = smoothstep(0.33 - bandAA, 0.33 + bandAA, diffuse);
-                half bright = smoothstep(0.70 - bandAA, 0.70 + bandAA, diffuse);
-                half3 shade = lerp(half3(0.87,0.89,0.94), half3(0.97,0.97,0.98), middle);
-                shade = lerp(shade, half3(1.07,1.045,1.01), bright);
-                cover *= lerp(half3(1,1,1), shade, _ToonStrength * lightEnergy);
+                // Three bright bands; no camera-dependent shadow thresholds.
+                half midBand = smoothstep(0.27h, 0.33h, diffuse);
+                half lightBand = smoothstep(0.67h, 0.73h, diffuse);
+                half toonLight = 0.88h + 0.12h * midBand + 0.07h * lightBand;
+                cover *= lerp(1.0h, toonLight, _SurfaceToon * lightEnergy);
                 float3 distance = max(0, min(input.positionOS - _InkBoundsMin.xyz, _InkBoundsMax.xyz - input.positionOS));
                 float3 relative = distance / max(_InkWidths.xyz * _ContourScale, float3(1e-6,1e-6,1e-6));
                 // Second closest box plane: covers the 12 edges, not face interiors.
@@ -115,29 +90,16 @@ Shader "ComicShop/Book Cel"
                 float3 box = saturate((input.positionOS - _InkBoundsMin.xyz) / max(_InkBoundsMax.xyz - _InkBoundsMin.xyz, float3(1e-6,1e-6,1e-6)));
                 float2 face = _InkCoverAxis.x > 0.5 ? box.yz : (_InkCoverAxis.y > 0.5 ? box.xz : box.xy);
                 float faceDepth = dot(box, _InkCoverAxis.xyz);
-                // Classify both covers by their normals, not a 1% bounds slice.
-                // Inset cover faces were incorrectly excluded by the old depth test.
-                float onCover = smoothstep(0.65, 0.9,
-                    abs(dot(normalize(input.normalOS), _InkCoverAxis.xyz)));
-                // Mirror the rear layout so the binding mark follows the same physical edge.
-                float2 penFace = face;
-                penFace.y = lerp(1-face.y, face.y, step(0.5, faceDepth));
-                // Narrow inset light catches the bound edge without washing out cover art.
-                float edgeDistance = min(min(face.x, 1-face.x), min(face.y, 1-face.y));
-                float edgeAA = max(fwidth(edgeDistance), 0.0001);
-                float edgeLight = 1-smoothstep(0.002, 0.006 + edgeAA, abs(edgeDistance-0.024));
-                edgeLight *= saturate(0.004 / edgeAA) * onCover;
-                cover += (1-saturate(cover)) * half3(1,0.94,0.82) * edgeLight * _EdgeHighlight;
-                // Object-space print grain stays attached to the book. Fade before aliasing.
-                float2 grainUV = face * 180;
-                float grainFade = 1-smoothstep(0.25, 0.75, max(length(ddx(grainUV)), length(ddy(grainUV))));
-                float grain = sin(grainUV.x * 6.2831853) * sin(grainUV.y * 6.2831853);
-                cover *= 1 + grain * grainFade * _PaperDetail * onCover;
-                float crease = max(Crease(penFace, float2(0.055,0.945), float2(0.12,0.885)),
-                                   Crease(penFace, float2(0.945,0.06), float2(0.905,0.105)));
+                float onCover = step(0.49, abs(faceDepth - 0.5));
+                float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
+                                   Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
                 ink = max(ink, crease * onCover * _CreaseOpacity);
-                ink = max(ink, BookPen(penFace) * onCover * _IllustrationInk);
-                // Side faces retain their original printed/page texture and outer contour.
+                // Sparse side marks and corner folds stay anchored to the book.
+                float sideCrease = max(Crease(face, float2(0.001,0.16), float2(0.001,0.23)),
+                                       Crease(face, float2(0.999,0.73), float2(0.999,0.79)));
+                float extraFold = Crease(face, float2(0.057,0.927), float2(0.083,0.90));
+                ink = max(ink, extraFold * onCover * _CreaseOpacity * 0.55);
+                ink = max(ink, sideCrease * (1 - onCover) * _CreaseOpacity * 0.35);
                 return half4(MixFog(lerp(cover, half3(0,0,0), ink), input.fog), 1);
             }
             ENDHLSL
