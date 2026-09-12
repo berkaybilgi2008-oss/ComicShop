@@ -12,6 +12,8 @@ public sealed class CharacterBookCarryBridge : MonoBehaviour
 {
     [Tooltip("Small adjustment in BookSocket coordinates; Hand Height stays on ToastBookCarry.")]
     public Vector3 socketOffset;
+    [Min(0f)] public float forwardClearance = 0.25f;
+    [Min(0f)] public float cameraClearance = 0.12f;
     [Tooltip("Toast's socket +Z is the palm normal. Existing stacks use local +Y.")]
     public Vector3 stackRotation = new Vector3(90f, 0f, 0f);
     public bool IsBound => carry != null && carry.isActiveAndEnabled && socket != null && anchor != null && anchor.parent == socket;
@@ -50,6 +52,39 @@ public sealed class CharacterBookCarryBridge : MonoBehaviour
         CarriedCount = CountInventory();
         carryingField.SetValue(carry, CarriedCount > 0);
         ApplyAnchorPose();
+    }
+
+    private void LateUpdate()
+    {
+        if (!IsBound) return;
+        // Toast's Update may also react to Q. Reassert inventory after all Update
+        // calls and before ToastBookCarry's LateUpdate (execution order 100).
+        CarriedCount = CountInventory();
+        carryingField.SetValue(carry, CarriedCount > 0);
+        ApplyAnchorPose();
+        if (CarriedCount == 0) return;
+        anchor.position += transform.forward * forwardClearance;
+        if (interaction.playerCamera == null ||
+            (networkPlayer != null && networkPlayer.IsSpawned && !networkPlayer.IsOwner)) return;
+
+        var camera = interaction.playerCamera;
+        Vector3 forward = camera.transform.forward;
+        Vector3 absoluteForward = new Vector3(Mathf.Abs(forward.x), Mathf.Abs(forward.y), Mathf.Abs(forward.z));
+        float push = 0f;
+        foreach (var book in interaction.HeldBooksList)
+        {
+            // Charging/throwing books have left this anchor; do not move them.
+            if (book == null || !book.IsHeld || !book.transform.IsChildOf(anchor)) continue;
+            foreach (var renderer in book.GetComponentsInChildren<Renderer>())
+            {
+                if (!renderer.enabled) continue;
+                Bounds bounds = renderer.bounds;
+                float nearest = Vector3.Dot(bounds.center - camera.transform.position, forward)
+                    - Vector3.Dot(bounds.extents, absoluteForward);
+                push = Mathf.Max(push, camera.nearClipPlane + cameraClearance - nearest);
+            }
+        }
+        anchor.position += forward * push;
     }
 
     private int CountInventory()
