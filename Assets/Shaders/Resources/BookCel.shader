@@ -6,6 +6,7 @@ Shader "ComicShop/Book Cel"
         [MainColor] _BaseColor("Original tint", Color) = (1,1,1,1)
         _ContourScale("Contour thickness", Range(1,2)) = 1.3
         _CreaseOpacity("Small corner creases", Range(0,1)) = 0.42
+        _SurfaceToon("Gentle surface toon", Range(0,1)) = 0.7
         [HideInInspector] _InkCoverAxis("Cover axis", Vector) = (0,0,1,0)
         [HideInInspector] _InkBoundsMin("Bounds minimum", Vector) = (-0.5,-0.5,-0.5,0)
         [HideInInspector] _InkBoundsMax("Bounds maximum", Vector) = (0.5,0.5,0.5,0)
@@ -33,6 +34,7 @@ Shader "ComicShop/Book Cel"
                 float4 _InkBoundsMin, _InkBoundsMax, _InkWidths;
                 float4 _InkCoverAxis;
                 half _ContourScale, _CreaseOpacity;
+                half _SurfaceToon;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; };
             struct Varyings
@@ -74,7 +76,11 @@ Shader "ComicShop/Book Cel"
                 half lightEnergy = saturate(dot(light.color, half3(0.2126,0.7152,0.0722)) * light.distanceAttenuation);
                 half luminance = dot(cover, half3(0.2126,0.7152,0.0722));
                 cover = max(0, lerp(luminance.xxx, cover, 1.06h));
-                cover *= 0.96h + 0.10h * diffuse * lightEnergy;
+                // Three bright bands; no camera-dependent shadow thresholds.
+                half midBand = smoothstep(0.27h, 0.33h, diffuse);
+                half lightBand = smoothstep(0.67h, 0.73h, diffuse);
+                half toonLight = 0.88h + 0.12h * midBand + 0.07h * lightBand;
+                cover *= lerp(1.0h, toonLight, _SurfaceToon * lightEnergy);
                 float3 distance = max(0, min(input.positionOS - _InkBoundsMin.xyz, _InkBoundsMax.xyz - input.positionOS));
                 float3 relative = distance / max(_InkWidths.xyz * _ContourScale, float3(1e-6,1e-6,1e-6));
                 // Second closest box plane: covers the 12 edges, not face interiors.
@@ -88,6 +94,12 @@ Shader "ComicShop/Book Cel"
                 float crease = max(Crease(face, float2(0.055,0.945), float2(0.12,0.885)),
                                    Crease(face, float2(0.945,0.06), float2(0.905,0.105)));
                 ink = max(ink, crease * onCover * _CreaseOpacity);
+                // Sparse side marks and corner folds stay anchored to the book.
+                float sideCrease = max(Crease(face, float2(0.001,0.16), float2(0.001,0.23)),
+                                       Crease(face, float2(0.999,0.73), float2(0.999,0.79)));
+                float extraFold = Crease(face, float2(0.057,0.927), float2(0.083,0.90));
+                ink = max(ink, extraFold * onCover * _CreaseOpacity * 0.55);
+                ink = max(ink, sideCrease * (1 - onCover) * _CreaseOpacity * 0.35);
                 return half4(MixFog(lerp(cover, half3(0,0,0), ink), input.fog), 1);
             }
             ENDHLSL
