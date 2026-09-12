@@ -695,6 +695,43 @@ public class ShelfSlot : MonoBehaviour
     // Editor yardimcilari
     // ------------------------------------------------------------------
 
+
+    // A separate child collider can cover the opening without changing the box
+    // used by TryGetAutoPose, SlotCenter or the book placement gizmos.
+    [ContextMenu("Create Independent Interaction Hitbox")]
+    public void CreateInteractionHitbox()
+    {
+#if UNITY_EDITOR
+        if (Application.isPlaying) return;
+        BoxCollider source = ResolveBox();
+        if (source == null)
+        {
+            Debug.LogWarning("ShelfSlot: placement BoxCollider is missing.", this);
+            return;
+        }
+        Transform existing = source.transform.Find("__ShelfInteraction");
+        if (existing != null)
+        {
+            UnityEditor.Selection.activeGameObject = existing.gameObject;
+            return;
+        }
+        var target = new GameObject("__ShelfInteraction");
+        UnityEditor.Undo.RegisterCreatedObjectUndo(target, "Create shelf interaction hitbox");
+        target.layer = source.gameObject.layer;
+        target.transform.SetParent(source.transform, false);
+        var hitbox = UnityEditor.Undo.AddComponent<BoxCollider>(target);
+        hitbox.center = source.center;
+        hitbox.size = source.size;
+        // PlayerInteraction currently queries non-trigger colliders.
+        hitbox.isTrigger = false;
+        hitbox.sharedMaterial = source.sharedMaterial;
+        UnityEditor.Selection.activeGameObject = target;
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        Debug.Log("Edit ONLY __ShelfInteraction BoxCollider Center/Size to fit the opening. Book placement is unchanged.", this);
+#endif
+    }
+
     [ContextMenu("Manuel Point'leri Otomatik Konumlara Tasi")]
     public void SnapManualPointsToAutoPositions()
     {
