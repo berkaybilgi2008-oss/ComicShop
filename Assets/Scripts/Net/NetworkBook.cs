@@ -1,11 +1,26 @@
 using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>One server-owned book. Clients request actions; only the host changes inventory/physics.</summary>
 [RequireComponent(typeof(NetworkObject), typeof(BookItem))]
+[DefaultExecutionOrder(300)] // Publish held poses after Animator and hand-height IK.
 public class NetworkBook : NetworkBehaviour
 {
+    private static readonly HashSet<NetworkBook> spawnedBooks = new HashSet<NetworkBook>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetBookRegistry() => spawnedBooks.Clear();
+
+    public static int CountHeldBy(ulong playerId)
+    {
+        if (playerId == NoHolder) return 0;
+        int count = 0;
+        foreach (var book in spawnedBooks)
+            if (book != null && book.IsSpawned && book.Holder == playerId) count++;
+        return count;
+    }
     public const ulong NoHolder = ulong.MaxValue;
     public struct BookState : INetworkSerializable, IEquatable<BookState>
     {
@@ -71,6 +86,7 @@ public class NetworkBook : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        spawnedBooks.Add(this);
         hasState = false;
         IsPlacementAnimating = false;
         state.OnValueChanged += ApplyState;
@@ -80,6 +96,7 @@ public class NetworkBook : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        spawnedBooks.Remove(this);
         hasState = false;
         IsPlacementAnimating = false;
         state.OnValueChanged -= ApplyState;

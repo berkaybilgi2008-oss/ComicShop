@@ -42,8 +42,11 @@ public class ShelfSlot : MonoBehaviour
     [Tooltip("Kitaplarin yan yana dizilecegi eksen. Auto = en genis YATAY ekseni kendi secer (ONERILEN).")]
     public SpreadAxis spreadAxis = SpreadAxis.Auto;
 
-    [Tooltip("Kutunun kenarlarinda birakilacak bosluk orani.")]
-    [Range(0f, 0.45f)] public float edgePadding = 0.08f;
+    [Tooltip("Sol kenardan ilk kitap merkezine mesafe (dunya birimi, parent scale'den bagimsiz).")]
+    [Min(0f)] public float firstBookInset = 0.04f;
+
+    [Tooltip("Kitap merkezleri arasindaki mesafe (dunya birimi).")]
+    [Min(0.001f)] public float bookSpacing = 0.08f;
 
     [Tooltip("Kitaplar kutunun ALT yuzeyine otursun mu?")]
     public bool alignToBottom = true;
@@ -55,7 +58,8 @@ public class ShelfSlot : MonoBehaviour
     [Tooltip("Raf tahtasinin ustunde birakilacak bosluk (metre).")]
     public float bottomLift = 0.005f;
 
-    [Tooltip("Ince ayar: hesaplanan konuma DUNYA uzayinda (metre) eklenecek offset.")]
+    [Tooltip("Ince ayar: dunya uzayinda yukseklik/derinlik offset'i. Dizilme eksenindeki " +
+             "bilesen yok sayilir; sol kenar mesafesini First Book Inset ile ayarla.")]
     public Vector3 worldOffset = Vector3.zero;
 
     [Tooltip("Kitabin rafa konuldugundaki ek rotasyonu (slot'un rotasyonu uzerine eklenir).")]
@@ -515,18 +519,21 @@ public class ShelfSlot : MonoBehaviour
         SpreadAxis resolvedAxis = ResolveSpreadAxis(box);
         Vector3 axis = AxisVector(resolvedAxis);
         float axisSize = Mathf.Abs(AxisComponent(box.size, resolvedAxis));
-        float usable = axisSize * Mathf.Clamp01(1f - 2f * edgePadding);
+        Vector3 worldAxis = space.TransformVector(axis);
+        if (worldAxis.sqrMagnitude < 0.00000001f)
+            return false;
 
-        float step = capacity > 1 ? usable / (capacity - 1) : 0f;
-        float offsetAlongAxis = capacity > 1 ? (-usable * 0.5f + step * index) : 0f;
-
-        Vector3 localPos = box.center + axis * offsetAlongAxis;
-        position = space.TransformPoint(localPos);
+        // Start at the negative edge of the shelf's spread axis. Add distances
+        // AFTER transforming so even a 200x parent keeps the 0.04 / 0.08 spacing.
+        Vector3 leftEdge = space.TransformPoint(box.center - axis * (axisSize * 0.5f));
+        position = leftEdge + worldAxis.normalized *
+            (Mathf.Max(0f, firstBookInset) + Mathf.Max(0.001f, bookSpacing) * index);
 
         if (alignToBottom)
             position.y = box.bounds.min.y + bottomLift;
 
-        position += worldOffset;
+        // Old scene offsets must not shift the fixed left-edge inset.
+        position += worldOffset - Vector3.Project(worldOffset, worldAxis);
         rotation = space.rotation * Quaternion.Euler(bookRotationOffsetEuler);
         return true;
     }
@@ -688,6 +695,43 @@ public class ShelfSlot : MonoBehaviour
     // Editor yardimcilari
     // ------------------------------------------------------------------
 
+
+    // A separate child collider can cover the opening without changing the box
+    // used by TryGetAutoPose, SlotCenter or the book placement gizmos.
+    [ContextMenu("Create Independent Interaction Hitbox")]
+    public void CreateInteractionHitbox()
+    {
+#if UNITY_EDITOR
+        if (Application.isPlaying) return;
+        BoxCollider source = ResolveBox();
+        if (source == null)
+        {
+            Debug.LogWarning("ShelfSlot: placement BoxCollider is missing.", this);
+            return;
+        }
+        Transform existing = source.transform.Find("__ShelfInteraction");
+        if (existing != null)
+        {
+            UnityEditor.Selection.activeGameObject = existing.gameObject;
+            return;
+        }
+        var target = new GameObject("__ShelfInteraction");
+        UnityEditor.Undo.RegisterCreatedObjectUndo(target, "Create shelf interaction hitbox");
+        target.layer = source.gameObject.layer;
+        target.transform.SetParent(source.transform, false);
+        var hitbox = UnityEditor.Undo.AddComponent<BoxCollider>(target);
+        hitbox.center = source.center;
+        hitbox.size = source.size;
+        // PlayerInteraction currently queries non-trigger colliders.
+        hitbox.isTrigger = false;
+        hitbox.sharedMaterial = source.sharedMaterial;
+        UnityEditor.Selection.activeGameObject = target;
+        UnityEditor.EditorUtility.SetDirty(this);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gameObject.scene);
+        Debug.Log("Edit ONLY __ShelfInteraction BoxCollider Center/Size to fit the opening. Book placement is unchanged.", this);
+#endif
+    }
+
     [ContextMenu("Manuel Point'leri Otomatik Konumlara Tasi")]
     public void SnapManualPointsToAutoPositions()
     {
@@ -730,10 +774,7 @@ public class ShelfSlot : MonoBehaviour
         Vector3 worldZ = space.TransformVector(Vector3.forward * box.size.z);
         SpreadAxis resolved = ResolveSpreadAxis(box);
 
-        float axisSize = Mathf.Abs(AxisComponent(box.size, resolved));
-        float usable = axisSize * Mathf.Clamp01(1f - 2f * edgePadding);
-        float step = capacity > 1 ? usable / (capacity - 1) : 0f;
-        float worldStep = space.TransformVector(AxisVector(resolved) * step).magnitude;
+        float worldStep = Mathf.Max(0.001f, bookSpacing);
 
         Debug.Log(
             $"[Slot Bilgisi] '{name}'\n" +
