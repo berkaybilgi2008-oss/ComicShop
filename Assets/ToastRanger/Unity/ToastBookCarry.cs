@@ -45,6 +45,10 @@ public sealed class ToastBookCarry : MonoBehaviour
         }
         leftWristRest = leftHand ? leftHand.localRotation : Quaternion.identity;
         rightWristRest = hand ? hand.localRotation : Quaternion.identity;
+        // Procedural arms can leave the bounds baked into the idle clip. Keep
+        // skinning/bounds updated when the torso itself is outside the camera.
+        foreach (var skin in GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            skin.updateWhenOffscreen = true;
     }
 
     void ReadInventory()
@@ -146,14 +150,22 @@ public sealed class ToastBookCarry : MonoBehaviour
                     if (Mathf.Abs(dimensions[i]) < Mathf.Abs(dimensions[thin])) thin = i;
                     if (Mathf.Abs(dimensions[i]) > Mathf.Abs(dimensions[longest])) longest = i;
                 }
-                Vector3 normal = Vector3.zero, along = Vector3.zero;
-                normal[thin] = 1f; along[longest] = 1f;
+                if (longest == thin) longest = (thin + 1) % 3;
+                int wide = 3 - thin - longest;
+                Vector3 normal = Vector3.zero, along = Vector3.zero, across = Vector3.zero;
+                normal[thin] = 1f; along[longest] = 1f; across[wide] = 1f;
+                Vector3 rootAcross = book.transform.InverseTransformDirection(box.transform.TransformDirection(across));
+                Vector3 screenInward = wrist == leftHand ? transform.right : -transform.right;
+                if (Vector3.Dot(rotation * rootAcross, screenInward) < 0f) across = -across;
                 // Grip the inward-facing cover. A fixed positive normal made
                 // some book prefabs turn the wrist through half a revolution.
                 Vector3 rootNormal = book.transform.InverseTransformDirection(box.transform.TransformDirection(normal));
                 Vector3 inward = wrist == leftHand ? transform.right : -transform.right;
                 if (Vector3.Dot(rotation * rootNormal, inward) < 0f) normal = -normal;
-                Vector3 point = box.center + normal * box.size[thin] * 0.5f - along * box.size[longest] * 0.4f;
+                // Grip the lower corner facing the middle of the screen, rather
+                // than the center of the edge hidden behind the book.
+                Vector3 point = box.center + normal * box.size[thin] * 0.5f
+                    - along * box.size[longest] * 0.46f + across * box.size[wide] * 0.43f;
                 gripLocal = book.transform.InverseTransformPoint(box.transform.TransformPoint(point));
                 gripNormal = book.transform.InverseTransformDirection(box.transform.TransformDirection(normal));
                 gripLong = book.transform.InverseTransformDirection(box.transform.TransformDirection(along));
@@ -182,6 +194,23 @@ public sealed class ToastBookCarry : MonoBehaviour
         float poseBlend = Mathf.Clamp01(throwBlend + Time.deltaTime / Mathf.Max(0.01f, transitionSeconds));
         delta += up * raise * poseBlend;
         Vector3 reachable = a.position + Vector3.ClampMagnitude(delta, length * throwReachFraction);
+        var camera = inventory != null ? inventory.playerCamera : null;
+        if (camera != null && (networkPlayer == null || !networkPlayer.IsSpawned || networkPlayer.IsOwner))
+        {
+            // Constrain only the Q wrist target, not the stack or individual book
+            // bounds. Alternate visibility and reach constraints without stretching bones.
+            float near = Mathf.Max(0.18f, camera.nearClipPlane + 0.08f);
+            for (int pass = 0; pass < 8; pass++)
+            {
+                Vector3 view = camera.WorldToViewportPoint(reachable);
+                if (view.z <= 0f) view = new Vector3(left ? 0.28f : 0.72f, 0.5f, near);
+                view.x = Mathf.Clamp(view.x, left ? 0.16f : 0.58f, left ? 0.42f : 0.84f);
+                view.y = Mathf.Clamp(view.y, 0.28f, 0.72f);
+                view.z = Mathf.Clamp(view.z, near, Mathf.Max(near, 0.8f));
+                reachable = camera.ViewportToWorldPoint(view);
+                reachable = a.position + Vector3.ClampMagnitude(reachable - a.position, length * throwReachFraction);
+            }
+        }
         return position + reachable - target;
     }
 
