@@ -85,23 +85,13 @@ public class BookSpawner : MonoBehaviour
             (ids[i], ids[j]) = (ids[j], ids[i]);
         }
 
-        // Reserve one cell per book instead of sampling the same point repeatedly.
-        // IDs are shuffled above, so the scatter still mixes all book types.
-        int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(ids.Count *
-            Mathf.Max(0.01f, areaSize.x) / Mathf.Max(0.01f, areaSize.y))));
-        int rows = Mathf.Max(1, Mathf.CeilToInt((float)ids.Count / columns));
-        Vector2 cellSize = new Vector2(areaSize.x / columns, areaSize.y / rows);
-        for (int i = 0; i < ids.Count; i++)
-        {
-            Vector2 cell = new Vector2(-areaSize.x * 0.5f + (i % columns + 0.5f) * cellSize.x,
-                -areaSize.y * 0.5f + (i / columns + 0.5f) * cellSize.y);
-            SpawnSingleBook(ids[i], cell, cellSize);
-        }
+        foreach (int index in ids)
+            SpawnSingleBook(index);
 
         Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
     }
 
-    void SpawnSingleBook(int index, Vector2 cell, Vector2 cellSize)
+    void SpawnSingleBook(int index)
     {
         BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
 
@@ -116,7 +106,9 @@ public class BookSpawner : MonoBehaviour
         }
 
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        Vector3 pos = area.TransformPoint(new Vector3(cell.x, spawnHeight, cell.y));
+        float x = Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
+        float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
+        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
@@ -141,25 +133,6 @@ public class BookSpawner : MonoBehaviour
         // an impulse was making every book spin violently on session startup.
         Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
         book.transform.rotation = bookItem.GetAlignedRotation(Vector3.up, heading);
-        Physics.SyncTransforms();
-        Bounds footprint = new Bounds(area.InverseTransformPoint(book.transform.position), Vector3.zero);
-        foreach (var collider in book.GetComponentsInChildren<Collider>())
-        {
-            if (!collider.enabled || collider.isTrigger) continue;
-            Bounds bounds = collider.bounds;
-            for (int corner = 0; corner < 8; corner++)
-                footprint.Encapsulate(area.InverseTransformPoint(bounds.center + Vector3.Scale(bounds.extents,
-                    new Vector3((corner & 1) == 0 ? -1 : 1, (corner & 2) == 0 ? -1 : 1,
-                        (corner & 4) == 0 ? -1 : 1))));
-        }
-        float roomX = Mathf.Max(0f, cellSize.x * 0.5f - footprint.extents.x - 0.02f);
-        float roomZ = Mathf.Max(0f, cellSize.y * 0.5f - footprint.extents.z - 0.02f);
-        Vector3 offset = new Vector3(cell.x - footprint.center.x + Random.Range(-roomX, roomX), 0f,
-            cell.y - footprint.center.z + Random.Range(-roomZ, roomZ));
-        book.transform.position += area.TransformVector(offset);
-        if (footprint.size.x > cellSize.x || footprint.size.z > cellSize.y)
-            Debug.LogWarning("BookSpawner: spawn area is too small for separated books; enlarge Area Size.", this);
-
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null && !rb.isKinematic)
         {
