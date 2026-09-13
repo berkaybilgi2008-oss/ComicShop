@@ -47,61 +47,80 @@ public class BookItem : MonoBehaviour
     private int impactTipAttempts;
     private float settleNotBefore;
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
-    private float nextReleaseAudit;
-    private bool loggedReleaseRepair;
-
-    private void AuditReleasedPhysics()
+    private bool frozenAtRest;
+    private float nextSupportCheck;
+    private struct RestSupport
     {
-        if (body == null || currentSlot != null || Time.time < nextReleaseAudit) return;
-        nextReleaseAudit = Time.time + 0.5f;
-        var networkBook = GetComponent<NetworkBook>();
-        if (networkBook != null && networkBook.IsSpawned)
-        {
-            // Client kinematic bodies are intentional replicas, never simulate them.
-            if (!networkBook.IsServer || networkBook.Holder != NetworkBook.NoHolder ||
-                networkBook.SlotKey != 0 || networkBook.IsPlacementAnimating) return;
-        }
-        else if (IsHeld || body.isKinematic)
-        {
-            foreach (var player in FindObjectsByType<PlayerInteraction>(FindObjectsSortMode.None))
-                foreach (var held in player.HeldBooksList)
-                    if (held == this) return;
-            // A recovery machine may intentionally park a truly lost book.
-            foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
-                if (machine.IsLost(this)) return;
-        }
+        public Collider collider;
+        public Vector3 position, scale;
+        public Quaternion rotation;
+    }
+    private readonly List<RestSupport> restSupports = new List<RestSupport>(8);
 
-        if (IsHeld || body.isKinematic || !body.useGravity || !body.detectCollisions)
+    private bool CaptureRestSupports()
+    {
+        restSupports.Clear();
+        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f) return false;
+        Vector3 up = -Physics.gravity.normalized;
+        for (int i = 0; i < settlingContactCount; i++)
         {
-            string before = $"held={IsHeld}, kinematic={body.isKinematic}, gravity={body.useGravity}, collisions={body.detectCollisions}";
-            transform.SetParent(null, true);
-            SetHeld(false);
-            body.WakeUp();
-            if (!loggedReleaseRepair)
-                Debug.LogWarning($"[BOOK RELEASE REPAIR] {name}: {before}; no holder or shelf. Physics restored.", this);
-            loggedReleaseRepair = true;
+            var contact = settlingContacts[i];
+            var support = contact.otherCollider;
+            if (support == null || support.attachedRigidbody == body || support.isTrigger ||
+                !support.enabled || !support.gameObject.activeInHierarchy ||
+                Vector3.Dot(contact.normal, up) < 0.5f) continue;
+            if (support.GetComponentInParent<PlayerInteraction>() != null) continue;
+            var other = support.GetComponentInParent<BookItem>();
+            if (other != null && (other.IsHeld ||
+                (other.currentSlot == null && !other.frozenAtRest))) continue;
+            var supportBody = support.attachedRigidbody;
+            if (supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) continue;
+            // Sleeping contacts can be old. Both actual surfaces must still touch
+            // the recorded point; a nearby bounding box is not proof of support.
+            const float toleranceSquared = 0.025f * 0.025f;
+            if ((support.ClosestPoint(contact.point) - contact.point).sqrMagnitude > toleranceSquared ||
+                (physicsCollider.ClosestPoint(contact.point) - contact.point).sqrMagnitude > toleranceSquared) continue;
+            bool duplicate = false;
+            foreach (var saved in restSupports)
+                if (saved.collider == support) { duplicate = true; break; }
+            if (!duplicate) restSupports.Add(new RestSupport {
+                collider = support, position = support.transform.position,
+                rotation = support.transform.rotation, scale = support.transform.lossyScale
+            });
         }
-        else if (body.IsSleeping())
+        return restSupports.Count > 0;
+    }
+
+    private void CheckFrozenSupport()
+    {
+        if (!frozenAtRest || Time.time < nextSupportCheck) return;
+        nextSupportCheck = Time.time + 0.1f;
+        bool intact = restSupports.Count > 0;
+        foreach (var saved in restSupports)
         {
-            // Test live collider geometry, not old collision callbacks/AABB overlap.
-            // Bottom books wake first; PhysX then wakes the rest of the stack.
-            bool supported = false;
-            foreach (var hit in body.SweepTestAll(Vector3.down, 0.04f, QueryTriggerInteraction.Ignore))
-            {
-                var other = hit.collider.GetComponentInParent<BookItem>();
-                if (other == this || (other != null && other.IsHeld)) continue;
-                if (hit.collider.GetComponentInParent<PlayerInteraction>() != null) continue;
-                supported = true;
-                break;
-            }
-            if (!supported)
-            {
-                body.WakeUp();
-                if (!loggedReleaseRepair)
-                    Debug.LogWarning($"[BOOK RELEASE REPAIR] {name}: sleeping without support; woke physics.", this);
-                loggedReleaseRepair = true;
-            }
+            var support = saved.collider;
+            if (support == null || !support.enabled || !support.gameObject.activeInHierarchy || support.isTrigger)
+            { intact = false; break; }
+            var supportBody = support.attachedRigidbody;
+            var other = support.GetComponentInParent<BookItem>();
+            if ((supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) ||
+                (other != null && other.IsHeld) ||
+                (support.transform.position - saved.position).sqrMagnitude > 0.000001f ||
+                Quaternion.Angle(support.transform.rotation, saved.rotation) > 0.1f ||
+                (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f)
+            { intact = false; break; }
         }
+        if (intact) return; // Incoming Q impacts never unfreeze a supported book.
+        frozenAtRest = false;
+        restSupports.Clear();
+        body.isKinematic = false;
+        body.useGravity = true;
+        body.detectCollisions = true;
+        body.WakeUp();
+        stillTimer = 0f;
+        settlingContactCount = 0;
+        contactStep = float.NegativeInfinity;
+        settleNotBefore = Time.time + 0.5f;
     }
 
     [Header("Elde Tutulan Kitap Kontrolu")]
@@ -120,7 +139,9 @@ public class BookItem : MonoBehaviour
 
     void FixedUpdate()
     {
-        AuditReleasedPhysics();
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return;
+        CheckFrozenSupport();
         if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
         if (ContinueEdgeSettling()) return;
         if (Time.time < settleNotBefore) return;
@@ -135,16 +156,13 @@ public class BookItem : MonoBehaviour
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;
-        // Recheck sleeping books too: their support may have been picked up.
-        if (GetSupportState() != SupportState.Stable)
-        {
-            body.WakeUp();
-            return;
-        }
+        if (!CaptureRestSupports()) return;
         if (!CanFreezeAfterSettling()) return;
-
-        // Let PhysX decide when to sleep. Forcing Sleep here can retain an old
-        // contact pose while rapidly released books are still separating.
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -450,6 +468,8 @@ public class BookItem : MonoBehaviour
 
     public void SetHeld(bool held)
     {
+        frozenAtRest = false;
+        restSupports.Clear();
         IsHeld = held;
         edgeAssistUntil = 0f;
         impactTipAttempts = 0;
