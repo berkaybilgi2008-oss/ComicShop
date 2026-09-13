@@ -17,6 +17,10 @@ public sealed class ToastBookCarry : MonoBehaviour
     [Header("Q Throw Grip")]
     public Transform leftUpperArm, leftForearm, leftHand;
     public Vector3 throwPalmOffset = new Vector3(0f, -0.06f, 0.025f);
+    [Range(15f, 60f)] public float minimumThrowElevation = 35f;
+    [Range(0.65f, 0.95f)] public float throwReachFraction = 0.88f;
+    [Range(25f, 100f)] public float maximumWristBend = 65f;
+    private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
     private Quaternion throwUpperBase, throwLowerBase, throwHandBase;
     private Quaternion lastUpperPose, lastLowerPose, lastHandPose;
@@ -39,6 +43,8 @@ public sealed class ToastBookCarry : MonoBehaviour
             if (bone.name == "LeftForearm" && !leftForearm) leftForearm = bone;
             if (bone.name == "LeftHand" && !leftHand) leftHand = bone;
         }
+        leftWristRest = leftHand ? leftHand.localRotation : Quaternion.identity;
+        rightWristRest = hand ? hand.localRotation : Quaternion.identity;
     }
 
     void ReadInventory()
@@ -142,6 +148,11 @@ public sealed class ToastBookCarry : MonoBehaviour
                 }
                 Vector3 normal = Vector3.zero, along = Vector3.zero;
                 normal[thin] = 1f; along[longest] = 1f;
+                // Grip the inward-facing cover. A fixed positive normal made
+                // some book prefabs turn the wrist through half a revolution.
+                Vector3 rootNormal = book.transform.InverseTransformDirection(box.transform.TransformDirection(normal));
+                Vector3 inward = wrist == leftHand ? transform.right : -transform.right;
+                if (Vector3.Dot(rotation * rootNormal, inward) < 0f) normal = -normal;
                 Vector3 point = box.center + normal * box.size[thin] * 0.5f - along * box.size[longest] * 0.4f;
                 gripLocal = book.transform.InverseTransformPoint(box.transform.TransformPoint(point));
                 gripNormal = book.transform.InverseTransformDirection(box.transform.TransformDirection(normal));
@@ -160,7 +171,17 @@ public sealed class ToastBookCarry : MonoBehaviour
         if (!SelectThrowArm(left, out var a, out var b, out var c)) return position;
         GetGrip(book, position, rotation, scale, c, out var target, out _);
         float length = Vector3.Distance(a.position, b.position) + Vector3.Distance(b.position, c.position);
-        Vector3 reachable = a.position + Vector3.ClampMagnitude(target - a.position, length * 0.98f);
+        Vector3 up = transform.up;
+        Vector3 delta = target - a.position;
+        Vector3 horizontal = Vector3.ProjectOnPlane(delta, up);
+        float minimumHeight = Mathf.Max(length * 0.38f,
+            horizontal.magnitude * Mathf.Tan(minimumThrowElevation * Mathf.Deg2Rad));
+        float raise = Mathf.Max(0f, minimumHeight - Vector3.Dot(delta, up));
+        // The existing charge entry already interpolates the book; blend in the
+        // height floor as well so the first Q frame does not snap upward.
+        float poseBlend = Mathf.Clamp01(throwBlend + Time.deltaTime / Mathf.Max(0.01f, transitionSeconds));
+        delta += up * raise * poseBlend;
+        Vector3 reachable = a.position + Vector3.ClampMagnitude(delta, length * throwReachFraction);
         return position + reachable - target;
     }
 
@@ -186,21 +207,16 @@ public sealed class ToastBookCarry : MonoBehaviour
         {
             GetGrip(book, book.transform.position, book.transform.rotation, book.transform.lossyScale,
                 throwHand, out var target, out var wristRotation);
-            Vector3 a = throwUpper.position, b = throwLower.position, c = throwHand.position;
-            float l1 = Vector3.Distance(a,b), l2 = Vector3.Distance(b,c);
-            if (l1 < 0.0001f || l2 < 0.0001f || (target-a).sqrMagnitude < 0.000001f) return;
-            Vector3 direction = (target-a).normalized;
-            float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
-            target = a + direction * reach;
-            // A body-relative elbow pole prevents sudden flips near full extension.
-            Vector3 pole = -transform.forward + (left ? -transform.right : transform.right) * 0.6f;
-            Vector3 bend = Vector3.ProjectOnPlane(pole, direction);
-            if (bend.sqrMagnitude < 0.000001f) bend = Vector3.ProjectOnPlane(transform.up, direction);
-            float along = (l1*l1+reach*reach-l2*l2)/(2f*reach);
-            Vector3 elbow = a + direction*along + bend.normalized*Mathf.Sqrt(Mathf.Max(0f,l1*l1-along*along));
-            throwUpper.rotation = Quaternion.FromToRotation(b-a,elbow-a)*throwUpper.rotation;
-            throwLower.rotation = Quaternion.FromToRotation(throwHand.position-throwLower.position,target-throwLower.position)*throwLower.rotation;
-            throwHand.rotation = wristRotation;
+            if (!SolveThrowElbow(target, left)) return;
+            Quaternion rest = left ? leftWristRest : rightWristRest;
+            Quaternion supportedWrist = Quaternion.RotateTowards(throwLower.rotation * rest,
+                wristRotation, maximumWristBend);
+            // Limiting wrist bend changes the palm offset. Solve once more to
+            // keep the palm touching the same point on the cover.
+            Vector3 palmOffset = Vector3.Scale(throwPalmOffset, throwHand.lossyScale);
+            target += wristRotation * palmOffset - supportedWrist * palmOffset;
+            if (!SolveThrowElbow(target, left)) return;
+            throwHand.rotation = supportedWrist;
             lastUpperPose = throwUpper.localRotation;
             lastLowerPose = throwLower.localRotation;
             lastHandPose = throwHand.localRotation;
@@ -209,6 +225,26 @@ public sealed class ToastBookCarry : MonoBehaviour
         throwLower.localRotation = Quaternion.Slerp(throwLowerBase,lastLowerPose,throwBlend);
         throwHand.localRotation = Quaternion.Slerp(throwHandBase,lastHandPose,throwBlend);
         throwApplied = true;
+    }
+
+    private bool SolveThrowElbow(Vector3 target, bool left)
+    {
+        Vector3 a = throwUpper.position, b = throwLower.position, c = throwHand.position;
+        float l1 = Vector3.Distance(a,b), l2 = Vector3.Distance(b,c);
+        if (l1 < 0.0001f || l2 < 0.0001f || (target-a).sqrMagnitude < 0.000001f) return false;
+        Vector3 direction = (target-a).normalized;
+        float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
+        target = a + direction * reach;
+        // Keep the elbow below the wrist, with a small outward bias. The old
+        // backward pole could leave the forearm horizontal or bend the wrist back.
+        Vector3 pole = -transform.up + (left ? -transform.right : transform.right) * 0.25f - transform.forward * 0.15f;
+        Vector3 bend = Vector3.ProjectOnPlane(pole, direction);
+        if (bend.sqrMagnitude < 0.000001f) bend = Vector3.ProjectOnPlane(-transform.forward, direction);
+        float along = (l1*l1+reach*reach-l2*l2)/(2f*reach);
+        Vector3 elbow = a + direction*along + bend.normalized*Mathf.Sqrt(Mathf.Max(0f,l1*l1-along*along));
+        throwUpper.rotation = Quaternion.FromToRotation(b-a,elbow-a)*throwUpper.rotation;
+        throwLower.rotation = Quaternion.FromToRotation(throwHand.position-throwLower.position,target-throwLower.position)*throwLower.rotation;
+        return true;
     }
 
     private void RestoreThrow()
