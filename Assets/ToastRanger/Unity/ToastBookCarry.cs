@@ -20,6 +20,7 @@ public sealed class ToastBookCarry : MonoBehaviour
     [Range(15f, 60f)] public float minimumThrowElevation = 35f;
     [Range(0.65f, 0.95f)] public float throwReachFraction = 0.88f;
     [Range(25f, 100f)] public float maximumWristBend = 65f;
+    [Min(0.25f)] public float throwCameraDistance = 0.5f;
     private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
     private Quaternion throwUpperBase, throwLowerBase, throwHandBase;
@@ -197,18 +198,23 @@ public sealed class ToastBookCarry : MonoBehaviour
         var camera = inventory != null ? inventory.playerCamera : null;
         if (camera != null && (networkPlayer == null || !networkPlayer.IsSpawned || networkPlayer.IsOwner))
         {
-            // Constrain only the Q wrist target, not the stack or individual book
-            // bounds. Alternate visibility and reach constraints without stretching bones.
-            float near = Mathf.Max(0.18f, camera.nearClipPlane + 0.08f);
-            for (int pass = 0; pass < 8; pass++)
+            // Keep a real world-space distance from the lens. Viewport clamping
+            // previously pulled the wrist onto the near plane and magnified it.
+            Vector3 forward = camera.transform.forward;
+            float radius = length * throwReachFraction;
+            float shoulderDepth = Vector3.Dot(a.position - camera.transform.position, forward);
+            float desiredDepth = Mathf.Max(throwCameraDistance, camera.nearClipPlane + 0.2f);
+            // Intersect the reachable sphere with a depth plane, preserving bone
+            // lengths instead of repeatedly pulling the pose back toward the lens.
+            float safeDepth = Mathf.Min(desiredDepth, shoulderDepth + radius - 0.01f);
+            float currentDepth = Vector3.Dot(reachable - camera.transform.position, forward);
+            if (currentDepth < safeDepth)
             {
-                Vector3 view = camera.WorldToViewportPoint(reachable);
-                if (view.z <= 0f) view = new Vector3(left ? 0.28f : 0.72f, 0.5f, near);
-                view.x = Mathf.Clamp(view.x, left ? 0.16f : 0.58f, left ? 0.42f : 0.84f);
-                view.y = Mathf.Clamp(view.y, 0.28f, 0.72f);
-                view.z = Mathf.Clamp(view.z, near, Mathf.Max(near, 0.8f));
-                reachable = camera.ViewportToWorldPoint(view);
-                reachable = a.position + Vector3.ClampMagnitude(reachable - a.position, length * throwReachFraction);
+                float offset = safeDepth - shoulderDepth;
+                Vector3 center = a.position + forward * offset;
+                float lateralRadius = Mathf.Sqrt(Mathf.Max(0f, radius * radius - offset * offset));
+                Vector3 lateral = Vector3.ProjectOnPlane(reachable - center, forward);
+                reachable = center + Vector3.ClampMagnitude(lateral, lateralRadius);
             }
         }
         return position + reachable - target;
