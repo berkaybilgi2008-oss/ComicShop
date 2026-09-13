@@ -111,6 +111,7 @@ public class PlayerInteraction : MonoBehaviour
     private bool isThrowing;
     private float chargeAmount;
     private BookItem chargingBook;
+    private ToastBookCarry throwRig;
     private Vector3 enterStartPosition;
     private Quaternion enterStartRotation;
     private Vector3 enterStartScale = Vector3.one;
@@ -296,11 +297,22 @@ public class PlayerInteraction : MonoBehaviour
 
         float blend = EvaluateBookMoveCurve(Mathf.Clamp01(elapsed / chargeEnterDuration));
 
-        chargingBook.transform.position = ConstrainBookToRoom(chargingBook,
-            Vector3.LerpUnclamped(enterStartPosition, position, blend));
-        chargingBook.transform.rotation = Quaternion.SlerpUnclamped(enterStartRotation, rotation, blend);
-        chargingBook.transform.localScale = Vector3.LerpUnclamped(
-            enterStartScale, chargingBook.OriginalScale * chargeScaleMultiplier, blend);
+        ApplyThrowPose(chargingBook, Vector3.LerpUnclamped(enterStartPosition, position, blend),
+            Quaternion.SlerpUnclamped(enterStartRotation, rotation, blend),
+            Vector3.LerpUnclamped(enterStartScale, chargingBook.OriginalScale * chargeScaleMultiplier, blend));
+    }
+
+    private void ApplyThrowPose(BookItem book, Vector3 position, Quaternion rotation, Vector3 scale)
+    {
+        if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
+        if (throwRig != null)
+            position = throwRig.ConstrainThrowReach(book, position, rotation, scale,
+                throwHand == ThrowHand.Left);
+        // Obstacle protection has final authority over the presentation pose.
+        position = ConstrainBookToRoom(book, position);
+        book.transform.SetParent(null, true);
+        book.transform.SetPositionAndRotation(position, rotation);
+        book.transform.localScale = scale;
     }
 
     IEnumerator ThrowArc()
@@ -328,9 +340,7 @@ public class PlayerInteraction : MonoBehaviour
             float angle = Mathf.Lerp(startAngle, releaseAngle, t * t * t);
 
             GetThrowPose(book, angle, 0f, out Vector3 position, out Quaternion rotation);
-            book.transform.position = ConstrainBookToRoom(book, position);
-            book.transform.rotation = rotation;
-            book.transform.localScale = book.OriginalScale * chargeScaleMultiplier;
+            ApplyThrowPose(book, position, rotation, book.OriginalScale * chargeScaleMultiplier);
 
             yield return null;
         }

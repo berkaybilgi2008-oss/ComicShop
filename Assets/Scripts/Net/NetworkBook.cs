@@ -21,6 +21,14 @@ public class NetworkBook : NetworkBehaviour
             if (book != null && book.IsSpawned && book.Holder == playerId) count++;
         return count;
     }
+    public static BookItem FindThrowingBook(ulong holder, out bool leftHand)
+    {
+        foreach (var book in spawnedBooks)
+            if (book != null && book.IsSpawned && book.Holder == holder && book.state.Value.Throwing)
+            { leftHand = book.state.Value.LeftHand; return book.item; }
+        leftHand = true;
+        return null;
+    }
     public const ulong NoHolder = ulong.MaxValue;
     public struct BookState : INetworkSerializable, IEquatable<BookState>
     {
@@ -28,7 +36,7 @@ public class NetworkBook : NetworkBehaviour
         public ulong Holder, Slot;
         public Vector3 Position, Scale;
         public Quaternion Rotation;
-        public bool Kinematic;
+        public bool Kinematic, Throwing, LeftHand;
         public float PlacementDuration;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
@@ -42,12 +50,15 @@ public class NetworkBook : NetworkBehaviour
             serializer.SerializeValue(ref Rotation);
             serializer.SerializeValue(ref Scale);
             serializer.SerializeValue(ref Kinematic);
+            serializer.SerializeValue(ref Throwing);
+            serializer.SerializeValue(ref LeftHand);
             serializer.SerializeValue(ref PlacementDuration);
         }
         public bool Equals(BookState other) => BookId == other.BookId && BrandId == other.BrandId &&
             Holder == other.Holder && Slot == other.Slot && SlotIndex == other.SlotIndex &&
             Position.Equals(other.Position) && Rotation.Equals(other.Rotation) &&
-            Scale.Equals(other.Scale) && Kinematic == other.Kinematic && PlacementDuration.Equals(other.PlacementDuration);
+            Scale.Equals(other.Scale) && Kinematic == other.Kinematic && Throwing == other.Throwing &&
+            LeftHand == other.LeftHand && PlacementDuration.Equals(other.PlacementDuration);
     }
 
     private readonly NetworkVariable<BookState> state = new NetworkVariable<BookState>(
@@ -232,7 +243,9 @@ public class NetworkBook : NetworkBehaviour
         if (HeldByLocal && !IsServer && Time.unscaledTime >= nextHeldPose)
         {
             nextHeldPose = Time.unscaledTime + 1f / 15f;
-            HeldPoseRpc(transform.position, transform.rotation, transform.lossyScale);
+            HeldPoseRpc(transform.position, transform.rotation, transform.lossyScale,
+                boundPlayer != null && boundPlayer.IsThrowPoseActive && boundPlayer.ActiveHeldBook == item,
+                boundPlayer == null || boundPlayer.throwHand == PlayerInteraction.ThrowHand.Left);
         }
     }
 
@@ -243,6 +256,12 @@ public class NetworkBook : NetworkBehaviour
         value.Rotation = transform.rotation;
         value.Scale = transform.lossyScale;
         value.Kinematic = body != null && body.isKinematic;
+        if (HeldByLocal && boundPlayer != null)
+        {
+            value.Throwing = boundPlayer.IsThrowPoseActive && boundPlayer.ActiveHeldBook == item;
+            value.LeftHand = boundPlayer.throwHand == PlayerInteraction.ThrowHand.Left;
+        }
+        if (value.Holder == NoHolder) value.Throwing = false;
         if (!value.Equals(state.Value)) state.Value = value;
     }
 
@@ -310,6 +329,7 @@ public class NetworkBook : NetworkBehaviour
         if (!slot.PlaceBook(item)) return;
         var value = state.Value;
         value.Holder = NoHolder;
+        value.Throwing = false;
         value.Slot = slotKey;
         value.SlotIndex = slot.GetBookIndex(item);
         value.Position = transform.position;
@@ -355,6 +375,7 @@ public class NetworkBook : NetworkBehaviour
         transform.localScale = item.OriginalScale;
         var value = state.Value;
         value.Holder = NoHolder;
+        value.Throwing = false;
         value.Slot = 0;
         value.SlotIndex = -1;
         value.Position = transform.position;
@@ -379,11 +400,15 @@ public class NetworkBook : NetworkBehaviour
     }
 
     [Rpc(SendTo.Server, RequireOwnership = false, Delivery = RpcDelivery.Unreliable)]
-    private void HeldPoseRpc(Vector3 position, Quaternion rotation, Vector3 scale, RpcParams rpc = default)
+    private void HeldPoseRpc(Vector3 position, Quaternion rotation, Vector3 scale, bool throwing, bool leftHand, RpcParams rpc = default)
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
         if (Holder != rpc.Receive.SenderClientId || !ValidPose(player, position, rotation) || !Finite(scale)) return;
         transform.SetPositionAndRotation(position, rotation);
+        var updated = state.Value;
+        updated.Throwing = throwing;
+        updated.LeftHand = leftHand;
+        if (!updated.Equals(state.Value)) state.Value = updated;
         float factor = Mathf.Max(1f, player.heldScaleMultiplier, player.chargeScaleMultiplier);
         transform.localScale = Vector3.Min(Vector3.Max(scale, item.OriginalScale * 0.1f), item.OriginalScale * factor);
     }
