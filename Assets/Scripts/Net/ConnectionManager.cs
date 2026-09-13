@@ -6,6 +6,9 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkManager))]
 public class ConnectionManager : MonoBehaviour
 {
+    [Header("Scene Spawn")]
+    public Transform playerSpawnPoint; // V16 scene spawn anchor
+
     public enum SessionState { Idle, PreparingOnline, StartingHost, Connecting, Connected, Disconnecting }
     public enum ConnectionRoute { InternetRelay, DirectIp }
 
@@ -283,7 +286,7 @@ public class ConnectionManager : MonoBehaviour
         response.CreatePlayerObject = response.Approved;
         response.Pending = false;
         response.Reason = response.Approved ? "" : "Oda dolu.";
-        Transform spawn = networkManager.NetworkConfig.PlayerPrefab.transform;
+        Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
         response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
         response.Rotation = spawn.rotation;
     }

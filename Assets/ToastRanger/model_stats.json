@@ -1,0 +1,20 @@
+{
+  "vertices": 39973,
+  "triangles": 65080,
+  "materials": 15,
+  "height_m": 2.3000000000000003,
+  "rigged": true,
+  "uv": "Per-part overlapping procedural UVs; no unique texture atlas",
+  "unity_tested": false,
+  "bones": 18,
+  "animations": [
+    "Idle",
+    "Walk",
+    "Run",
+    "IdleBook",
+    "WalkBook",
+    "RunBook"
+  ],
+  "rig_type": "Custom Generic; no Humanoid avatar",
+  "root_motion": false
+}

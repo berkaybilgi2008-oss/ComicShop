@@ -1,0 +1,44 @@
+{
+  "bones": 18,
+  "clips": [
+    "Idle",
+    "Walk",
+    "Run",
+    "IdleBook",
+    "WalkBook",
+    "RunBook"
+  ],
+  "min_max_lowest_vertex_y": {
+    "Idle": [
+      0.0020000000949949026,
+      0.0020000000949949026
+    ],
+    "Walk": [
+      0.0019998927487247754,
+      0.0020000394619436976
+    ],
+    "Run": [
+      0.0019999105369512033,
+      0.011824251967915535
+    ],
+    "IdleBook": [
+      0.0020000000949949026,
+      0.0020000000949949026
+    ],
+    "WalkBook": [
+      0.0019998927487247754,
+      0.0020000394619436976
+    ],
+    "RunBook": [
+      0.0019999105369512033,
+      0.011824251967915535
+    ]
+  },
+  "bind_pose_max_error": 1.0099714042866026e-07,
+  "loop_seams": "PASS",
+  "finite_vertices": "PASS",
+  "weights": "PASS",
+  "unity_executed": false,
+  "blender_executed": false,
+  "book_lower_body_tracks_identical": "PASS"
+}

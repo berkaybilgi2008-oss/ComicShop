@@ -4,6 +4,8 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
+    public Transform v16SpawnArea; // V16 scaled scene spawn area
+
     [Header("Varsayilan Prefab ve Alan")]
     [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
@@ -105,7 +107,7 @@ public class BookSpawner : MonoBehaviour
 
         float x = Random.Range(-areaSize.x / 2f, areaSize.x / 2f);
         float z = Random.Range(-areaSize.y / 2f, areaSize.y / 2f);
-        Vector3 pos = transform.position + new Vector3(x, spawnHeight, z);
+        Vector3 pos = (v16SpawnArea != null ? v16SpawnArea : transform).TransformPoint(new Vector3(x, spawnHeight, z));
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
