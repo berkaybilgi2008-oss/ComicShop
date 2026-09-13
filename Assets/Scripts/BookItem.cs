@@ -376,6 +376,22 @@ public class BookItem : MonoBehaviour
     private Vector3 localCoverNormal = Vector3.forward;
     private Vector3 localLongAxis = Vector3.up;
     private Vector3 localWideAxis = Vector3.right;
+    private Vector3 localHalfExtents = new Vector3(0.01f, 0.1f, 0.07f);
+
+    /// <summary>
+    /// Kitabin kendi eksenleri ve OriginalScale'deki yari olculeri.
+    /// halfExtents.x = kalinlik, y = boy, z = genislik.
+    /// Q pozunda eli kitabin kosesine oturtmak icin kullanilir.
+    /// </summary>
+    public void GetAxisFrame(out Vector3 coverNormal, out Vector3 longAxis, out Vector3 wideAxis,
+        out Vector3 halfExtents)
+    {
+        ResolveLocalAxes();
+        coverNormal = localCoverNormal;
+        longAxis = localLongAxis;
+        wideAxis = localWideAxis;
+        halfExtents = localHalfExtents;
+    }
 
     private void ResolveLocalAxes()
     {
@@ -419,6 +435,7 @@ public class BookItem : MonoBehaviour
         localCoverNormal = Axis(thin);
         localLongAxis = Axis(longest);
         localWideAxis = Axis(wide);
+        localHalfExtents = new Vector3(size[thin], size[longest], size[wide]) * 0.5f;
     }
 
     private static Vector3 Axis(int index)

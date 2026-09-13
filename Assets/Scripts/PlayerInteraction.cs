@@ -112,8 +112,6 @@ public class PlayerInteraction : MonoBehaviour
     private float chargeAmount;
     private BookItem chargingBook;
     private ToastBookCarry throwRig;
-    private ThrowPoseControls poseControls;
-    private bool wasPosePreview;
     private Vector3 enterStartPosition;
     private Quaternion enterStartRotation;
     private Vector3 enterStartScale = Vector3.one;
@@ -131,9 +129,6 @@ public class PlayerInteraction : MonoBehaviour
         if (crosshair == null)
             crosshair = gameObject.AddComponent<Crosshair>();
 
-        poseControls = GetComponent<ThrowPoseControls>();
-        if (poseControls == null) poseControls = gameObject.AddComponent<ThrowPoseControls>();
-
         // Optional character package: bind when present, including spawned players.
         if (GetComponent<CharacterBookCarryBridge>() == null)
             gameObject.AddComponent<CharacterBookCarryBridge>();
@@ -142,20 +137,6 @@ public class PlayerInteraction : MonoBehaviour
     void Update()
     {
         if (TryGetComponent<PlayerKnockdown>(out var knocked) && knocked.IsDown) return;
-        bool preview = poseControls != null && poseControls.IsPreview;
-        if (preview)
-        {
-            wasPosePreview = true;
-            if (!IsThrowPoseActive && !isBookAnimating && heldBooks.Count > 0) BeginCharge();
-            if (isChargingThrow) UpdateCharge();
-            return;
-        }
-        if (wasPosePreview)
-        {
-            wasPosePreview = false;
-            CancelHandAnimations();
-            RepositionHeldBooksImmediate();
-        }
         if (Cursor.lockState != CursorLockMode.Locked)
         {
             if (isChargingThrow)
@@ -311,12 +292,18 @@ public class PlayerInteraction : MonoBehaviour
         float elapsed = Time.time - chargeStartTime;
         chargeAmount = Mathf.Clamp01(elapsed / chargeFillDuration);
 
-        float angle = Mathf.Lerp(windupStartAngle, windupFullAngle, chargeAmount);
-        GetThrowPose(chargingBook, angle, chargeAmount, out Vector3 position, out Quaternion rotation);
+        GetThrowPose(chargingBook, ThrowSwingAngle(chargeAmount, 0f), chargeAmount,
+            out Vector3 position, out Quaternion rotation);
 
         float blend = EvaluateBookMoveCurve(Mathf.Clamp01(elapsed / chargeEnterDuration));
 
-        ApplyThrowPose(chargingBook, Vector3.LerpUnclamped(enterStartPosition, position, blend),
+        // Kitap tasima pozundan atis pozuna suzulurken el de onunla beraber gelir;
+        // yoksa el hemen tepeye zipliyor, kitap arkadan yetismeye calisiyordu.
+        Vector3 entering = Vector3.LerpUnclamped(enterStartPosition, position, blend);
+        if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
+        if (throwRig != null) throwRig.OffsetThrowWrist(entering - position);
+
+        ApplyThrowPose(chargingBook, entering,
             Quaternion.SlerpUnclamped(enterStartRotation, rotation, blend),
             Vector3.LerpUnclamped(enterStartScale, chargingBook.OriginalScale * chargeScaleMultiplier, blend));
     }
@@ -324,11 +311,11 @@ public class PlayerInteraction : MonoBehaviour
     private void ApplyThrowPose(BookItem book, Vector3 position, Quaternion rotation, Vector3 scale)
     {
         if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
-        if (throwRig != null && !throwRig.UsesManualThrowPose)
-            position = throwRig.ConstrainThrowReach(book, position, rotation, scale,
-                throwHand == ThrowHand.Left);
         // Obstacle protection has final authority over the presentation pose.
-        position = ConstrainBookToRoom(book, position);
+        // El kitaptan kopmasin: duvar kaydirmasi kadar bilek de kayar.
+        Vector3 constrained = ConstrainBookToRoom(book, position);
+        if (throwRig != null) throwRig.OffsetThrowWrist(constrained - position);
+        position = constrained;
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(position, rotation);
         book.transform.localScale = scale;
@@ -347,7 +334,6 @@ public class PlayerInteraction : MonoBehaviour
 
         isThrowing = true;
 
-        float startAngle = Mathf.Lerp(windupStartAngle, windupFullAngle, finalCharge);
         float elapsed = 0f;
 
         // Bas arkasindan one dogru tek temiz yay; sona dogru hizlanir (bilek sokumu).
@@ -356,7 +342,7 @@ public class PlayerInteraction : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / throwArcDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
-            float angle = Mathf.Lerp(startAngle, releaseAngle, t * t * t);
+            float angle = ThrowSwingAngle(finalCharge, t * t * t);
 
             GetThrowPose(book, angle, 0f, out Vector3 position, out Quaternion rotation);
             ApplyThrowPose(book, position, rotation, book.OriginalScale * chargeScaleMultiplier);
@@ -393,8 +379,19 @@ public class PlayerInteraction : MonoBehaviour
                       out Vector3 position, out Quaternion rotation)
     {
         if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
-        if (throwRig != null && throwRig.TryGetManualThrowPose(book,
-            throwHand == ThrowHand.Left, out position, out rotation)) return;
+        // Asil yol: pozu kol kurar, kitap elin kosesine oturur. Eski kamera yayi
+        // sadece kol kemikleri bulunamazsa (ornegin modelsiz sahne) devreye girer.
+        if (throwRig != null && throwRig.GetThrowPose(book, angle, throwHand == ThrowHand.Left,
+            book.OriginalScale * chargeScaleMultiplier, out position, out rotation))
+        {
+            if (shake > 0f && chargeShakeAmount > 0f)
+            {
+                Vector3 tremble = ChargeShake() * (chargeShakeAmount * shake);
+                position += tremble;
+                throwRig.OffsetThrowWrist(tremble);
+            }
+            return;
+        }
         Transform cam = playerCamera.transform;
 
         Vector3 coverNormal = cam.right;
@@ -412,20 +409,35 @@ public class PlayerInteraction : MonoBehaviour
         position = pivot + armDirection * throwArmLength;
 
         if (shake > 0f && chargeShakeAmount > 0f)
-        {
-            float n = Time.time * chargeShakeSpeed;
-            Vector3 noise = new Vector3(
-                Mathf.PerlinNoise(n, 0.13f) - 0.5f,
-                Mathf.PerlinNoise(0.47f, n) - 0.5f,
-                Mathf.PerlinNoise(n, n) - 0.5f) * 2f;
-
-            position += noise * (chargeShakeAmount * shake);
-        }
+            position += ChargeShake() * (chargeShakeAmount * shake);
 
         // Kitabin BOYU kolun dogrultusunda -- yay boyunca kolla beraber doner.
         rotation = book != null
             ? book.GetAlignedRotation(coverNormal, armDirection)
             : Quaternion.identity;
+    }
+
+    /// <summary>Bar dolarken elin zorlanma titremesi.</summary>
+    Vector3 ChargeShake()
+    {
+        float n = Time.time * chargeShakeSpeed;
+        return new Vector3(
+            Mathf.PerlinNoise(n, 0.13f) - 0.5f,
+            Mathf.PerlinNoise(0.47f, n) - 0.5f,
+            Mathf.PerlinNoise(n, n) - 0.5f) * 2f;
+    }
+
+    /// <summary>
+    /// Yay acisi. Kol kemikleri varsa acilar ToastBookCarry'den gelir; boylece
+    /// sahnede kayitli eski (cok geriye kacan) degerler pozu bozamaz.
+    /// </summary>
+    float ThrowSwingAngle(float charge, float release)
+    {
+        if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
+        if (throwRig != null && throwRig.HasThrowArm(throwHand == ThrowHand.Left))
+            return throwRig.ThrowSwingAngle(charge, release);
+        float windup = Mathf.Lerp(windupStartAngle, windupFullAngle, Mathf.Clamp01(charge));
+        return Mathf.Lerp(windup, releaseAngle, Mathf.Clamp01(release));
     }
 
     /// <summary>Yatay duzlemdeki bakis yonu -- normal birakma icin.</summary>
