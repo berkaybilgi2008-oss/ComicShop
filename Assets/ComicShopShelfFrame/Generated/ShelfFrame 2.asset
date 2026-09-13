@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!21 &-7654748054181890213
+--- !u!21 &-4730404813167424275
 Material:
   serializedVersion: 8
   m_ObjectHideFlags: 0
@@ -52,7 +52,7 @@ Mesh:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: ShelfFrame 1
+  m_Name: ShelfFrame 2
   serializedVersion: 12
   m_SubMeshes:
   - serializedVersion: 2
