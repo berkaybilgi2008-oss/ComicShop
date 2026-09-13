@@ -112,6 +112,8 @@ public class PlayerInteraction : MonoBehaviour
     private float chargeAmount;
     private BookItem chargingBook;
     private ToastBookCarry throwRig;
+    private ThrowPoseControls poseControls;
+    private bool wasPosePreview;
     private Vector3 enterStartPosition;
     private Quaternion enterStartRotation;
     private Vector3 enterStartScale = Vector3.one;
@@ -129,6 +131,9 @@ public class PlayerInteraction : MonoBehaviour
         if (crosshair == null)
             crosshair = gameObject.AddComponent<Crosshair>();
 
+        poseControls = GetComponent<ThrowPoseControls>();
+        if (poseControls == null) poseControls = gameObject.AddComponent<ThrowPoseControls>();
+
         // Optional character package: bind when present, including spawned players.
         if (GetComponent<CharacterBookCarryBridge>() == null)
             gameObject.AddComponent<CharacterBookCarryBridge>();
@@ -137,6 +142,20 @@ public class PlayerInteraction : MonoBehaviour
     void Update()
     {
         if (TryGetComponent<PlayerKnockdown>(out var knocked) && knocked.IsDown) return;
+        bool preview = poseControls != null && poseControls.IsPreview;
+        if (preview)
+        {
+            wasPosePreview = true;
+            if (!IsThrowPoseActive && !isBookAnimating && heldBooks.Count > 0) BeginCharge();
+            if (isChargingThrow) UpdateCharge();
+            return;
+        }
+        if (wasPosePreview)
+        {
+            wasPosePreview = false;
+            CancelHandAnimations();
+            RepositionHeldBooksImmediate();
+        }
         if (Cursor.lockState != CursorLockMode.Locked)
         {
             if (isChargingThrow)
@@ -305,7 +324,7 @@ public class PlayerInteraction : MonoBehaviour
     private void ApplyThrowPose(BookItem book, Vector3 position, Quaternion rotation, Vector3 scale)
     {
         if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
-        if (throwRig != null)
+        if (throwRig != null && !throwRig.UsesManualThrowPose)
             position = throwRig.ConstrainThrowReach(book, position, rotation, scale,
                 throwHand == ThrowHand.Left);
         // Obstacle protection has final authority over the presentation pose.
@@ -373,6 +392,9 @@ public class PlayerInteraction : MonoBehaviour
     void GetThrowPose(BookItem book, float angle, float shake,
                       out Vector3 position, out Quaternion rotation)
     {
+        if (throwRig == null) throwRig = GetComponentInChildren<ToastBookCarry>();
+        if (throwRig != null && throwRig.TryGetManualThrowPose(book,
+            throwHand == ThrowHand.Left, out position, out rotation)) return;
         Transform cam = playerCamera.transform;
 
         Vector3 coverNormal = cam.right;

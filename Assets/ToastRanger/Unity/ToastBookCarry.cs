@@ -21,6 +21,21 @@ public sealed class ToastBookCarry : MonoBehaviour
     [Range(0.65f, 0.95f)] public float throwReachFraction = 0.88f;
     [Range(25f, 100f)] public float maximumWristBend = 65f;
     [Min(0.25f)] public float throwCameraDistance = 0.5f;
+    private ThrowPoseControls poseControls;
+    public bool UsesManualThrowPose
+    {
+        get
+        {
+            if (!poseControls) poseControls = GetComponentInParent<ThrowPoseControls>();
+            return poseControls && poseControls.IsManual;
+        }
+    }
+    public bool TryGetManualThrowPose(BookItem book, bool left, out Vector3 position, out Quaternion rotation)
+    {
+        position = Vector3.zero; rotation = Quaternion.identity;
+        return UsesManualThrowPose && SelectThrowArm(left, out var a, out var b, out var c) &&
+            poseControls.GetBookPose(book, a, b, c, out position, out rotation);
+    }
     private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
     private Quaternion throwUpperBase, throwLowerBase, throwHandBase;
@@ -240,18 +255,25 @@ public sealed class ToastBookCarry : MonoBehaviour
         throwHandBase = throwHand.localRotation;
         if (book != null)
         {
-            GetGrip(book, book.transform.position, book.transform.rotation, book.transform.lossyScale,
-                throwHand, out var target, out var wristRotation);
-            if (!SolveThrowElbow(target, left)) return;
-            Quaternion rest = left ? leftWristRest : rightWristRest;
-            Quaternion supportedWrist = Quaternion.RotateTowards(throwLower.rotation * rest,
-                wristRotation, maximumWristBend);
-            // Limiting wrist bend changes the palm offset. Solve once more to
-            // keep the palm touching the same point on the cover.
-            Vector3 palmOffset = Vector3.Scale(throwPalmOffset, throwHand.lossyScale);
-            target += wristRotation * palmOffset - supportedWrist * palmOffset;
-            if (!SolveThrowElbow(target, left)) return;
-            throwHand.rotation = supportedWrist;
+            if (UsesManualThrowPose)
+            {
+                poseControls.GetWristFromBook(book, out var manualTarget, out var manualRotation);
+                if (!SolveThrowElbow(manualTarget, left)) return;
+                throwHand.rotation = manualRotation;
+            }
+            else
+            {
+                GetGrip(book, book.transform.position, book.transform.rotation, book.transform.lossyScale,
+                    throwHand, out var target, out var wristRotation);
+                if (!SolveThrowElbow(target, left)) return;
+                Quaternion rest = left ? leftWristRest : rightWristRest;
+                Quaternion supportedWrist = Quaternion.RotateTowards(throwLower.rotation * rest,
+                    wristRotation, maximumWristBend);
+                Vector3 palmOffset = Vector3.Scale(throwPalmOffset, throwHand.lossyScale);
+                target += wristRotation * palmOffset - supportedWrist * palmOffset;
+                if (!SolveThrowElbow(target, left)) return;
+                throwHand.rotation = supportedWrist;
+            }
             lastUpperPose = throwUpper.localRotation;
             lastLowerPose = throwLower.localRotation;
             lastHandPose = throwHand.localRotation;
@@ -273,6 +295,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         // Keep the elbow below the wrist, with a small outward bias. The old
         // backward pole could leave the forearm horizontal or bend the wrist back.
         Vector3 pole = -transform.up + (left ? -transform.right : transform.right) * 0.25f - transform.forward * 0.15f;
+        if (UsesManualThrowPose) pole = poseControls.elbowTarget.position - a;
         Vector3 bend = Vector3.ProjectOnPlane(pole, direction);
         if (bend.sqrMagnitude < 0.000001f) bend = Vector3.ProjectOnPlane(-transform.forward, direction);
         float along = (l1*l1+reach*reach-l2*l2)/(2f*reach);
