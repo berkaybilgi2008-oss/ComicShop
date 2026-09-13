@@ -31,7 +31,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         if (networkPlayer && networkPlayer.IsSpawned && !networkPlayer.IsOwner)
             carryingBook = NetworkBook.CountHeldBy(networkPlayer.OwnerClientId) > 0;
         else
-            carryingBook = inventory.HeldBooksList.Count > 0;
+            carryingBook = inventory.HeldBooksList.Count > (inventory.IsThrowPoseActive ? 1 : 0);
     }
 
     void Update()

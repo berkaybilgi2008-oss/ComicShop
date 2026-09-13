@@ -76,7 +76,8 @@ public sealed class CharacterBookCarryBridge : MonoBehaviour
         int count = 0;
         if (interaction != null)
             foreach (var book in interaction.HeldBooksList)
-                if (book != null && book.IsHeld) count++;
+                if (book != null && book.IsHeld &&
+                    !(interaction.IsThrowPoseActive && book == interaction.ActiveHeldBook)) count++;
         return count;
     }
 

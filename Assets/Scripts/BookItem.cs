@@ -47,6 +47,62 @@ public class BookItem : MonoBehaviour
     private int impactTipAttempts;
     private float settleNotBefore;
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
+    private float nextReleaseAudit;
+    private bool loggedReleaseRepair;
+
+    private void AuditReleasedPhysics()
+    {
+        if (body == null || currentSlot != null || Time.time < nextReleaseAudit) return;
+        nextReleaseAudit = Time.time + 0.5f;
+        var networkBook = GetComponent<NetworkBook>();
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            // Client kinematic bodies are intentional replicas, never simulate them.
+            if (!networkBook.IsServer || networkBook.Holder != NetworkBook.NoHolder ||
+                networkBook.SlotKey != 0 || networkBook.IsPlacementAnimating) return;
+        }
+        else if (IsHeld || body.isKinematic)
+        {
+            foreach (var player in FindObjectsByType<PlayerInteraction>(FindObjectsSortMode.None))
+                foreach (var held in player.HeldBooksList)
+                    if (held == this) return;
+            // A recovery machine may intentionally park a truly lost book.
+            foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
+                if (machine.IsLost(this)) return;
+        }
+
+        if (IsHeld || body.isKinematic || !body.useGravity || !body.detectCollisions)
+        {
+            string before = $"held={IsHeld}, kinematic={body.isKinematic}, gravity={body.useGravity}, collisions={body.detectCollisions}";
+            transform.SetParent(null, true);
+            SetHeld(false);
+            body.WakeUp();
+            if (!loggedReleaseRepair)
+                Debug.LogWarning($"[BOOK RELEASE REPAIR] {name}: {before}; no holder or shelf. Physics restored.", this);
+            loggedReleaseRepair = true;
+        }
+        else if (body.IsSleeping())
+        {
+            // Test live collider geometry, not old collision callbacks/AABB overlap.
+            // Bottom books wake first; PhysX then wakes the rest of the stack.
+            bool supported = false;
+            foreach (var hit in body.SweepTestAll(Vector3.down, 0.04f, QueryTriggerInteraction.Ignore))
+            {
+                var other = hit.collider.GetComponentInParent<BookItem>();
+                if (other == this || (other != null && other.IsHeld)) continue;
+                if (hit.collider.GetComponentInParent<PlayerInteraction>() != null) continue;
+                supported = true;
+                break;
+            }
+            if (!supported)
+            {
+                body.WakeUp();
+                if (!loggedReleaseRepair)
+                    Debug.LogWarning($"[BOOK RELEASE REPAIR] {name}: sleeping without support; woke physics.", this);
+                loggedReleaseRepair = true;
+            }
+        }
+    }
 
     [Header("Elde Tutulan Kitap Kontrolu")]
     [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
@@ -64,6 +120,7 @@ public class BookItem : MonoBehaviour
 
     void FixedUpdate()
     {
+        AuditReleasedPhysics();
         if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
         if (ContinueEdgeSettling()) return;
         if (Time.time < settleNotBefore) return;
