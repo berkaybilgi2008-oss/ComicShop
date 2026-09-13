@@ -86,13 +86,8 @@ public class BookItem : MonoBehaviour
         }
         if (!CanFreezeAfterSettling()) return;
 
-        body.linearVelocity = Vector3.zero;
-        body.angularVelocity = Vector3.zero;
-        // Keep loose books dynamic. Kinematic bodies never wake when a supporting
-        // book is removed, leaving an entire pile suspended in the air. PhysX
-        // sleep saves simulation work while allowing collisions/support loss
-        // to wake the book again. Hands and shelf slots still own kinematic poses.
-        body.Sleep();
+        // Let PhysX decide when to sleep. Forcing Sleep here can retain an old
+        // contact pose while rapidly released books are still separating.
     }
 
     void OnCollisionEnter(Collision collision)
@@ -413,6 +408,8 @@ public class BookItem : MonoBehaviour
         if (rb != null)
         {
             stillTimer = 0f;
+            // Held stacks must not become moving kinematic platforms for loose books.
+            rb.detectCollisions = !held;
             if (held)
             {
                 if (!rb.isKinematic)
@@ -425,6 +422,8 @@ public class BookItem : MonoBehaviour
             else
             {
                 rb.isKinematic = false;
+                rb.useGravity = true;
+                rb.WakeUp();
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
             }

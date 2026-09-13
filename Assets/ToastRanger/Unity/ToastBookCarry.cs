@@ -12,14 +12,32 @@ public sealed class ToastBookCarry : MonoBehaviour
     [Range(-0.10f,0.16f)] public float handHeight;
     [Min(0.01f)] public float transitionSeconds=0.15f;
     public GameObject previewBook;
+    PlayerInteraction inventory;
+    NetworkPlayerSetup networkPlayer;
     float blend;
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
     static readonly int Carry=Animator.StringToHash("Carry");
 
+    void Awake()
+    {
+        inventory = GetComponentInParent<PlayerInteraction>();
+        networkPlayer = GetComponentInParent<NetworkPlayerSetup>();
+    }
+
+    void ReadInventory()
+    {
+        if (!inventory) return; // Standalone model previews keep their manual toggle.
+        if (networkPlayer && networkPlayer.IsSpawned && !networkPlayer.IsOwner)
+            carryingBook = NetworkBook.CountHeldBy(networkPlayer.OwnerClientId) > 0;
+        else
+            carryingBook = inventory.HeldBooksList.Count > 0;
+    }
+
     void Update()
     {
         Restore();
+        ReadInventory();
         if (!animator) return;
         blend=Mathf.MoveTowards(blend,carryingBook?1f:0f,Time.deltaTime/Mathf.Max(.01f,transitionSeconds));
         animator.SetFloat(Carry,blend);
@@ -27,6 +45,17 @@ public sealed class ToastBookCarry : MonoBehaviour
     }
     void LateUpdate()
     {
+        // ThrowArc can finish after Update. Clear the Carry parameter that same
+        // frame, independent of socket binding, and skip the old hand correction.
+        ReadInventory();
+        if (inventory && !carryingBook)
+        {
+            Restore();
+            blend = 0f;
+            if (animator) animator.SetFloat(Carry, 0f);
+            if (previewBook) previewBook.SetActive(false);
+            return;
+        }
         if (!animator || !animator.enabled || !upperArm || !forearm || !hand || blend<=0f) return;
         float scale=Mathf.Abs(transform.lossyScale.y);
         float offset=Mathf.Clamp(handHeight,-.10f,.16f)*scale*blend;

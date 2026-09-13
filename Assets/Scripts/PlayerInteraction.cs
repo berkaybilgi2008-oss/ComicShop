@@ -296,7 +296,8 @@ public class PlayerInteraction : MonoBehaviour
 
         float blend = EvaluateBookMoveCurve(Mathf.Clamp01(elapsed / chargeEnterDuration));
 
-        chargingBook.transform.position = Vector3.LerpUnclamped(enterStartPosition, position, blend);
+        chargingBook.transform.position = ConstrainBookToRoom(chargingBook,
+            Vector3.LerpUnclamped(enterStartPosition, position, blend));
         chargingBook.transform.rotation = Quaternion.SlerpUnclamped(enterStartRotation, rotation, blend);
         chargingBook.transform.localScale = Vector3.LerpUnclamped(
             enterStartScale, chargingBook.OriginalScale * chargeScaleMultiplier, blend);
@@ -327,7 +328,7 @@ public class PlayerInteraction : MonoBehaviour
             float angle = Mathf.Lerp(startAngle, releaseAngle, t * t * t);
 
             GetThrowPose(book, angle, 0f, out Vector3 position, out Quaternion rotation);
-            book.transform.position = position;
+            book.transform.position = ConstrainBookToRoom(book, position);
             book.transform.rotation = rotation;
             book.transform.localScale = book.OriginalScale * chargeScaleMultiplier;
 
@@ -853,12 +854,84 @@ public class PlayerInteraction : MonoBehaviour
             false);
     }
 
+    private readonly RaycastHit[] roomHits = new RaycastHit[128];
+    private readonly Collider[] roomOverlaps = new Collider[128];
+
+    private static bool IsRoomObstacle(Collider collider)
+    {
+        return collider != null && !collider.isTrigger &&
+            collider.GetComponentInParent<BookItem>() == null &&
+            collider.GetComponentInParent<PlayerInteraction>() == null;
+    }
+
+    public Vector3 ConstrainBookToRoom(BookItem book, Vector3 desired)
+    {
+        if (book == null || playerCamera == null) return desired;
+        // Use a rotation-independent envelope, at least as large as the released
+        // book. Unlike the old camera push this only limits motion at obstacles.
+        float radius = 0.05f;
+        var box = book.GetComponentInChildren<BoxCollider>();
+        if (box != null)
+        {
+            Vector3 scale = box.transform.lossyScale;
+            scale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+            radius = Vector3.Scale(box.size, scale).magnitude * 0.5f +
+                Vector3.Distance(box.transform.TransformPoint(box.center), book.transform.position);
+            Vector3 current = book.transform.lossyScale;
+            Vector3 original = book.OriginalScale;
+            float ratio = Mathf.Max(1f, Mathf.Abs(original.x) / Mathf.Max(0.0001f, Mathf.Abs(current.x)),
+                Mathf.Abs(original.y) / Mathf.Max(0.0001f, Mathf.Abs(current.y)),
+                Mathf.Abs(original.z) / Mathf.Max(0.0001f, Mathf.Abs(current.z)));
+            radius *= ratio;
+        }
+        radius += 0.02f;
+        Vector3 origin = playerCamera.transform.position;
+        // A player may be closer to glass than this envelope's radius. First
+        // move the cast origin inward; casts alone miss initial overlaps.
+        for (int pass = 0; pass < 6; pass++)
+        {
+            bool moved = false;
+            int overlaps = Physics.OverlapSphereNonAlloc(origin, radius, roomOverlaps,
+                Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < overlaps; i++)
+            {
+                var obstacle = roomOverlaps[i];
+                if (!IsRoomObstacle(obstacle)) continue;
+                Vector3 away = origin - obstacle.ClosestPoint(origin);
+                float distance = away.magnitude;
+                if (distance < 0.0001f || distance >= radius) continue;
+                origin += away / distance * (radius - distance + 0.005f);
+                moved = true;
+            }
+            if (!moved) break;
+        }
+        Vector3 travel = desired - origin;
+        float length = travel.magnitude;
+        if (length < 0.0001f) return origin;
+        Vector3 direction = travel / length;
+        float allowed = length;
+        int count = Physics.SphereCastNonAlloc(origin, radius, direction, roomHits, length,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        if (count == roomHits.Length) return origin;
+        for (int i = 0; i < count; i++)
+            if (IsRoomObstacle(roomHits[i].collider))
+                allowed = Mathf.Min(allowed, Mathf.Max(0f, roomHits[i].distance - 0.01f));
+        // The center ray also catches a thin wall if a cast starts in contact.
+        count = Physics.RaycastNonAlloc(origin, direction, roomHits, length,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        if (count == roomHits.Length) return origin;
+        for (int i = 0; i < count; i++)
+            if (IsRoomObstacle(roomHits[i].collider))
+                allowed = Mathf.Min(allowed, Mathf.Max(0f, roomHits[i].distance - radius));
+        return origin + direction * allowed;
+    }
+
     void ThrowBook(BookItem book, Vector3 velocity, Vector3 spinAxis, float spin, bool charged)
     {
         if (book == null)
             return;
 
-        Vector3 worldPosition = book.transform.position;
+        Vector3 worldPosition = ConstrainBookToRoom(book, book.transform.position);
         Quaternion worldRotation = book.transform.rotation;
         NetworkBook networkBook = book.GetComponent<NetworkBook>();
         if (networkBook != null && networkBook.IsSpawned)
@@ -962,7 +1035,7 @@ public class PlayerInteraction : MonoBehaviour
     {
         Rigidbody rb = book != null ? book.GetComponent<Rigidbody>() : null;
 
-        while (book != null && rb != null && !rb.isKinematic)
+        while (book != null && rb != null && !rb.isKinematic && !rb.IsSleeping())
             yield return null;
 
         if (playerCollisionRestoreDelay > 0f)

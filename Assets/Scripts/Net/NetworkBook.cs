@@ -339,6 +339,8 @@ public class NetworkBook : NetworkBehaviour
             return;
         }
         transform.SetParent(null, true);
+        // Validate on the host too; a client hand pose can be beyond a wall.
+        position = player.ConstrainBookToRoom(item, position);
         transform.SetPositionAndRotation(position, rotation);
         float maxSpeed = Mathf.Max(player.maxThrowSpeed * player.releaseSnap,
             player.dropForwardForce + player.dropUpwardForce);
