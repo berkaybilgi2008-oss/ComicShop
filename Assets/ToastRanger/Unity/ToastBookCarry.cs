@@ -229,13 +229,13 @@ public sealed class ToastBookCarry : MonoBehaviour
         // No camera-framing search: every observer receives the same book pose.
         VisualCharge = windup;
         VisualRelease = release;
-        Vector3 outwardHeading = Quaternion.AngleAxis(side * 35f, bodyUp) * horizontal;
+        Vector3 outwardHeading = Quaternion.AngleAxis(side * 75f, bodyUp) * horizontal;
         Vector3 shoulderAxis = Vector3.Cross(bodyUp, outwardHeading).normalized;
         Quaternion shoulderLift = Quaternion.AngleAxis(
-            -Mathf.Lerp(40f + windup * 20f, 5f, release), shoulderAxis);
+            -Mathf.Lerp(30f + windup * 10f, 5f, release), shoulderAxis);
         Vector3 upperDirection = shoulderLift * outwardHeading;
-        // 110 degrees inside the elbow: tense/open, compared to 65 in first person.
-        float bend = 110f * Mathf.Deg2Rad;
+        // 115 degrees inside the elbow, with the upper arm abducted away from the head.
+        float bend = 115f * Mathf.Deg2Rad;
         // Keep the forearm forward rather than folding behind the head.
         Vector3 forwardBend = Vector3.ProjectOnPlane(outwardHeading, upperDirection).normalized;
         Vector3 lowerDirection = forwardBend * Mathf.Sin(bend) - upperDirection * Mathf.Cos(bend);
