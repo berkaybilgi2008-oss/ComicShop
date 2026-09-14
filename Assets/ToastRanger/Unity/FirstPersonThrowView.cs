@@ -18,6 +18,11 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     bool left, ready, renderingApplied;
     Camera renderingCamera;
     float enteredAt;
+    bool detached;
+    float detachedAt;
+    const float releaseBlendSeconds = 0.14f;
+    Vector3 detachedOffset, detachedScale, recoveryPosition;
+    Quaternion detachedRotation;
     Vector3 entryPosition, entryScale;
     Quaternion entryRotation;
     readonly Dictionary<Transform, Transform> bones = new Dictionary<Transform, Transform>();
@@ -80,12 +85,41 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     void LateUpdate()
     {
         RestoreRendering();
-        if (!IsLocal() || !IsFirstPersonCamera(inventory.playerCamera) || !inventory.IsThrowPoseActive || !inventory.ActiveHeldBook)
+        if (!IsLocal() || !IsFirstPersonCamera(inventory.playerCamera))
         {
-            ready = false;
-            activeBook = null;
+            ready = false; detached = false; activeBook = null;
             return;
         }
+        if (!inventory.IsThrowPoseActive || !inventory.ActiveHeldBook)
+        {
+            // A real release keeps the visual alive briefly; cancellation, pickup,
+            // destruction or leaving the owner camera restores the original immediately.
+            if (ready && activeBook && !activeBook.IsHeld && bookRoot)
+            {
+                if (!detached)
+                {
+                    detached = true;
+                    detachedAt = Time.time;
+                    detachedOffset = bookRoot.transform.position - activeBook.transform.position;
+                    detachedRotation = Quaternion.Inverse(activeBook.transform.rotation) * bookRoot.transform.rotation;
+                    detachedScale = bookRoot.transform.localScale;
+                    recoveryPosition = inventory.playerCamera.transform.InverseTransformPoint(visualRoot.transform.position);
+                }
+                float t = Mathf.Clamp01((Time.time - detachedAt) / releaseBlendSeconds);
+                float blend = t * t * (3f - 2f * t);
+                bookRoot.transform.SetPositionAndRotation(
+                    activeBook.transform.position + detachedOffset * (1f - blend),
+                    activeBook.transform.rotation * Quaternion.Slerp(detachedRotation, Quaternion.identity, blend));
+                bookRoot.transform.localScale = Vector3.Lerp(detachedScale, activeBook.transform.lossyScale, blend);
+                // Independent first-person follow-through, after the book leaves the palm.
+                visualRoot.transform.position = inventory.playerCamera.transform.TransformPoint(
+                    recoveryPosition + Vector3.down * (0.12f * blend));
+                if (t < 1f) return;
+            }
+            ready = false; detached = false; activeBook = null;
+            return;
+        }
+        detached = false;
         bool useLeft = inventory.throwHand == PlayerInteraction.ThrowHand.Left;
         BookItem book = inventory.ActiveHeldBook;
         if (!visualRoot || left != useLeft)
@@ -269,9 +303,10 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         }
         Vector3 wrist = view.position + wristRay * depth;
         Vector3 lower = (wristRay - elbowRay).normalized;
-        // On release retain the original cubic timing and move forward in one stroke.
+        // Owner-only forward stroke. Never drag the wrist sideways to the
+        // third-person grip; that pose belongs to the authoritative world rig.
         lower = Vector3.Slerp(lower, view.forward, release * 0.85f);
-        wrist += view.forward * (release * 0.18f) - view.up * (release * 0.10f);
+        wrist += view.forward * (release * 0.28f) - view.up * (release * 0.08f);
         wrist += inventory.CurrentThrowShake;
         Vector3 elbow = wrist - lower * l2;
         Vector3 upper = Vector3.ProjectOnPlane(view.forward, lower).normalized;
@@ -288,8 +323,8 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         float enter = Mathf.SmoothStep(0f, 1f, (Time.time - enteredAt) / Mathf.Max(0.01f, inventory.chargeEnterDuration));
         rotation = Quaternion.Slerp(entryRotation, rotation, enter);
         scale = Vector3.Lerp(entryScale, scale, enter);
-        rotation = Quaternion.Slerp(rotation, book.transform.rotation, release);
-        scale = Vector3.Lerp(scale, book.transform.lossyScale, release);
+        // Keep the first-person grip through release. World rotation/scale
+        // are joined only after detachment, when the book is no longer in hand.
         book.GetAxisFrame(out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
         half *= scale.magnitude / Mathf.Max(0.0001f, book.OriginalScale.magnitude);
         cover = rotation * cover; along = rotation * along; wide = rotation * wide;
@@ -299,8 +334,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         Vector3 gripOffset = Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
         Vector3 entryWrist = entryPosition - bookOffset - grip * gripOffset;
         wrist = Vector3.Lerp(entryWrist, wrist, enter);
-        Vector3 releaseWrist = book.transform.position - bookOffset - grip * gripOffset;
-        wrist = Vector3.Lerp(wrist, releaseWrist, release);
+
         elbow = wrist - lower * l2;
         // Move the complete presentation skeleton, preserving every bind offset.
         visualRoot.transform.position += elbow - upper * l1 - a.position;
@@ -315,8 +349,12 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     void Begin(Camera camera)
     {
         RestoreRendering();
-        if (!ready || !IsFirstPersonCamera(camera) ||
-            !inventory.IsThrowPoseActive || activeBook != inventory.ActiveHeldBook) return;
+        if (!ready || !IsFirstPersonCamera(camera) || !activeBook) return;
+        if (detached)
+        {
+            if (activeBook.IsHeld) return;
+        }
+        else if (!inventory.IsThrowPoseActive || activeBook != inventory.ActiveHeldBook) return;
         renderingCamera = camera;
         renderingApplied = true;
         foreach (var skin in skins)
@@ -344,7 +382,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     }
     void Clear()
     {
-        RestoreRendering(); ready = false; activeBook = null;
+        RestoreRendering(); ready = false; detached = false; activeBook = null;
         if (visualRoot) Destroy(visualRoot); if (bookRoot) Destroy(bookRoot);
         foreach (var mesh in meshes) if (mesh) Destroy(mesh);
         meshes.Clear(); bones.Clear(); skins.Clear(); visuals.Clear(); bookVisuals.Clear();
