@@ -4,23 +4,22 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    public Transform v16SpawnArea; // V16 scaled scene spawn area
+    public Transform v16SpawnArea;
 
     [Header("Varsayilan Prefab ve Alan")]
-    [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
     public Vector2 areaSize = new Vector2(10f, 10f);
     public float spawnHeight = 1.5f;
 
     [Header("Kitap Verileri")]
-    [Tooltip("BookID sirasina gore BookData assetlerini koy. Her BookData kendi model prefab'ini kullanabilir.")]
+    [Tooltip("Eski sahne uyumlulugu icin kullanilir. Doluysa once catalog yerine bu liste kullanilir.")]
     public BookData[] bookTypes;
+    public BookCatalog catalog;
 
     [Min(1)]
     public int copiesPerBook = 10;
 
     [Header("Test")]
-    [Tooltip("BookData listesi bosken kullanilacak kitap turu sayisi. Hazir 15 kitap icin 15 birak.")]
     [Min(1)]
     public int testBookTypeCount = 15;
 
@@ -28,24 +27,38 @@ public class BookSpawner : MonoBehaviour
 
     void Start()
     {
+        LoadCatalogIfNeeded();
         if (FindFirstObjectByType<NetworkManager>() != null) return;
         InitializeStats();
         SpawnBooks(BookTypeCount);
     }
 
-    private int BookTypeCount => bookTypes != null && bookTypes.Length > 0
-        ? bookTypes.Length : Mathf.Min(testBookTypeCount, BrandConfig.TotalBookTypeCount);
+    private void LoadCatalogIfNeeded()
+    {
+        if (catalog == null)
+            catalog = Resources.Load<BookCatalog>("BookCatalog");
+
+        if (catalog != null && catalog.books != null && catalog.books.Length > 0)
+            bookTypes = catalog.books;
+    }
+
+    private int BookTypeCount => bookTypes != null ? bookTypes.Length : 0;
 
     public void PrepareSession(NetworkManager manager)
     {
         sessionSpawned = false;
+        LoadCatalogIfNeeded();
         InitializeStats();
+
         for (int index = 0; index < BookTypeCount; index++)
         {
-            var data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
-            var prefab = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
-            if (prefab == null || prefab.GetComponent<NetworkObject>() == null || prefab.GetComponent<NetworkBook>() == null)
-                throw new System.InvalidOperationException($"BookSpawner: kitap {index} prefabinda NetworkObject/NetworkBook eksik.");
+            BookData data = bookTypes[index];
+            GameObject prefab = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
+            if (data == null || prefab == null || prefab.GetComponent<NetworkObject>() == null || prefab.GetComponent<NetworkBook>() == null)
+                throw new System.InvalidOperationException($"BookSpawner: catalogdaki kitap {index} gecersiz veya NetworkObject/NetworkBook eksik.");
+
+            GameStats.RegisterBookID(data.BookID);
+
             bool registered = manager.NetworkConfig.Prefabs.Contains(prefab);
             foreach (var list in manager.NetworkConfig.Prefabs.NetworkPrefabsLists)
                 if (list != null && list.Contains(prefab)) registered = true;
@@ -57,47 +70,51 @@ public class BookSpawner : MonoBehaviour
     {
         if (sessionSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
         sessionSpawned = true;
+        LoadCatalogIfNeeded();
+        InitializeStats();
         SpawnBooks(BookTypeCount);
     }
 
     private void InitializeStats()
     {
-        int bookTypeCount = bookTypes != null && bookTypes.Length > 0
-            ? bookTypes.Length
-            : Mathf.Min(testBookTypeCount, BrandConfig.TotalBookTypeCount);
-
-        GameStats.Initialize(bookTypeCount, copiesPerBook);
+        GameStats.Initialize(BookTypeCount, copiesPerBook);
+        if (bookTypes == null) return;
+        foreach (BookData data in bookTypes)
+            if (data != null) GameStats.RegisterBookID(data.BookID);
     }
 
     void SpawnBooks(int bookTypeCount)
     {
-        List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
+        List<int> indices = new List<int>(bookTypeCount * copiesPerBook);
 
         for (int index = 0; index < bookTypeCount; index++)
-        {
             for (int copy = 0; copy < copiesPerBook; copy++)
-                ids.Add(index);
-        }
+                indices.Add(index);
 
-        for (int i = ids.Count - 1; i > 0; i--)
+        for (int i = indices.Count - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
-            (ids[i], ids[j]) = (ids[j], ids[i]);
+            (indices[i], indices[j]) = (indices[j], indices[i]);
         }
 
-        foreach (int index in ids)
+        foreach (int index in indices)
             SpawnSingleBook(index);
 
-        Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
+        Debug.Log($"BookSpawner: {indices.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
     }
 
     void SpawnSingleBook(int index)
     {
         BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
+        if (data == null)
+        {
+            Debug.LogError($"BookSpawner: catalog index {index} icin BookData yok.");
+            return;
+        }
 
-        int bookID = data != null ? data.BookID : index;
-        int brandID = data != null ? data.BrandID : GetBrandID(bookID);
-        GameObject prefabToSpawn = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
+        int bookID = data.BookID;
+        int brandID = data.BrandID;
+        GameObject prefabToSpawn = data.bookPrefab != null ? data.bookPrefab : bookPrefab;
 
         if (prefabToSpawn == null)
         {
@@ -110,27 +127,20 @@ public class BookSpawner : MonoBehaviour
         float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
         Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
 
-        // Prefab'in root rotasyonunu Instantiate ile ezme.
-        // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
         GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
         BookItem bookItem = book.GetComponent<BookItem>();
 
         if (bookItem == null)
         {
-            Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookData BookID {bookID}.");
+            Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookID {bookID}.");
             Destroy(book);
             return;
         }
 
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
-
-        // Kitaplar runtime'da burada olusturuldugu icin AfterSceneLoad callback'i
-        // bu nesneleri henuz goremez. Toon efektini spawn aninda uyguluyoruz.
         BookToonEffect.ApplyToBook(book);
 
-        // Start broad-face down with a random heading. An edge-first spawn plus
-        // an impulse was making every book spin violently on session startup.
         Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
         book.transform.rotation = bookItem.GetAlignedRotation(Vector3.up, heading);
         Rigidbody rb = book.GetComponent<Rigidbody>();
@@ -142,15 +152,9 @@ public class BookSpawner : MonoBehaviour
 
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
         {
-            var networkBook = book.GetComponent<NetworkBook>();
+            NetworkBook networkBook = book.GetComponent<NetworkBook>();
             networkBook.Initialize(bookID, brandID);
             networkBook.NetworkObject.Spawn(true);
         }
-    }
-
-    int GetBrandID(int bookID)
-    {
-        int brand = BrandConfig.GetBrandForBookID(bookID);
-        return brand >= 0 ? brand : 0;
     }
 }
