@@ -21,13 +21,30 @@ public sealed class ToastBookCarry : MonoBehaviour
     // Automatic reference pose; independent of old Inspector tuning values.
     private const float throwWindupAngle = 2f, throwChargedAngle = -10f, throwReleaseAngle = 40f;
     private const float gripAlongFraction = 0.92f, gripAcrossFraction = -0.86f;
-    private const float wristBendLimit = 65f;
     private static readonly Vector3 throwGripOffset = new Vector3(0f, -0.06f, 0.025f);
     private static readonly Vector3 wristTwistEuler = Vector3.zero;
     private static readonly Vector3 elbowPoleBias = new Vector3(0f, 1f, 0.25f);
 
     private Quaternion leftWristRest, rightWristRest;
     public Quaternion GetThrowWristRest(bool left) => left ? leftWristRest : rightWristRest;
+
+    // Keep a little elbow bend at full reach and avoid folding the two bones
+    // onto each other. Rotate bones only: never stretch their bind offsets.
+    public static float ClampArmReach(float distance, float upperLength, float lowerLength)
+    {
+        float squared = upperLength * upperLength + lowerLength * lowerLength;
+        float product = 2f * upperLength * lowerLength;
+        float minimum = Mathf.Sqrt(Mathf.Max(0f, squared - product * Mathf.Cos(25f * Mathf.Deg2Rad)));
+        float maximum = Mathf.Sqrt(Mathf.Max(0f, squared - product * Mathf.Cos(172f * Mathf.Deg2Rad)));
+        return Mathf.Clamp(distance, minimum, maximum);
+    }
+
+    // Shared by carry, world throws and the owner-camera presentation. Measure
+    // against the FINAL forearm orientation, not the orientation before IK.
+    public static Quaternion LimitWristRotation(Transform lower, Quaternion rest, Quaternion desired)
+    {
+        return Quaternion.RotateTowards(lower.rotation * rest, desired, 45f);
+    }
     private Transform throwUpper, throwLower, throwHand;
     private Quaternion throwUpperBase, throwLowerBase, throwHandBase;
     private Quaternion lastUpperPose, lastLowerPose, lastHandPose;
@@ -122,7 +139,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 delta=target-a;float distance=delta.magnitude;
         if(distance<.0001f)return;
         Vector3 direction=delta/distance;
-        float reach=Mathf.Clamp(distance,Mathf.Abs(l1-l2)+.0001f,l1+l2-.0001f);
+        float reach=ClampArmReach(distance,l1,l2);
         target=a+direction*reach;
         Vector3 bend=Vector3.ProjectOnPlane(b-a,direction);
         if(bend.sqrMagnitude<.0000001f) bend=Vector3.ProjectOnPlane(-transform.forward,direction);
@@ -133,7 +150,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 elbow=a+direction*along+bend*across;
         upperArm.rotation=Quaternion.FromToRotation(b-a,elbow-a)*upperArm.rotation;
         forearm.rotation=Quaternion.FromToRotation(hand.position-forearm.position,target-forearm.position)*forearm.rotation;
-        hand.rotation=wristRotation;
+        hand.rotation=LimitWristRotation(forearm,rightWristRest,wristRotation);
         applied=true;
     }
 
@@ -315,14 +332,18 @@ public sealed class ToastBookCarry : MonoBehaviour
             if (!SolveThrowElbow(target, left)) return;
             // Bilek on koldan kopmasin: kitaba dogru donerken sinirli sapma.
             Quaternion rest = left ? leftWristRest : rightWristRest;
-            throwHand.rotation = Quaternion.RotateTowards(throwLower.rotation * rest, wristRotation, wristBendLimit);
             // The bend limit changes the palm offset; compensate at the wrist so
             // the fingers remain at the same book corner after limiting rotation.
             Vector3 localGrip = Vector3.Scale(throwGripOffset, throwHand.lossyScale);
             Vector3 palm = target + wristRotation * localGrip;
-            Quaternion limitedRotation = throwHand.rotation;
-            if (!SolveThrowElbow(palm - limitedRotation * localGrip, left)) return;
-            throwHand.rotation = limitedRotation;
+            // Small bounded correction: each IK pass changes the forearm, so
+            // recompute its wrist limit instead of restoring a stale rotation.
+            for (int pass = 0; pass < 3; pass++)
+            {
+                Quaternion limited = LimitWristRotation(throwLower, rest, wristRotation);
+                if (!SolveThrowElbow(palm - limited * localGrip, left)) return;
+            }
+            throwHand.rotation = LimitWristRotation(throwLower, rest, wristRotation);
             lastUpperPose = throwUpper.localRotation;
             lastLowerPose = throwLower.localRotation;
             lastHandPose = throwHand.localRotation;
@@ -330,6 +351,9 @@ public sealed class ToastBookCarry : MonoBehaviour
         throwUpper.localRotation = Quaternion.Slerp(throwUpperBase,lastUpperPose,throwBlend);
         throwLower.localRotation = Quaternion.Slerp(throwLowerBase,lastLowerPose,throwBlend);
         throwHand.localRotation = Quaternion.Slerp(throwHandBase,lastHandPose,throwBlend);
+        // Blending out must not reintroduce a wrist kink between the two poses.
+        Quaternion blendRest = throwHand == leftHand ? leftWristRest : rightWristRest;
+        throwHand.rotation = LimitWristRotation(throwLower, blendRest, throwHand.rotation);
         throwApplied = true;
     }
 
@@ -339,7 +363,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         float l1 = Vector3.Distance(a,b), l2 = Vector3.Distance(b,c);
         if (l1 < 0.0001f || l2 < 0.0001f || (target-a).sqrMagnitude < 0.000001f) return false;
         Vector3 direction = (target-a).normalized;
-        float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
+        float reach = ClampArmReach(Vector3.Distance(a,target), l1, l2);
         target = a + direction * reach;
         // Elbow forward and raised above the shoulder. Together with the
         // measured-bone wrist target this selects the 90-degree charging bend.

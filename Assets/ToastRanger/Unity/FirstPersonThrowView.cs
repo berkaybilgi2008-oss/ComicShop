@@ -190,6 +190,16 @@ public sealed class FirstPersonThrowView : MonoBehaviour
             go.transform.localScale = source.transform.localScale;
             var renderer = go.AddComponent<SkinnedMeshRenderer>();
             renderer.sharedMesh = armMesh; renderer.sharedMaterials = source.sharedMaterials;
+            // Preserve per-renderer toon/outline overrides on the view arm too.
+            var properties = new MaterialPropertyBlock();
+            source.GetPropertyBlock(properties);
+            renderer.SetPropertyBlock(properties);
+            for (int sub = 0; sub < source.sharedMaterials.Length; sub++)
+            {
+                properties.Clear();
+                source.GetPropertyBlock(properties, sub);
+                if (!properties.isEmpty) renderer.SetPropertyBlock(properties, sub);
+            }
             var mapped = new Transform[sourceBones.Length];
             for (int i = 0; i < mapped.Length; i++) mapped[i] = CopyBone(sourceBones[i]);
             renderer.bones = mapped; renderer.rootBone = CopyBone(source.rootBone);
@@ -265,6 +275,8 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         wrist += inventory.CurrentThrowShake;
         Vector3 elbow = wrist - lower * l2;
         Vector3 upper = Vector3.ProjectOnPlane(view.forward, lower).normalized;
+        if (upper.sqrMagnitude < 0.000001f)
+            upper = Vector3.ProjectOnPlane(view.up, lower).normalized;
         upper = (upper * Mathf.Sin(70f * Mathf.Deg2Rad) - lower * Mathf.Cos(70f * Mathf.Deg2Rad)).normalized;
 
         Quaternion rotation = book.GetAlignedRotation(
@@ -294,7 +306,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         visualRoot.transform.position += elbow - upper * l1 - a.position;
         a.rotation = Quaternion.FromToRotation(b.position - a.position, elbow - a.position) * a.rotation;
         b.rotation = Quaternion.FromToRotation(c.position - b.position, wrist - b.position) * b.rotation;
-        c.rotation = Quaternion.RotateTowards(b.rotation * wristRest, grip, 40f);
+        c.rotation = ToastBookCarry.LimitWristRotation(b, wristRest, grip);
         Vector3 palm = c.position + c.rotation * gripOffset;
         bookRoot.transform.SetPositionAndRotation(palm + bookOffset, rotation);
         bookRoot.transform.localScale = scale;
