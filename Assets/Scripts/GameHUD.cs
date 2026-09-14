@@ -27,22 +27,46 @@ public class GameHUD : MonoBehaviour
         sb.Append("\n");
 
         sb.Append("<size=70%>");
+
+        // PlayerInteraction'da aktif kitap stack'in EN USTUNDE tutulur ve
+        // firlatilan kitap da her zaman bu kitaptir. HUD da ayni sirayi kullanir:
+        // ilk satir = su an elde en ustte olan / Q ile firlatilacak kitap.
         int activeIndex = playerInteraction.ActiveHeldIndex;
-        for (int i = 0; i < playerInteraction.HeldBooksList.Count; i++)
+        if (activeIndex >= 0 && activeIndex < playerInteraction.HeldBooksList.Count)
         {
-            BookItem book = playerInteraction.HeldBooksList[i];
-            if (i == activeIndex)
-                sb.Append("<color=#FFFF00>");
+            AppendBookLine(playerInteraction.HeldBooksList[activeIndex], true);
 
-            sb.Append("_").Append(book.DisplayName);
+            for (int i = 0; i < playerInteraction.HeldBooksList.Count; i++)
+            {
+                if (i == activeIndex)
+                    continue;
 
-            if (i == activeIndex)
-                sb.Append("</color>");
-
-            sb.Append("\n");
+                AppendBookLine(playerInteraction.HeldBooksList[i], false);
+            }
         }
-        sb.Append("</size>");
+        else
+        {
+            for (int i = 0; i < playerInteraction.HeldBooksList.Count; i++)
+                AppendBookLine(playerInteraction.HeldBooksList[i], false);
+        }
 
+        sb.Append("</size>");
         hudText.text = sb.ToString();
+    }
+
+    private void AppendBookLine(BookItem book, bool active)
+    {
+        if (book == null)
+            return;
+
+        if (active)
+            sb.Append("<color=#FFFF00>");
+
+        sb.Append("_").Append(book.DisplayName);
+
+        if (active)
+            sb.Append("</color>");
+
+        sb.Append("\n");
     }
 }
