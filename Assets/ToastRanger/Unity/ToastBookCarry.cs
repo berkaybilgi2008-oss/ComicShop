@@ -208,9 +208,8 @@ public sealed class ToastBookCarry : MonoBehaviour
 
         float windup = Mathf.InverseLerp(throwWindupAngle, throwChargedAngle, angle);
         float release = Mathf.InverseLerp(throwWindupAngle, throwReleaseAngle, angle);
-        // Upright throughout charging, with the thin edge facing the throw direction.
-        // Only the release stroke tips the book forward.
-        Vector3 longAxis = Quaternion.AngleAxis(release * 35f, right) * bodyUp;
+        // Pull the book back 45 degrees during windup, then snap forward on release.
+        Vector3 longAxis = Quaternion.AngleAxis(Mathf.Lerp(-45f, 35f, release), right) * bodyUp;
         Vector3 coverNormal = right * side;
         rotation = book.GetAlignedRotation(coverNormal, longAxis);
         GetBookFrame(book, rotation, scale,
@@ -229,7 +228,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         // No camera-framing search: every observer receives the same book pose.
         VisualCharge = windup;
         VisualRelease = release;
-        Vector3 outwardHeading = Quaternion.AngleAxis(side * 75f, bodyUp) * horizontal;
+        Vector3 outwardHeading = Quaternion.AngleAxis(side * 55f, bodyUp) * horizontal;
         Vector3 shoulderAxis = Vector3.Cross(bodyUp, outwardHeading).normalized;
         Quaternion shoulderLift = Quaternion.AngleAxis(
             -Mathf.Lerp(30f + windup * 10f, 5f, release), shoulderAxis);
@@ -237,8 +236,15 @@ public sealed class ToastBookCarry : MonoBehaviour
         // 115 degrees inside the elbow, with the upper arm abducted away from the head.
         float bend = 115f * Mathf.Deg2Rad;
         // Keep the forearm forward rather than folding behind the head.
-        Vector3 forwardBend = Vector3.ProjectOnPlane(outwardHeading, upperDirection).normalized;
-        Vector3 lowerDirection = forwardBend * Mathf.Sin(bend) - upperDirection * Mathf.Cos(bend);
+        // Keep the forearm in the torso's forward/up plane while retaining
+        // the requested inner elbow angle (rather than splaying it sideways).
+        float uy = Vector3.Dot(upperDirection, bodyUp);
+        float uz = Vector3.Dot(upperDirection, horizontal);
+        float planeLength = Mathf.Sqrt(uy * uy + uz * uz);
+        float forearmAngle = Mathf.Atan2(uy, uz) + Mathf.Acos(
+            Mathf.Clamp(-Mathf.Cos(bend) / Mathf.Max(0.0001f, planeLength), -1f, 1f));
+        Vector3 lowerDirection = bodyUp * Mathf.Sin(forearmAngle)
+            + horizontal * Mathf.Cos(forearmAngle);
         lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.95f);
         framedElbow = shoulder + upperDirection * upperLength;
         Vector3 wristTarget = framedElbow + lowerDirection * lowerLength;

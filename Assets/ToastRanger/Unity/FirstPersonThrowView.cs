@@ -156,11 +156,13 @@ public sealed class FirstPersonThrowView : MonoBehaviour
                 if (w.weight3 > largest) index = w.boneIndex3;
                 if (index < 0 || index >= sourceBones.Length || !sourceBones[index]) continue;
                 Transform bone = sourceBones[index];
-                armVertex[i] = bone == upper || bone.IsChildOf(upper);
+                armVertex[i] = bone == lower || bone.IsChildOf(lower);
                 bool head = false;
                 for (Transform t = bone; t && t != rig.transform; t = t.parent)
                     if (t.name == "Head" || t.name == "Neck") head = true;
-                hideVertex[i] = armVertex[i] || head;
+                hideVertex[i] = bone == upper || bone.IsChildOf(upper) || head;
+                // The camera must not see the open neck/shoulder cut of the body.
+                if (bone.name == "Chest" || bone.name == "Spine") hideVertex[i] = true;
             }
             Mesh armMesh = Instantiate(original), bodyMesh = Instantiate(original);
             meshes.Add(armMesh); meshes.Add(bodyMesh);
@@ -172,7 +174,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
                 for (int t = 0; t < triangles.Length; t += 3)
                 {
                     int x = triangles[t], y = triangles[t + 1], z = triangles[t + 2];
-                    if (armVertex[x] && armVertex[y] && armVertex[z])
+                    if ((armVertex[x] ? 1 : 0) + (armVertex[y] ? 1 : 0) + (armVertex[z] ? 1 : 0) >= 2)
                     { armTriangles.Add(x); armTriangles.Add(y); armTriangles.Add(z); kept++; }
                     if (!hideVertex[x] && !hideVertex[y] && !hideVertex[z])
                     { bodyTriangles.Add(x); bodyTriangles.Add(y); bodyTriangles.Add(z); }
@@ -243,9 +245,8 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         float l1 = Vector3.Distance(a.position, b.position), l2 = Vector3.Distance(b.position, c.position);
         // Compose the FOREARM, not the book center: elbow below the frame and
         // wrist near the drawn upper-left point. Common depth preserves bone length.
-        float lookDown = Mathf.Clamp01(Vector3.Dot(view.forward, -rig.transform.up));
         Vector3 elbowRay = camera.ViewportToWorldPoint(new Vector3(left ? 0.35f : 0.65f,
-            -0.08f + lookDown * 0.40f, 1f)) - view.position;
+            -0.16f, 1f)) - view.position;
         Vector3 wristRay = camera.ViewportToWorldPoint(new Vector3(left ? 0.23f : 0.77f, 0.58f + charge * 0.05f, 1f)) - view.position;
         float depth = l2 / Mathf.Max(0.0001f, (wristRay - elbowRay).magnitude);
         if (depth < camera.nearClipPlane + 0.08f)
@@ -267,7 +268,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         upper = (upper * Mathf.Sin(70f * Mathf.Deg2Rad) - lower * Mathf.Cos(70f * Mathf.Deg2Rad)).normalized;
 
         Quaternion rotation = book.GetAlignedRotation(
-            view.forward * 0.9f - view.right * side * 0.4f,
+            -view.forward * 0.9f + view.right * side * 0.4f,
             Quaternion.AngleAxis(release * 35f, view.right) * view.up);
         Vector3 scale = book.OriginalScale * (inventory.chargeScaleMultiplier * 0.65f);
         float enter = Mathf.SmoothStep(0f, 1f, (Time.time - enteredAt) / Mathf.Max(0.01f, inventory.chargeEnterDuration));
@@ -291,7 +292,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         visualRoot.transform.position += elbow - upper * l1 - a.position;
         a.rotation = Quaternion.FromToRotation(b.position - a.position, elbow - a.position) * a.rotation;
         b.rotation = Quaternion.FromToRotation(c.position - b.position, wrist - b.position) * b.rotation;
-        c.rotation = Quaternion.RotateTowards(b.rotation * wristRest, grip, 55f);
+        c.rotation = Quaternion.RotateTowards(b.rotation * wristRest, grip, 40f);
         Vector3 palm = c.position + c.rotation * gripOffset;
         bookRoot.transform.SetPositionAndRotation(palm + bookOffset, rotation);
         bookRoot.transform.localScale = scale;
