@@ -210,7 +210,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         float release = Mathf.InverseLerp(throwWindupAngle, throwReleaseAngle, angle);
         // Pull the book back 45 degrees during windup, then snap forward on release.
         Vector3 longAxis = Quaternion.AngleAxis(Mathf.Lerp(-45f, 35f, release), right) * bodyUp;
-        Vector3 coverNormal = right * side;
+        Vector3 coverNormal = -right * side;
         rotation = book.GetAlignedRotation(coverNormal, longAxis);
         GetBookFrame(book, rotation, scale,
             out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
@@ -245,6 +245,8 @@ public sealed class ToastBookCarry : MonoBehaviour
             Mathf.Clamp(-Mathf.Cos(bend) / Mathf.Max(0.0001f, planeLength), -1f, 1f));
         Vector3 lowerDirection = bodyUp * Mathf.Sin(forearmAngle)
             + horizontal * Mathf.Cos(forearmAngle);
+        // Slight left lean around the upper-arm axis preserves elbow angle/length.
+        lowerDirection = Quaternion.AngleAxis(4f, upperDirection) * lowerDirection;
         lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.95f);
         framedElbow = shoulder + upperDirection * upperLength;
         Vector3 wristTarget = framedElbow + lowerDirection * lowerLength;

@@ -46,6 +46,60 @@ Shader "ToastRanger/Cel URP" {
  half4 frag():SV_Target{return 0;}
  ENDHLSL
  }
+
+ Pass {
+ Name "DepthNormals" Tags {"LightMode"="DepthNormals"} ZWrite On ZTest LEqual Cull Back
+ HLSLPROGRAM
+ #pragma vertex NormalVertex
+ #pragma fragment NormalFragment
+ #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+ #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+ struct NormalAttributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; };
+ struct NormalVaryings { float4 positionCS:SV_POSITION; float3 normalWS:TEXCOORD0; };
+ NormalVaryings NormalVertex(NormalAttributes i) {
+ NormalVaryings o;
+ o.positionCS=TransformObjectToHClip(i.positionOS.xyz);
+ o.normalWS=TransformObjectToWorldNormal(i.normalOS);
+ return o;
+ }
+ half4 NormalFragment(NormalVaryings i):SV_Target {
+ float3 normalWS=normalize(i.normalWS);
+ #if defined(_GBUFFER_NORMALS_OCT)
+ float2 oct=PackNormalOctQuadEncode(normalWS);
+ return half4(PackFloat2To888(saturate(oct*0.5+0.5)),0);
+ #else
+ return half4(normalWS,0);
+ #endif
+ }
+ ENDHLSL
+ }
+
+ Pass {
+ Name "DepthNormalsOnly" Tags {"LightMode"="DepthNormalsOnly"} ZWrite On ZTest LEqual Cull Back
+ HLSLPROGRAM
+ #pragma vertex NormalVertex
+ #pragma fragment NormalFragment
+ #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+ #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Packing.hlsl"
+ struct NormalAttributes { float4 positionOS:POSITION; float3 normalOS:NORMAL; };
+ struct NormalVaryings { float4 positionCS:SV_POSITION; float3 normalWS:TEXCOORD0; };
+ NormalVaryings NormalVertex(NormalAttributes i) {
+ NormalVaryings o;
+ o.positionCS=TransformObjectToHClip(i.positionOS.xyz);
+ o.normalWS=TransformObjectToWorldNormal(i.normalOS);
+ return o;
+ }
+ half4 NormalFragment(NormalVaryings i):SV_Target {
+ float3 normalWS=normalize(i.normalWS);
+ #if defined(_GBUFFER_NORMALS_OCT)
+ float2 oct=PackNormalOctQuadEncode(normalWS);
+ return half4(PackFloat2To888(saturate(oct*0.5+0.5)),0);
+ #else
+ return half4(normalWS,0);
+ #endif
+ }
+ ENDHLSL
+ }
  Pass {
  Name "ShadowCaster" Tags {"LightMode"="ShadowCaster"} ZWrite On ZTest LEqual ColorMask 0 Cull Back
  HLSLPROGRAM
