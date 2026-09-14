@@ -229,7 +229,12 @@ public sealed class ToastBookCarry : MonoBehaviour
         float bestScore = float.PositiveInfinity;
         Vector3 bestUpper = horizontal, bestLower = bodyUp;
         Vector3 palmOffset = grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
-        for (int yaw = -60; yaw <= 60; yaw += 30)
+        // Bend more tightly (65-degree inner elbow angle) and keep the arm
+        // on its own side of the oversized character head.
+        float bendRadians = 65f * Mathf.Deg2Rad;
+        Vector3 headCenter = lens.position - horizontal * 0.12f;
+        float headRadius = Mathf.Max(0.24f, armLength * 0.35f);
+        for (int yaw = 15; yaw <= 75; yaw += 15)
         for (int swivel = -75; swivel <= 75; swivel += 15)
         {
             Vector3 heading = Quaternion.AngleAxis(yaw * side, bodyUp) * horizontal;
@@ -237,10 +242,26 @@ public sealed class ToastBookCarry : MonoBehaviour
             Vector3 candidateUpper = Quaternion.AngleAxis(-(45f + windup * 10f), axis) * heading;
             Vector3 candidateLower = Vector3.ProjectOnPlane(bodyUp, candidateUpper).normalized;
             candidateLower = Quaternion.AngleAxis(swivel * side, candidateUpper) * candidateLower;
+            candidateLower = candidateLower * Mathf.Sin(bendRadians)
+                - candidateUpper * Mathf.Cos(bendRadians);
             Vector3 elbow = shoulder + candidateUpper * upperLength;
             Vector3 candidateWrist = elbow + candidateLower * lowerLength;
             Vector3 center = candidateWrist + palmOffset + bookOffset;
             float score = FramePenalty(camera, candidateWrist) + FramePenalty(camera, elbow);
+            // Distance from head sphere to the oriented book box, including faces
+            // (corner-only tests miss a head intersecting the middle of a cover).
+            Vector3 toHead = headCenter - center;
+            Vector3 closest = center
+                + cover * Mathf.Clamp(Vector3.Dot(toHead, cover), -half.x, half.x)
+                + along * Mathf.Clamp(Vector3.Dot(toHead, along), -half.y, half.y)
+                + wide * Mathf.Clamp(Vector3.Dot(toHead, wide), -half.z, half.z);
+            float overlap = Mathf.Max(0f, headRadius + 0.04f - Vector3.Distance(headCenter, closest));
+            float sideExtent = Mathf.Abs(Vector3.Dot(cover, right)) * half.x
+                + Mathf.Abs(Vector3.Dot(along, right)) * half.y
+                + Mathf.Abs(Vector3.Dot(wide, right)) * half.z;
+            float inward = Mathf.Max(0f, headRadius + 0.04f + sideExtent
+                - Vector3.Dot(center - headCenter, right * side));
+            score += 10000f * (overlap * overlap + inward * inward);
             for (int corner = 0; corner < 8; corner++)
             {
                 Vector3 point = center + cover * (half.x * ((corner & 1) == 0 ? -1f : 1f))
@@ -249,8 +270,8 @@ public sealed class ToastBookCarry : MonoBehaviour
                 score += FramePenalty(camera, point);
             }
             Vector3 screen = camera.WorldToViewportPoint(center);
-            score += 0.01f * ((screen.x - (left ? 0.28f : 0.72f)) *
-                (screen.x - (left ? 0.28f : 0.72f)) + (screen.y - 0.58f) * (screen.y - 0.58f));
+            score += 0.01f * ((screen.x - (left ? 0.20f : 0.80f)) *
+                (screen.x - (left ? 0.20f : 0.80f)) + (screen.y - 0.58f) * (screen.y - 0.58f));
             if (score < bestScore)
             {
                 bestScore = score;
@@ -268,7 +289,9 @@ public sealed class ToastBookCarry : MonoBehaviour
         float follow = 1f - Mathf.Exp(-18f * Time.deltaTime);
         framedUpper = Vector3.Slerp(framedUpper, bestUpper, follow).normalized;
         framedLower = Vector3.Slerp(framedLower, bestLower, follow);
-        framedLower = Vector3.ProjectOnPlane(framedLower, framedUpper).normalized;
+        Vector3 bendDirection = Vector3.ProjectOnPlane(framedLower, framedUpper).normalized;
+        framedLower = bendDirection * Mathf.Sin(bendRadians)
+            - framedUpper * Mathf.Cos(bendRadians);
         framingTime = Time.time;
         Vector3 upperDirection = Vector3.Slerp(framedUpper, horizontal, release);
         Vector3 lowerDirection = Vector3.Slerp(framedLower, upperDirection, release * 0.8f);
