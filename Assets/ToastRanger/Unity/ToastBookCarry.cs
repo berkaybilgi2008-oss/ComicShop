@@ -219,8 +219,12 @@ public sealed class ToastBookCarry : MonoBehaviour
         float upperLength = Vector3.Distance(upper.position, lower.position);
         float lowerLength = Vector3.Distance(lower.position, wrist.position);
         Vector3 horizontal = Vector3.ProjectOnPlane(forward, bodyUp).normalized;
-        Vector3 upperDirection = Quaternion.AngleAxis(-windup * 10f, right) * horizontal;
-        Vector3 lowerDirection = Quaternion.AngleAxis(-windup * 10f, right) * bodyUp;
+        // Raise the biceps from the shoulder, rotating BOTH segments together.
+        // A shared rotation preserves the right-angle elbow during charging.
+        float shoulderLift = Mathf.Lerp(30f + windup * 10f, 0f, release);
+        Quaternion shoulderRotation = Quaternion.AngleAxis(-shoulderLift, right);
+        Vector3 upperDirection = shoulderRotation * horizontal;
+        Vector3 lowerDirection = shoulderRotation * bodyUp;
         // The release progressively opens the elbow; charging stays at 90 degrees.
         lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.8f);
         Vector3 wristTarget = shoulder + upperDirection * upperLength
@@ -316,7 +320,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 direction = (target-a).normalized;
         float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
         target = a + direction * reach;
-        // Elbow forward at shoulder height, forearm upward. Together with the
+        // Elbow forward and raised above the shoulder. Together with the
         // measured-bone wrist target this selects the 90-degree charging bend.
         Vector3 outward = left ? -transform.right : transform.right;
         Vector3 pole = Vector3.ProjectOnPlane(
