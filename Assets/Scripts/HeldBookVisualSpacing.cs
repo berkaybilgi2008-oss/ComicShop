@@ -59,14 +59,13 @@ public class HeldBookVisualSpacing : MonoBehaviour
             if (wheelChangedBook)
                 BeginActiveBookTransition(activeIndex);
             else
-                CancelTransitionWithoutMovingBook();
+                SnapHeldBooksToActiveOrder(activeIndex);
+
             lastActiveIndex = activeIndex;
         }
 
         if (!animating)
-        {
             return;
-        }
 
         if (animatingBook == null || !IsBookStillHeld(animatingBook))
         {
@@ -139,6 +138,40 @@ public class HeldBookVisualSpacing : MonoBehaviour
         startPosition = book.transform.localPosition;
         animationTime = 0f;
         animating = true;
+    }
+
+    void SnapHeldBooksToActiveOrder(int activeIndex)
+    {
+        animating = false;
+        animatingBook = null;
+
+        var books = interaction.HeldBooksList;
+        int count = books.Count;
+        if (count == 0)
+            return;
+
+        for (int i = 0; i < count; i++)
+        {
+            BookItem book = books[i];
+            if (book == null)
+                continue;
+
+            // Same display order as PlayerInteraction.GetDisplayOrder():
+            // every non-active book keeps its list order, while the active
+            // book is always physically on top (last stack position).
+            int displayIndex;
+            if (i == activeIndex)
+                displayIndex = count - 1;
+            else if (i < activeIndex)
+                displayIndex = i;
+            else
+                displayIndex = i - 1;
+
+            book.transform.SetParent(interaction.rightHandPoint, false);
+            book.transform.localPosition = new Vector3(0f, displayIndex * interaction.stackSpacing, 0f);
+            book.transform.localRotation = book.NativeRotation;
+            book.transform.localScale = book.OriginalScale * interaction.heldScaleMultiplier;
+        }
     }
 
     void CancelTransitionWithoutMovingBook()
