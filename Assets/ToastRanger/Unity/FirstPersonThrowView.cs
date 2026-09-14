@@ -270,6 +270,8 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         Quaternion rotation = book.GetAlignedRotation(
             -view.forward * 0.9f + view.right * side * 0.4f,
             Quaternion.AngleAxis(release * 35f, view.right) * view.up);
+        rotation = Quaternion.AngleAxis(90f, view.up) * rotation;
+        rotation = Quaternion.AngleAxis(-7f, view.right) * rotation;
         Vector3 scale = book.OriginalScale * (inventory.chargeScaleMultiplier * 0.65f);
         float enter = Mathf.SmoothStep(0f, 1f, (Time.time - enteredAt) / Mathf.Max(0.01f, inventory.chargeEnterDuration));
         rotation = Quaternion.Slerp(entryRotation, rotation, enter);
