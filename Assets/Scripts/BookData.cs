@@ -10,6 +10,10 @@ public class BookData : ScriptableObject
     [Min(0)]
     public int BrandID;
 
+    [Header("Oyundaki Isim")]
+    [Tooltip("Elde tutuldugunda HUD'da gorunecek kitap adi. Bos birakilirsa BookID kullanilir.")]
+    public string DisplayName;
+
     [Header("Gorsel Prefab")]
     [Tooltip("Bu kitabin fiziksel model prefab'i. Her farkli kitap kendi prefab'ini kullanabilir.")]
     public GameObject bookPrefab;
