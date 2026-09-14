@@ -18,46 +18,13 @@ public sealed class ToastBookCarry : MonoBehaviour
     [Header("Q Atis Kolu")]
     public Transform leftUpperArm, leftForearm, leftHand;
 
-    [Header("Q Atis Pozu - Cerceveleme")]
-    [Tooltip("Elin kameraya gore hedefi. Degerler KOL UZUNLUGUNUN katidir, " +
-             "boylece karakter olcegi degisse de cerceve bozulmaz. " +
-             "X = yan (isaret Throw Hand'den gelir), Y = yukari, Z = ileri.")]
-    public Vector3 throwHandView = new Vector3(0.26f, -0.34f, 0.45f);
-    [Tooltip("Sarj yeni basladiginda kolun acisi. Eksi deger = geriye yuklenme.")]
-    public float throwWindupAngle = 2f;
-    [Tooltip("Bar tamamen dolunca varilan aci. Cok eksi yaparsan kitap ekrandan cikar.")]
-    public float throwChargedAngle = -10f;
-    [Tooltip("Savurmanin bittigi aci. Kitap burada elden cikar.")]
-    public float throwReleaseAngle = 40f;
-    [Tooltip("Dirsegin kacacagi yon: X = disa (isaret ele gore), Y = yukari, Z = ileri. " +
-             "Referans videodaki gibi dirsek asagida ve onde kalir, on kol yukari bakar.")]
-    public Vector3 elbowPoleBias = new Vector3(0.45f, -0.75f, 0.45f);
-    [Tooltip("Elin omuzdan uzanabilecegi mesafe (kol uzunlugunun orani). " +
-             "1'e yaklastikca kol dumduz uzanir, dirsek bukumu kaybolur.")]
-    [Range(0.6f, 0.99f)] public float armReachFraction = 0.93f;
-    [Tooltip("Kitabin mercege yaklasabilecegi en kisa mesafe (kol uzunlugunun orani).")]
-    [Range(0.05f, 1f)] public float lensClearance = 0.26f;
-
-    [Header("Q Atis Pozu - Tutus")]
-    [Tooltip("Kitabin on koldan geriye yatma acisi. Buyuk deger = kitap daha cok arkaya yatar.")]
-    public float bookLeanAngle = 10f;
-    [Tooltip("Kapagin kameraya donme acisi. 0 = kapak tam karsiya bakar, " +
-             "90 = kitabi ince kenarindan goruruz.")]
-    public float bookFaceAngle = 46f;
-    [Tooltip("Avucun bilek ekseninden kaymasi (model metresi). Parmaklarin kitaba " +
-             "oturdugu nokta burasi.")]
-    public Vector3 throwGripOffset = new Vector3(0f, -0.03f, 0.04f);
-    [Tooltip("El kitabin boyunun ne kadar asagisindan tutar. 1 = tam alt kose.")]
-    [Range(0.4f, 1f)] public float gripAlongFraction = 0.82f;
-    [Tooltip("Kitabin ele gore yan kaymasi. Eksi = kitap ekranin disina dogru uzanir " +
-             "(nisangah acik kalir), arti = ekranin ortasina dogru uzanir.")]
-    [Range(-1f, 1f)] public float gripAcrossFraction = -0.3f;
-    [Tooltip("Bilegin on koldan sapabilecegi en buyuk aci. Kucultursen el daha dogal " +
-             "durur ama kitaba tam oturmaz.")]
-    [Range(0f, 120f)] public float wristBendLimit = 72f;
-    [Tooltip("El kemiginin ekseni modelden modele degisir. El ters/yamuk duruyorsa " +
-             "burayi 90'ar derece cevirerek duzelt.")]
-    public Vector3 wristTwistEuler = Vector3.zero;
+    // Automatic reference pose; independent of old Inspector tuning values.
+    private const float throwWindupAngle = 2f, throwChargedAngle = -10f, throwReleaseAngle = 40f;
+    private const float gripAlongFraction = 0.92f, gripAcrossFraction = -0.86f;
+    private const float wristBendLimit = 65f;
+    private static readonly Vector3 throwGripOffset = new Vector3(0f, -0.06f, 0.025f);
+    private static readonly Vector3 wristTwistEuler = Vector3.zero;
+    private static readonly Vector3 elbowPoleBias = new Vector3(0.25f, -1f, -0.15f);
 
     private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
@@ -221,54 +188,37 @@ public sealed class ToastBookCarry : MonoBehaviour
         float side = left ? -1f : 1f;
         Vector3 shoulder = upper.position;
 
-        // 1) Elin kameradaki yeri. Referans videodaki gibi alt kenardan giren bir
-        //    on kol: el ekranin alt kosesinde, kitap yukari dogru uzaniyor.
-        Vector3 framed = lens.position
-            + lens.right * (throwHandView.x * side * armLength)
-            + lens.up * (throwHandView.y * armLength)
-            + lens.forward * (throwHandView.z * armLength);
-
-        // 2) Savurma omuz etrafinda doner; boylece her acida kol erisir durumda kalir.
-        Vector3 rest = framed - shoulder;
-        if (rest.sqrMagnitude < 0.000001f) return false;
-        float radius = Mathf.Min(rest.magnitude, armLength * armReachFraction);
-        Vector3 direction = (Quaternion.AngleAxis(angle, lens.right) * rest.normalized).normalized;
-        Vector3 palm = shoulder + direction * radius;
-
-        // 3) Kitabin ekseni: on koldan geriye yatik, kapak kameraya donuk.
-        Vector3 longAxis = (Quaternion.AngleAxis(-bookLeanAngle, lens.right) * direction).normalized;
-        Vector3 face = Quaternion.AngleAxis(bookFaceAngle * side, longAxis) * -lens.forward;
-        Vector3 coverNormal = Vector3.ProjectOnPlane(face, longAxis);
-        if (coverNormal.sqrMagnitude < 0.000001f) coverNormal = Vector3.ProjectOnPlane(lens.right, longAxis);
-        if (coverNormal.sqrMagnitude < 0.000001f) return false;
-        coverNormal.Normalize();
+        float windup = Mathf.InverseLerp(throwWindupAngle, throwChargedAngle, angle);
+        float release = Mathf.InverseLerp(throwWindupAngle, throwReleaseAngle, angle);
+        Vector3 longAxis = Quaternion.AngleAxis(-10f - windup * 12f + release * 35f,
+            lens.right) * lens.up;
+        Vector3 coverNormal = -lens.forward * 0.8f + lens.right * side * 0.6f;
         rotation = book.GetAlignedRotation(coverNormal, longAxis);
+        GetBookFrame(book, rotation, scale,
+            out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
+        if (Vector3.Dot(wide, lens.right * -side) < 0f) wide = -wide;
+        Vector3 bookOffset = along * (half.y * gripAlongFraction)
+            + wide * (half.z * gripAcrossFraction) - cover * half.x;
+        Quaternion grip = Quaternion.LookRotation(-cover, -along) * Quaternion.Euler(wristTwistEuler);
 
-        // 4) Kitabin merkezini avuca gore kur: avuc alt kosede, kitap yukari ve
-        //    ekranin ortasina dogru uzanir.
-        GetBookFrame(book, rotation, scale, out _, out _, out Vector3 wide, out Vector3 half);
-        Vector3 inward = lens.right * -side;
-        if (Vector3.Dot(wide, inward) < 0f) wide = -wide;
-        Vector3 bookOffset = longAxis * (half.y * gripAlongFraction) + wide * (half.z * gripAcrossFraction);
-
-        // 5) Mercek payi: kitap lensin dibine girerse tum poz ileri itilir, el de
-        //    onunla beraber gider.
-        float clearance = lensClearance * armLength;
-        float depth = Vector3.Dot(palm + bookOffset - lens.position, lens.forward);
-        if (depth < clearance) palm += lens.forward * (clearance - depth);
-
-        // 6) Bilek: avuc noktasindan bilek eklemine geri say, sonra omzun erisimine kis.
-        Quaternion grip = Quaternion.LookRotation(-coverNormal, -longAxis) * Quaternion.Euler(wristTwistEuler);
-        Vector3 gripOffset = grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
-        Vector3 wristTarget = palm - gripOffset;
-        Vector3 delta = wristTarget - shoulder;
-        float maximum = armLength * armReachFraction;
-        if (delta.magnitude > maximum)
+        // Keep the shoulder fixed, lift the wrist during windup and retain elbow bend.
+        Vector3 desired = lens.position + lens.right * (side * 0.25f)
+            + lens.forward * (0.52f + release * 0.08f)
+            + lens.up * (-0.08f + windup * 0.15f - release * 0.12f);
+        float radius = armLength * 0.94f;
+        Vector3 wristTarget = shoulder + Vector3.ClampMagnitude(desired - shoulder, radius);
+        float shoulderDepth = Vector3.Dot(shoulder - lens.position, lens.forward);
+        float depth = Mathf.Min(Mathf.Max(0.48f, camera.nearClipPlane + 0.2f),
+            shoulderDepth + radius - 0.01f);
+        if (Vector3.Dot(wristTarget - lens.position, lens.forward) < depth)
         {
-            Vector3 clamped = shoulder + delta.normalized * maximum;
-            palm += clamped - wristTarget;
-            wristTarget = clamped;
+            float offset = depth - shoulderDepth;
+            Vector3 center = shoulder + lens.forward * offset;
+            float lateralRadius = Mathf.Sqrt(Mathf.Max(0f, radius * radius - offset * offset));
+            wristTarget = center + Vector3.ClampMagnitude(
+                Vector3.ProjectOnPlane(wristTarget - center, lens.forward), lateralRadius);
         }
+        Vector3 palm = wristTarget + grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
 
         position = palm + bookOffset;
         throwWristTarget = wristTarget;
@@ -297,13 +247,11 @@ public sealed class ToastBookCarry : MonoBehaviour
         GetBookFrame(book, book.transform.rotation, book.transform.lossyScale,
             out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
 
-        Vector3 head = upper.position + transform.up * (Vector3.Distance(upper.position, wrist.position) * 0.25f);
-        if (Vector3.Dot(along, bookPosition - upper.position) < 0f) along = -along;
-        if (Vector3.Dot(cover, head - bookPosition) < 0f) cover = -cover;
         float side = left ? -1f : 1f;
         if (Vector3.Dot(wide, transform.right * -side) < 0f) wide = -wide;
 
-        Vector3 palm = bookPosition - along * (half.y * gripAlongFraction) - wide * (half.z * gripAcrossFraction);
+        Vector3 palm = bookPosition - along * (half.y * gripAlongFraction)
+            - wide * (half.z * gripAcrossFraction) + cover * half.x;
         wristRotation = Quaternion.LookRotation(-cover, -along) * Quaternion.Euler(wristTwistEuler);
         wristTarget = palm - wristRotation * Vector3.Scale(throwGripOffset, wrist.lossyScale);
         return true;
@@ -341,6 +289,13 @@ public sealed class ToastBookCarry : MonoBehaviour
             // Bilek on koldan kopmasin: kitaba dogru donerken sinirli sapma.
             Quaternion rest = left ? leftWristRest : rightWristRest;
             throwHand.rotation = Quaternion.RotateTowards(throwLower.rotation * rest, wristRotation, wristBendLimit);
+            // The bend limit changes the palm offset; compensate at the wrist so
+            // the fingers remain at the same book corner after limiting rotation.
+            Vector3 localGrip = Vector3.Scale(throwGripOffset, throwHand.lossyScale);
+            Vector3 palm = target + wristRotation * localGrip;
+            Quaternion limitedRotation = throwHand.rotation;
+            if (!SolveThrowElbow(palm - limitedRotation * localGrip, left)) return;
+            throwHand.rotation = limitedRotation;
             lastUpperPose = throwUpper.localRotation;
             lastLowerPose = throwLower.localRotation;
             lastHandPose = throwHand.localRotation;
