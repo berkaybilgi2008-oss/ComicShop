@@ -24,7 +24,7 @@ public sealed class ToastBookCarry : MonoBehaviour
     private const float wristBendLimit = 65f;
     private static readonly Vector3 throwGripOffset = new Vector3(0f, -0.06f, 0.025f);
     private static readonly Vector3 wristTwistEuler = Vector3.zero;
-    private static readonly Vector3 elbowPoleBias = new Vector3(0.35f, 1f, 0.15f);
+    private static readonly Vector3 elbowPoleBias = new Vector3(0f, -1f, 1f);
 
     private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
@@ -214,23 +214,17 @@ public sealed class ToastBookCarry : MonoBehaviour
             + wide * (half.z * gripAcrossFraction) - cover * half.x;
         Quaternion grip = Quaternion.LookRotation(-cover, -along) * Quaternion.Euler(wristTwistEuler);
 
-        // Keep the shoulder fixed, lift the wrist during windup and retain elbow bend.
-        Vector3 desired = lens.position + right * (side * 0.28f)
-            + forward * (0.64f + release * 0.08f)
-            + bodyUp * (0.30f + windup * 0.15f - release * 0.12f);
-        float radius = armLength * 0.94f;
-        Vector3 wristTarget = shoulder + Vector3.ClampMagnitude(desired - shoulder, radius);
-        float shoulderDepth = Vector3.Dot(shoulder - lens.position, lens.forward);
-        float depth = Mathf.Min(Mathf.Max(0.48f, camera.nearClipPlane + 0.2f),
-            shoulderDepth + radius - 0.01f);
-        if (Vector3.Dot(wristTarget - lens.position, lens.forward) < depth)
-        {
-            float offset = depth - shoulderDepth;
-            Vector3 center = shoulder + lens.forward * offset;
-            float lateralRadius = Mathf.Sqrt(Mathf.Max(0f, radius * radius - offset * offset));
-            wristTarget = center + Vector3.ClampMagnitude(
-                Vector3.ProjectOnPlane(wristTarget - center, lens.forward), lateralRadius);
-        }
+        // Construct the bent arm from its measured bones, rather than placing
+        // the wrist near maximum reach (which straightened the elbow).
+        float upperLength = Vector3.Distance(upper.position, lower.position);
+        float lowerLength = Vector3.Distance(lower.position, wrist.position);
+        Vector3 horizontal = Vector3.ProjectOnPlane(forward, bodyUp).normalized;
+        Vector3 upperDirection = Quaternion.AngleAxis(-windup * 10f, right) * horizontal;
+        Vector3 lowerDirection = Quaternion.AngleAxis(-windup * 10f, right) * bodyUp;
+        // The release progressively opens the elbow; charging stays at 90 degrees.
+        lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.8f);
+        Vector3 wristTarget = shoulder + upperDirection * upperLength
+            + lowerDirection * lowerLength;
         Vector3 palm = wristTarget + grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
 
         position = palm + bookOffset;
@@ -292,12 +286,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         {
             Vector3 target;
             Quaternion wristRotation;
-            if (throwPoseFrame == Time.frameCount)
-            {
-                target = throwWristTarget;
-                wristRotation = throwWristRotation;
-            }
-            else if (!DeriveWristFromBook(book, left, out target, out wristRotation)) return;
+            if (!DeriveWristFromBook(book, left, out target, out wristRotation)) return;
             if (!SolveThrowElbow(target, left)) return;
             // Bilek on koldan kopmasin: kitaba dogru donerken sinirli sapma.
             Quaternion rest = left ? leftWristRest : rightWristRest;
@@ -327,8 +316,8 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 direction = (target-a).normalized;
         float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
         target = a + direction * reach;
-        // Prefer the upper side of the elbow circle: the upper arm must lift,
-        // rather than leaving the elbow hanging below an elevated wrist.
+        // Elbow forward at shoulder height, forearm upward. Together with the
+        // measured-bone wrist target this selects the 90-degree charging bend.
         Vector3 outward = left ? -transform.right : transform.right;
         Vector3 pole = Vector3.ProjectOnPlane(
             outward * elbowPoleBias.x + transform.up * elbowPoleBias.y + transform.forward * elbowPoleBias.z,
