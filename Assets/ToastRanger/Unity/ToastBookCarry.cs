@@ -24,7 +24,7 @@ public sealed class ToastBookCarry : MonoBehaviour
     private const float wristBendLimit = 65f;
     private static readonly Vector3 throwGripOffset = new Vector3(0f, -0.06f, 0.025f);
     private static readonly Vector3 wristTwistEuler = Vector3.zero;
-    private static readonly Vector3 elbowPoleBias = new Vector3(0.35f, 0.2f, 1f);
+    private static readonly Vector3 elbowPoleBias = new Vector3(0.35f, 1f, 0.15f);
 
     private Quaternion leftWristRest, rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
@@ -199,17 +199,17 @@ public sealed class ToastBookCarry : MonoBehaviour
         float pitch = Vector3.SignedAngle(forward, lens.forward, right);
         Quaternion tilt = Quaternion.AngleAxis(Mathf.Clamp(pitch * 0.25f, -15f, 15f), right);
         forward = tilt * forward;
-        Vector3 up = tilt * bodyUp;
 
         float windup = Mathf.InverseLerp(throwWindupAngle, throwChargedAngle, angle);
         float release = Mathf.InverseLerp(throwWindupAngle, throwReleaseAngle, angle);
-        Vector3 longAxis = Quaternion.AngleAxis(-10f - windup * 12f + release * 35f,
-            right) * up;
-        Vector3 coverNormal = -forward * 0.8f + right * side * 0.6f;
+        // Upright throughout charging, with the thin edge facing the throw direction.
+        // Only the release stroke tips the book forward.
+        Vector3 longAxis = Quaternion.AngleAxis(release * 35f, right) * bodyUp;
+        Vector3 coverNormal = right * side;
         rotation = book.GetAlignedRotation(coverNormal, longAxis);
         GetBookFrame(book, rotation, scale,
             out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
-        if (Vector3.Dot(wide, right * -side) < 0f) wide = -wide;
+        if (Vector3.Dot(wide, transform.forward) < 0f) wide = -wide;
         Vector3 bookOffset = along * (half.y * gripAlongFraction)
             + wide * (half.z * gripAcrossFraction) - cover * half.x;
         Quaternion grip = Quaternion.LookRotation(-cover, -along) * Quaternion.Euler(wristTwistEuler);
@@ -217,7 +217,7 @@ public sealed class ToastBookCarry : MonoBehaviour
         // Keep the shoulder fixed, lift the wrist during windup and retain elbow bend.
         Vector3 desired = lens.position + right * (side * 0.28f)
             + forward * (0.64f + release * 0.08f)
-            + up * (0.10f + windup * 0.15f - release * 0.12f);
+            + bodyUp * (0.30f + windup * 0.15f - release * 0.12f);
         float radius = armLength * 0.94f;
         Vector3 wristTarget = shoulder + Vector3.ClampMagnitude(desired - shoulder, radius);
         float shoulderDepth = Vector3.Dot(shoulder - lens.position, lens.forward);
@@ -261,7 +261,7 @@ public sealed class ToastBookCarry : MonoBehaviour
             out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
 
         float side = left ? -1f : 1f;
-        if (Vector3.Dot(wide, transform.right * -side) < 0f) wide = -wide;
+        if (Vector3.Dot(wide, transform.forward) < 0f) wide = -wide;
 
         Vector3 palm = bookPosition - along * (half.y * gripAlongFraction)
             - wide * (half.z * gripAcrossFraction) + cover * half.x;
@@ -327,8 +327,8 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 direction = (target-a).normalized;
         float reach = Mathf.Clamp(Vector3.Distance(a,target), Mathf.Abs(l1-l2)+0.0001f, l1+l2-0.0001f);
         target = a + direction * reach;
-        // Dirsek onde ve yukarida kalir; ust kol da atisa katilir. Kol yukari uzanirken
-        // duz "asagi" kutup dejenere oluyordu; sirali yedekler onu engelliyor.
+        // Prefer the upper side of the elbow circle: the upper arm must lift,
+        // rather than leaving the elbow hanging below an elevated wrist.
         Vector3 outward = left ? -transform.right : transform.right;
         Vector3 pole = Vector3.ProjectOnPlane(
             outward * elbowPoleBias.x + transform.up * elbowPoleBias.y + transform.forward * elbowPoleBias.z,
