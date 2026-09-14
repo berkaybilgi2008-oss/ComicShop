@@ -240,70 +240,61 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         Camera camera = inventory.playerCamera; Transform view = camera.transform;
         float side = left ? -1f : 1f;
         float charge = inventory.ThrowCharge, release = inventory.ThrowReleaseProgress;
-        float factor = inventory.chargeScaleMultiplier * 0.65f;
-        Quaternion rotation = book.GetAlignedRotation(view.right * side - view.forward * 0.25f,
-            Quaternion.AngleAxis(release * 35f, view.right) * view.up);
-        book.GetAxisFrame(out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
-        cover = rotation * cover; along = rotation * along; wide = rotation * wide;
-        half *= factor;
-        if (Vector3.Dot(wide, view.forward) < 0f) wide = -wide;
-        Vector3 center = camera.ViewportToWorldPoint(new Vector3(left ? 0.26f : 0.74f,
-            0.54f + charge * 0.04f, Mathf.Max(0.72f, camera.nearClipPlane + 0.4f)));
-        // Fit all corners at the actual aspect/FOV, increasing visual depth if needed.
-        for (int pass = 0; pass < 5; pass++)
+        float l1 = Vector3.Distance(a.position, b.position), l2 = Vector3.Distance(b.position, c.position);
+        // Compose the FOREARM, not the book center: elbow below the frame and
+        // wrist near the drawn upper-left point. Common depth preserves bone length.
+        float lookDown = Mathf.Clamp01(Vector3.Dot(view.forward, -rig.transform.up));
+        Vector3 elbowRay = camera.ViewportToWorldPoint(new Vector3(left ? 0.35f : 0.65f,
+            -0.08f + lookDown * 0.40f, 1f)) - view.position;
+        Vector3 wristRay = camera.ViewportToWorldPoint(new Vector3(left ? 0.23f : 0.77f, 0.58f + charge * 0.05f, 1f)) - view.position;
+        float depth = l2 / Mathf.Max(0.0001f, (wristRay - elbowRay).magnitude);
+        if (depth < camera.nearClipPlane + 0.08f)
         {
-            float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 p = center + cover * (half.x * ((corner & 1) == 0 ? -1f : 1f))
-                    + along * (half.y * ((corner & 2) == 0 ? -1f : 1f))
-                    + wide * (half.z * ((corner & 4) == 0 ? -1f : 1f));
-                Vector3 screen = camera.WorldToViewportPoint(p);
-                minX = Mathf.Min(minX, screen.x); maxX = Mathf.Max(maxX, screen.x);
-                minY = Mathf.Min(minY, screen.y); maxY = Mathf.Max(maxY, screen.y);
-            }
-            if (maxX - minX > 0.8f || maxY - minY > 0.8f) { center += view.forward * 0.15f; continue; }
-            Vector3 viewport = camera.WorldToViewportPoint(center);
-            viewport.x += Mathf.Max(0f, 0.08f - minX) - Mathf.Max(0f, maxX - 0.92f);
-            viewport.y += Mathf.Max(0f, 0.08f - minY) - Mathf.Max(0f, maxY - 0.90f);
-            center = camera.ViewportToWorldPoint(viewport);
+            // Uniform presentation scale preserves anatomy at large near planes.
+            float ratio = (camera.nearClipPlane + 0.08f) / Mathf.Max(0.001f, depth);
+            visualRoot.transform.localScale *= ratio;
+            l1 *= ratio; l2 *= ratio;
+            depth = camera.nearClipPlane + 0.08f;
         }
+        Vector3 wrist = view.position + wristRay * depth;
+        Vector3 lower = (wristRay - elbowRay).normalized;
+        // On release retain the original cubic timing and move forward in one stroke.
+        lower = Vector3.Slerp(lower, view.forward, release * 0.85f);
+        wrist += view.forward * (release * 0.18f) - view.up * (release * 0.10f);
+        wrist += inventory.CurrentThrowShake;
+        Vector3 elbow = wrist - lower * l2;
+        Vector3 upper = Vector3.ProjectOnPlane(view.forward, lower).normalized;
+        upper = (upper * Mathf.Sin(70f * Mathf.Deg2Rad) - lower * Mathf.Cos(70f * Mathf.Deg2Rad)).normalized;
+
+        Quaternion rotation = book.GetAlignedRotation(
+            view.forward * 0.9f - view.right * side * 0.4f,
+            Quaternion.AngleAxis(release * 35f, view.right) * view.up);
+        Vector3 scale = book.OriginalScale * (inventory.chargeScaleMultiplier * 0.65f);
         float enter = Mathf.SmoothStep(0f, 1f, (Time.time - enteredAt) / Mathf.Max(0.01f, inventory.chargeEnterDuration));
-        center = Vector3.Lerp(entryPosition, center, enter);
         rotation = Quaternion.Slerp(entryRotation, rotation, enter);
-        Vector3 scale = Vector3.Lerp(entryScale, book.OriginalScale * factor, enter);
-        // Meet the one authoritative book at release instead of spawning another projectile.
-        float handoff = release; // Already cubic in PlayerInteraction; do not ease it twice.
-        center = Vector3.Lerp(center, book.transform.position, handoff);
-        center += inventory.CurrentThrowShake * (1f - handoff);
-        rotation = Quaternion.Slerp(rotation, book.transform.rotation, handoff);
-        scale = Vector3.Lerp(scale, book.transform.lossyScale, handoff);
-        bookRoot.transform.SetPositionAndRotation(center, rotation); bookRoot.transform.localScale = scale;
-        book.GetAxisFrame(out cover, out along, out wide, out half);
+        scale = Vector3.Lerp(entryScale, scale, enter);
+        rotation = Quaternion.Slerp(rotation, book.transform.rotation, release);
+        scale = Vector3.Lerp(scale, book.transform.lossyScale, release);
+        book.GetAxisFrame(out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
         half *= scale.magnitude / Mathf.Max(0.0001f, book.OriginalScale.magnitude);
         cover = rotation * cover; along = rotation * along; wide = rotation * wide;
-        if (Vector3.Dot(wide, view.forward) < 0f) wide = -wide;
-        Vector3 palm = center - along * (half.y * 0.92f) + wide * (half.z * 0.86f) + cover * half.x;
+        if (Vector3.Dot(wide, view.right * -side) < 0f) wide = -wide;
+        Vector3 bookOffset = along * (half.y * 0.92f) - wide * (half.z * 0.86f) - cover * half.x;
         Quaternion grip = Quaternion.LookRotation(-cover, -along);
-        Vector3 wrist = palm - grip * Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
-        float l1 = Vector3.Distance(a.position, b.position), l2 = Vector3.Distance(b.position, c.position);
-        Vector3 upper = (view.forward * 0.8f + view.right * side * 0.3f + view.up * 0.5f).normalized;
-        Vector3 bend = Vector3.ProjectOnPlane(view.up, upper).normalized;
-        float radians = 65f * Mathf.Deg2Rad;
-        Vector3 lower = bend * Mathf.Sin(radians) - upper * Mathf.Cos(radians);
-        lower = Vector3.Slerp(lower, upper, release * 0.8f);
-        Vector3 elbow = wrist - lower * l2;
-        // Translate the whole visual skeleton. Moving the shoulder bone alone
-        // stretched vertices weighted partly to its chest/parent bones.
+        Vector3 gripOffset = Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
+        Vector3 entryWrist = entryPosition - bookOffset - grip * gripOffset;
+        wrist = Vector3.Lerp(entryWrist, wrist, enter);
+        Vector3 releaseWrist = book.transform.position - bookOffset - grip * gripOffset;
+        wrist = Vector3.Lerp(wrist, releaseWrist, release);
+        elbow = wrist - lower * l2;
+        // Move the complete presentation skeleton, preserving every bind offset.
         visualRoot.transform.position += elbow - upper * l1 - a.position;
         a.rotation = Quaternion.FromToRotation(b.position - a.position, elbow - a.position) * a.rotation;
         b.rotation = Quaternion.FromToRotation(c.position - b.position, wrist - b.position) * b.rotation;
-        // Keep the wrist within the same anatomical limit as the world rig.
         c.rotation = Quaternion.RotateTowards(b.rotation * wristRest, grip, 55f);
-        // After limiting wrist rotation, put the book on the actual palm.
-        Vector3 actualPalm = c.position + c.rotation *
-            Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
-        bookRoot.transform.position += actualPalm - palm;
+        Vector3 palm = c.position + c.rotation * gripOffset;
+        bookRoot.transform.SetPositionAndRotation(palm + bookOffset, rotation);
+        bookRoot.transform.localScale = scale;
     }
 
     void Begin(Camera camera)
