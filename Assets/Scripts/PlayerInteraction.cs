@@ -110,6 +110,10 @@ public class PlayerInteraction : MonoBehaviour
     public bool IsThrowPoseActive => isChargingThrow || isThrowing;
     private bool isThrowing;
     private float chargeAmount;
+    public float ThrowCharge => chargeAmount;
+    public float ThrowReleaseProgress { get; private set; }
+    public Vector3 CurrentThrowShake => isChargingThrow
+        ? ChargeShake() * (chargeShakeAmount * chargeAmount) : Vector3.zero;
     private BookItem chargingBook;
     private ToastBookCarry throwRig;
     private Vector3 enterStartPosition;
@@ -274,6 +278,7 @@ public class PlayerInteraction : MonoBehaviour
         chargingBook = book;
         isChargingThrow = true;
         chargeAmount = 0f;
+        ThrowReleaseProgress = 0f;
         chargeStartTime = Time.time;
 
         enterStartPosition = book.transform.position;
@@ -342,7 +347,8 @@ public class PlayerInteraction : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / throwArcDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
-            float angle = ThrowSwingAngle(finalCharge, t * t * t);
+            ThrowReleaseProgress = t * t * t;
+            float angle = ThrowSwingAngle(finalCharge, ThrowReleaseProgress);
 
             GetThrowPose(book, angle, 0f, out Vector3 position, out Quaternion rotation);
             ApplyThrowPose(book, position, rotation, book.OriginalScale * chargeScaleMultiplier);
