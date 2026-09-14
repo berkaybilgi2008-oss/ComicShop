@@ -67,8 +67,11 @@
   <ItemGroup>
     <Compile Include="Assets\ComicShopShelfFrame\Editor\ComicShopShelfFrameWindow.cs" />
     <Compile Include="Assets\Editor\BookMeasurementTool.cs" />
+    <Compile Include="Assets\ComicShopToon\Editor\ComicShopPendantSetup.cs" />
     <Compile Include="Assets\Editor\ComicShopBookSetup.cs" />
+    <Compile Include="Assets\ComicShopToon\Editor\ComicShopAutoSetup.cs" />
     <Compile Include="Assets\Editor\ComicShopRafSetup.cs" />
+    <Compile Include="Assets\ComicShopToon\Editor\CreateToonPresets.cs" />
     <Compile Include="Assets\Editor\MultiplayerRegressionChecks.cs" />
     <Compile Include="Assets\Editor\CharacterBookCarryChecks.cs" />
     <Compile Include="Assets\Editor\ComicShopV16Repair.cs" />
@@ -77,6 +80,7 @@
     <Compile Include="Assets\ToastRanger\Unity\Editor\ToastAnimatedSetup.cs" />
     <Compile Include="Assets\ToastRanger\Unity\Editor\ToastRangerSetup.cs" />
     <Compile Include="Assets\TutorialInfo\Editor\ReadmeEditor.cs" />
+    <Compile Include="Assets\ComicShopToon\Editor\BakeToonNormals.cs" />
     <Compile Include="Assets\ComicShopV16\Editor\ShopV16Importer.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -80,11 +80,13 @@
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Crosshair.cs" />
     <Compile Include="Assets\Scripts\ThrownBook.cs" />
+    <Compile Include="Assets\ComicShopToon\Runtime\ScreenSpaceOutline.cs" />
     <Compile Include="Assets\Scripts\BookcaseSlotGenerator.cs" />
     <Compile Include="Assets\Scripts\BookData.cs" />
     <Compile Include="Assets\Scripts\Net\ClientNetworkTransform.cs" />
     <Compile Include="Assets\Scripts\ComicShopSyncTest.cs" />
     <Compile Include="Assets\Scripts\Net\NetworkPlayerSetup.cs" />
+    <Compile Include="Assets\ToastRanger\Unity\FirstPersonThrowView.cs" />
     <Compile Include="Assets\ComicShopV16\Runtime\ShopV16Fan.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastLocomotion.cs" />
     <Compile Include="Assets\ComicShopV16\Runtime\ShopV16Appearance.cs" />
@@ -94,6 +96,7 @@
     <Compile Include="Assets\Scripts\Net\OnlineSessionTransport.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotGenerator.cs" />
     <Compile Include="Assets\Scripts\InteractionSettingsSanitizer.cs" />
+    <Compile Include="Assets\ComicShopToon\Runtime\ToonGlobals.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
     <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastBookCarry.cs" />
@@ -105,6 +108,8 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Overlay.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile-2-Pass.shader" />
+    <None Include="Assets\ComicShopToon\Shaders\ToonForward.hlsl" />
+    <None Include="Assets\ComicShopToon\Shaders\ToonLit.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditor.uss" />
     <None Include="Assets\ComicShopV16\Shaders\ShopV16Print.shader" />
@@ -113,6 +118,7 @@
     <None Include="Assets\Shaders\Resources\BookCel.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD.shader" />
     <None Include="Assets\ToastRanger\Unity\ToastOutline.shader" />
+    <None Include="Assets\ComicShopToon\Shaders\ScreenSpaceOutline.shader" />
     <None Include="Assets\ToastRanger\Unity\ToastCel.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface-Mobile.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SpaceWarp.shader" />
@@ -133,6 +139,7 @@
     <None Include="Assets\TextMesh Pro\Resources\LineBreaking Following Characters.txt" />
     <None Include="Assets\InvisibleOccluder.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD SpaceWarp.shader" />
+    <None Include="Assets\ComicShopToon\Shaders\ToonInput.hlsl" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Masking.shader" />
     <None Include="Assets\Shaders\OutlineOnly.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF Overlay.shader" />
@@ -140,8 +147,10 @@
     <None Include="Assets\TextMesh Pro\Fonts\LiberationSans - OFL.txt" />
     <None Include="Assets\Shaders\BookEdgeLine.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile.shader" />
+    <None Include="Assets\ComicShopToon\Shaders\ToonAuxiliary.hlsl" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorDark.uss" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD SpaceWarp.shader" />
+    <None Include="Assets\ComicShopToon\Shaders\ToonOutline.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Sprite.shader" />
   </ItemGroup>
   <ItemGroup>
