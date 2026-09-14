@@ -24,9 +24,10 @@ public sealed class ToastBookCarry : MonoBehaviour
     private const float wristBendLimit = 65f;
     private static readonly Vector3 throwGripOffset = new Vector3(0f, -0.06f, 0.025f);
     private static readonly Vector3 wristTwistEuler = Vector3.zero;
-    private static readonly Vector3 elbowPoleBias = new Vector3(0f, -1f, 1f);
+    private static readonly Vector3 elbowPoleBias = new Vector3(0f, 1f, 0.25f);
 
     private Quaternion leftWristRest, rightWristRest;
+    public Quaternion GetThrowWristRest(bool left) => left ? leftWristRest : rightWristRest;
     private Transform throwUpper, throwLower, throwHand;
     private Quaternion throwUpperBase, throwLowerBase, throwHandBase;
     private Quaternion lastUpperPose, lastLowerPose, lastHandPose;
@@ -233,10 +234,11 @@ public sealed class ToastBookCarry : MonoBehaviour
         Quaternion shoulderLift = Quaternion.AngleAxis(
             -Mathf.Lerp(40f + windup * 20f, 5f, release), shoulderAxis);
         Vector3 upperDirection = shoulderLift * outwardHeading;
-        Vector3 perpendicular = Vector3.ProjectOnPlane(bodyUp, upperDirection).normalized;
         // 110 degrees inside the elbow: tense/open, compared to 65 in first person.
         float bend = 110f * Mathf.Deg2Rad;
-        Vector3 lowerDirection = perpendicular * Mathf.Sin(bend) - upperDirection * Mathf.Cos(bend);
+        // Keep the forearm forward rather than folding behind the head.
+        Vector3 forwardBend = Vector3.ProjectOnPlane(outwardHeading, upperDirection).normalized;
+        Vector3 lowerDirection = forwardBend * Mathf.Sin(bend) - upperDirection * Mathf.Cos(bend);
         lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.95f);
         framedElbow = shoulder + upperDirection * upperLength;
         Vector3 wristTarget = framedElbow + lowerDirection * lowerLength;
@@ -372,4 +374,3 @@ public sealed class ToastBookCarry : MonoBehaviour
     void OnDisable() { RestoreThrow(); throwBlend=0f; Restore(); if(animator)animator.SetFloat(Carry,0);blend=0; if(previewBook)previewBook.SetActive(false); }
     public void SetCarrying(bool value) { carryingBook=value; }
 }
-

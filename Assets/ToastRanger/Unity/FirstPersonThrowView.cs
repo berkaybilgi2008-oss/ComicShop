@@ -12,7 +12,8 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     PlayerInteraction inventory;
     NetworkPlayerSetup network;
     GameObject visualRoot, bookRoot;
-    Transform a, b, c;
+    Transform a, b, c, head;
+    Quaternion wristRest;
     BookItem activeBook;
     bool left, ready, renderingApplied;
     Camera renderingCamera;
@@ -32,7 +33,12 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         public Mesh bodyOnly, saved;
     }
 
-    void Awake() { rig = GetComponent<ToastBookCarry>(); }
+    void Awake()
+    {
+        rig = GetComponent<ToastBookCarry>();
+        foreach (Transform bone in GetComponentsInChildren<Transform>(true))
+            if (bone.name == "Head") { head = bone; break; }
+    }
     void OnEnable()
     {
         RenderPipelineManager.beginCameraRendering += BeginSRP;
@@ -62,10 +68,19 @@ public sealed class FirstPersonThrowView : MonoBehaviour
             inventory.playerCamera.isActiveAndEnabled && (!network || !network.IsSpawned || network.IsOwner);
     }
 
+    bool IsFirstPersonCamera(Camera camera)
+    {
+        if (!IsLocal() || camera != inventory.playerCamera || !head) return false;
+        // A debug/rear view can reuse the SAME Camera component.
+        Vector3 delta = camera.transform.position - head.position;
+        float horizontal = Vector3.ProjectOnPlane(delta, rig.transform.up).magnitude;
+        return horizontal < 0.55f && Mathf.Abs(Vector3.Dot(delta, rig.transform.up)) < 0.65f;
+    }
+
     void LateUpdate()
     {
         RestoreRendering();
-        if (!IsLocal() || !inventory.IsThrowPoseActive || !inventory.ActiveHeldBook)
+        if (!IsLocal() || !IsFirstPersonCamera(inventory.playerCamera) || !inventory.IsThrowPoseActive || !inventory.ActiveHeldBook)
         {
             ready = false;
             activeBook = null;
@@ -123,6 +138,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         if (!upper || !lower || !hand) return false;
         visualRoot = new GameObject("FirstPersonThrowVisual_Only");
         a = CopyBone(upper); b = CopyBone(lower); c = CopyBone(hand);
+        wristRest = rig.GetThrowWristRest(left);
         foreach (var source in rig.GetComponentsInChildren<SkinnedMeshRenderer>(true))
         {
             Mesh original = source.sharedMesh;
@@ -223,7 +239,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     {
         Camera camera = inventory.playerCamera; Transform view = camera.transform;
         float side = left ? -1f : 1f;
-        float charge = rig.VisualCharge, release = rig.VisualRelease;
+        float charge = inventory.ThrowCharge, release = inventory.ThrowReleaseProgress;
         float factor = inventory.chargeScaleMultiplier * 0.65f;
         Quaternion rotation = book.GetAlignedRotation(view.right * side - view.forward * 0.25f,
             Quaternion.AngleAxis(release * 35f, view.right) * view.up);
@@ -257,8 +273,9 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         rotation = Quaternion.Slerp(entryRotation, rotation, enter);
         Vector3 scale = Vector3.Lerp(entryScale, book.OriginalScale * factor, enter);
         // Meet the one authoritative book at release instead of spawning another projectile.
-        float handoff = Mathf.SmoothStep(0f, 1f, release);
+        float handoff = release; // Already cubic in PlayerInteraction; do not ease it twice.
         center = Vector3.Lerp(center, book.transform.position, handoff);
+        center += inventory.CurrentThrowShake * (1f - handoff);
         rotation = Quaternion.Slerp(rotation, book.transform.rotation, handoff);
         scale = Vector3.Lerp(scale, book.transform.lossyScale, handoff);
         bookRoot.transform.SetPositionAndRotation(center, rotation); bookRoot.transform.localScale = scale;
@@ -276,16 +293,23 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         Vector3 lower = bend * Mathf.Sin(radians) - upper * Mathf.Cos(radians);
         lower = Vector3.Slerp(lower, upper, release * 0.8f);
         Vector3 elbow = wrist - lower * l2;
-        a.position = elbow - upper * l1;
+        // Translate the whole visual skeleton. Moving the shoulder bone alone
+        // stretched vertices weighted partly to its chest/parent bones.
+        visualRoot.transform.position += elbow - upper * l1 - a.position;
         a.rotation = Quaternion.FromToRotation(b.position - a.position, elbow - a.position) * a.rotation;
         b.rotation = Quaternion.FromToRotation(c.position - b.position, wrist - b.position) * b.rotation;
-        c.rotation = grip;
+        // Keep the wrist within the same anatomical limit as the world rig.
+        c.rotation = Quaternion.RotateTowards(b.rotation * wristRest, grip, 55f);
+        // After limiting wrist rotation, put the book on the actual palm.
+        Vector3 actualPalm = c.position + c.rotation *
+            Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
+        bookRoot.transform.position += actualPalm - palm;
     }
 
     void Begin(Camera camera)
     {
         RestoreRendering();
-        if (!ready || !IsLocal() || camera != inventory.playerCamera ||
+        if (!ready || !IsFirstPersonCamera(camera) ||
             !inventory.IsThrowPoseActive || activeBook != inventory.ActiveHeldBook) return;
         renderingCamera = camera;
         renderingApplied = true;
