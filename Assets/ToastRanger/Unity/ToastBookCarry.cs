@@ -34,11 +34,10 @@ public sealed class ToastBookCarry : MonoBehaviour
     private float throwBlend;
     private Vector3 throwWristTarget;
     private Quaternion throwWristRotation = Quaternion.identity;
+    public float VisualCharge { get; private set; }
+    public float VisualRelease { get; private set; }
     private int throwPoseFrame = -1;
-    private Vector3 framedUpper, framedLower, framedElbow;
-    private bool framingReady;
-    private bool framingLeft;
-    private float framingTime = -1f;
+    private Vector3 framedElbow;
     float blend;
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
@@ -56,6 +55,8 @@ public sealed class ToastBookCarry : MonoBehaviour
         }
         leftWristRest = leftHand ? leftHand.localRotation : Quaternion.identity;
         rightWristRest = hand ? hand.localRotation : Quaternion.identity;
+        if (!GetComponent<FirstPersonThrowView>())
+            gameObject.AddComponent<FirstPersonThrowView>();
         // Procedural arms can leave the bounds baked into the idle clip. Keep
         // skinning/bounds updated when the torso itself is outside the camera.
         foreach (var skin in GetComponentsInChildren<SkinnedMeshRenderer>(true))
@@ -223,78 +224,20 @@ public sealed class ToastBookCarry : MonoBehaviour
         float upperLength = Vector3.Distance(upper.position, lower.position);
         float lowerLength = Vector3.Distance(lower.position, wrist.position);
         Vector3 horizontal = Vector3.ProjectOnPlane(forward, bodyUp).normalized;
-        // Search reachable bent-arm poses against the actual camera and book size.
-        // Keep the biceps raised; change sideways bend instead of pushing the
-        // wrist through the lens or lifting the book past the top of the screen.
-        float bestScore = float.PositiveInfinity;
-        Vector3 bestUpper = horizontal, bestLower = bodyUp;
-        Vector3 palmOffset = grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
-        // Bend more tightly (65-degree inner elbow angle) and keep the arm
-        // on its own side of the oversized character head.
-        float bendRadians = 65f * Mathf.Deg2Rad;
-        Vector3 headCenter = lens.position - horizontal * 0.12f;
-        float headRadius = Mathf.Max(0.24f, armLength * 0.35f);
-        for (int yaw = 15; yaw <= 75; yaw += 15)
-        for (int swivel = -75; swivel <= 75; swivel += 15)
-        {
-            Vector3 heading = Quaternion.AngleAxis(yaw * side, bodyUp) * horizontal;
-            Vector3 axis = Vector3.Cross(bodyUp, heading).normalized;
-            Vector3 candidateUpper = Quaternion.AngleAxis(-(45f + windup * 10f), axis) * heading;
-            Vector3 candidateLower = Vector3.ProjectOnPlane(bodyUp, candidateUpper).normalized;
-            candidateLower = Quaternion.AngleAxis(swivel * side, candidateUpper) * candidateLower;
-            candidateLower = candidateLower * Mathf.Sin(bendRadians)
-                - candidateUpper * Mathf.Cos(bendRadians);
-            Vector3 elbow = shoulder + candidateUpper * upperLength;
-            Vector3 candidateWrist = elbow + candidateLower * lowerLength;
-            Vector3 center = candidateWrist + palmOffset + bookOffset;
-            float score = FramePenalty(camera, candidateWrist) + FramePenalty(camera, elbow);
-            // Distance from head sphere to the oriented book box, including faces
-            // (corner-only tests miss a head intersecting the middle of a cover).
-            Vector3 toHead = headCenter - center;
-            Vector3 closest = center
-                + cover * Mathf.Clamp(Vector3.Dot(toHead, cover), -half.x, half.x)
-                + along * Mathf.Clamp(Vector3.Dot(toHead, along), -half.y, half.y)
-                + wide * Mathf.Clamp(Vector3.Dot(toHead, wide), -half.z, half.z);
-            float overlap = Mathf.Max(0f, headRadius + 0.04f - Vector3.Distance(headCenter, closest));
-            float sideExtent = Mathf.Abs(Vector3.Dot(cover, right)) * half.x
-                + Mathf.Abs(Vector3.Dot(along, right)) * half.y
-                + Mathf.Abs(Vector3.Dot(wide, right)) * half.z;
-            float inward = Mathf.Max(0f, headRadius + 0.04f + sideExtent
-                - Vector3.Dot(center - headCenter, right * side));
-            score += 10000f * (overlap * overlap + inward * inward);
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 point = center + cover * (half.x * ((corner & 1) == 0 ? -1f : 1f))
-                    + along * (half.y * ((corner & 2) == 0 ? -1f : 1f))
-                    + wide * (half.z * ((corner & 4) == 0 ? -1f : 1f));
-                score += FramePenalty(camera, point);
-            }
-            Vector3 screen = camera.WorldToViewportPoint(center);
-            score += 0.01f * ((screen.x - (left ? 0.20f : 0.80f)) *
-                (screen.x - (left ? 0.20f : 0.80f)) + (screen.y - 0.58f) * (screen.y - 0.58f));
-            if (score < bestScore)
-            {
-                bestScore = score;
-                bestUpper = candidateUpper;
-                bestLower = candidateLower;
-            }
-        }
-        if (!framingReady || framingLeft != left || Time.time - framingTime > 0.25f)
-        {
-            framedUpper = bestUpper;
-            framedLower = bestLower;
-            framingReady = true;
-            framingLeft = left;
-        }
-        float follow = 1f - Mathf.Exp(-18f * Time.deltaTime);
-        framedUpper = Vector3.Slerp(framedUpper, bestUpper, follow).normalized;
-        framedLower = Vector3.Slerp(framedLower, bestLower, follow);
-        Vector3 bendDirection = Vector3.ProjectOnPlane(framedLower, framedUpper).normalized;
-        framedLower = bendDirection * Mathf.Sin(bendRadians)
-            - framedUpper * Mathf.Cos(bendRadians);
-        framingTime = Time.time;
-        Vector3 upperDirection = Vector3.Slerp(framedUpper, horizontal, release);
-        Vector3 lowerDirection = Vector3.Slerp(framedLower, upperDirection, release * 0.8f);
+        // World pose is intentionally more extended than the owner-only view.
+        // No camera-framing search: every observer receives the same book pose.
+        VisualCharge = windup;
+        VisualRelease = release;
+        Vector3 outwardHeading = Quaternion.AngleAxis(side * 35f, bodyUp) * horizontal;
+        Vector3 shoulderAxis = Vector3.Cross(bodyUp, outwardHeading).normalized;
+        Quaternion shoulderLift = Quaternion.AngleAxis(
+            -Mathf.Lerp(40f + windup * 20f, 5f, release), shoulderAxis);
+        Vector3 upperDirection = shoulderLift * outwardHeading;
+        Vector3 perpendicular = Vector3.ProjectOnPlane(bodyUp, upperDirection).normalized;
+        // 110 degrees inside the elbow: tense/open, compared to 65 in first person.
+        float bend = 110f * Mathf.Deg2Rad;
+        Vector3 lowerDirection = perpendicular * Mathf.Sin(bend) - upperDirection * Mathf.Cos(bend);
+        lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.95f);
         framedElbow = shoulder + upperDirection * upperLength;
         Vector3 wristTarget = framedElbow + lowerDirection * lowerLength;
         Vector3 palm = wristTarget + grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
@@ -304,16 +247,6 @@ public sealed class ToastBookCarry : MonoBehaviour
         throwWristRotation = grip;
         throwPoseFrame = Time.frameCount;
         return true;
-    }
-
-    private static float FramePenalty(Camera camera, Vector3 point)
-    {
-        Vector3 p = camera.WorldToViewportPoint(point);
-        if (p.z <= camera.nearClipPlane + 0.05f)
-            return 1000f + 100f * Mathf.Abs(p.z - camera.nearClipPlane - 0.05f);
-        float x = Mathf.Max(0f, 0.08f - p.x, p.x - 0.92f);
-        float y = Mathf.Max(0f, 0.08f - p.y, p.y - 0.90f);
-        return 100f * (x * x + y * y);
     }
 
     /// <summary>Duvar/oda sinirlamasi kitabi kaydirinca el de ayni kadar kayar.</summary>
@@ -439,3 +372,4 @@ public sealed class ToastBookCarry : MonoBehaviour
     void OnDisable() { RestoreThrow(); throwBlend=0f; Restore(); if(animator)animator.SetFloat(Carry,0);blend=0; if(previewBook)previewBook.SetActive(false); }
     public void SetCarrying(bool value) { carryingBook=value; }
 }
+
