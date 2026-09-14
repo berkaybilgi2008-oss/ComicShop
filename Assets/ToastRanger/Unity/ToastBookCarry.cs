@@ -35,6 +35,10 @@ public sealed class ToastBookCarry : MonoBehaviour
     private Vector3 throwWristTarget;
     private Quaternion throwWristRotation = Quaternion.identity;
     private int throwPoseFrame = -1;
+    private Vector3 framedUpper, framedLower, framedElbow;
+    private bool framingReady;
+    private bool framingLeft;
+    private float framingTime = -1f;
     float blend;
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
@@ -219,16 +223,57 @@ public sealed class ToastBookCarry : MonoBehaviour
         float upperLength = Vector3.Distance(upper.position, lower.position);
         float lowerLength = Vector3.Distance(lower.position, wrist.position);
         Vector3 horizontal = Vector3.ProjectOnPlane(forward, bodyUp).normalized;
-        // Raise the biceps from the shoulder, rotating BOTH segments together.
-        // A shared rotation preserves the right-angle elbow during charging.
-        float shoulderLift = Mathf.Lerp(30f + windup * 10f, 0f, release);
-        Quaternion shoulderRotation = Quaternion.AngleAxis(-shoulderLift, right);
-        Vector3 upperDirection = shoulderRotation * horizontal;
-        Vector3 lowerDirection = shoulderRotation * bodyUp;
-        // The release progressively opens the elbow; charging stays at 90 degrees.
-        lowerDirection = Vector3.Slerp(lowerDirection, upperDirection, release * 0.8f);
-        Vector3 wristTarget = shoulder + upperDirection * upperLength
-            + lowerDirection * lowerLength;
+        // Search reachable bent-arm poses against the actual camera and book size.
+        // Keep the biceps raised; change sideways bend instead of pushing the
+        // wrist through the lens or lifting the book past the top of the screen.
+        float bestScore = float.PositiveInfinity;
+        Vector3 bestUpper = horizontal, bestLower = bodyUp;
+        Vector3 palmOffset = grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
+        for (int yaw = -60; yaw <= 60; yaw += 30)
+        for (int swivel = -75; swivel <= 75; swivel += 15)
+        {
+            Vector3 heading = Quaternion.AngleAxis(yaw * side, bodyUp) * horizontal;
+            Vector3 axis = Vector3.Cross(bodyUp, heading).normalized;
+            Vector3 candidateUpper = Quaternion.AngleAxis(-(45f + windup * 10f), axis) * heading;
+            Vector3 candidateLower = Vector3.ProjectOnPlane(bodyUp, candidateUpper).normalized;
+            candidateLower = Quaternion.AngleAxis(swivel * side, candidateUpper) * candidateLower;
+            Vector3 elbow = shoulder + candidateUpper * upperLength;
+            Vector3 candidateWrist = elbow + candidateLower * lowerLength;
+            Vector3 center = candidateWrist + palmOffset + bookOffset;
+            float score = FramePenalty(camera, candidateWrist) + FramePenalty(camera, elbow);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 point = center + cover * (half.x * ((corner & 1) == 0 ? -1f : 1f))
+                    + along * (half.y * ((corner & 2) == 0 ? -1f : 1f))
+                    + wide * (half.z * ((corner & 4) == 0 ? -1f : 1f));
+                score += FramePenalty(camera, point);
+            }
+            Vector3 screen = camera.WorldToViewportPoint(center);
+            score += 0.01f * ((screen.x - (left ? 0.28f : 0.72f)) *
+                (screen.x - (left ? 0.28f : 0.72f)) + (screen.y - 0.58f) * (screen.y - 0.58f));
+            if (score < bestScore)
+            {
+                bestScore = score;
+                bestUpper = candidateUpper;
+                bestLower = candidateLower;
+            }
+        }
+        if (!framingReady || framingLeft != left || Time.time - framingTime > 0.25f)
+        {
+            framedUpper = bestUpper;
+            framedLower = bestLower;
+            framingReady = true;
+            framingLeft = left;
+        }
+        float follow = 1f - Mathf.Exp(-18f * Time.deltaTime);
+        framedUpper = Vector3.Slerp(framedUpper, bestUpper, follow).normalized;
+        framedLower = Vector3.Slerp(framedLower, bestLower, follow);
+        framedLower = Vector3.ProjectOnPlane(framedLower, framedUpper).normalized;
+        framingTime = Time.time;
+        Vector3 upperDirection = Vector3.Slerp(framedUpper, horizontal, release);
+        Vector3 lowerDirection = Vector3.Slerp(framedLower, upperDirection, release * 0.8f);
+        framedElbow = shoulder + upperDirection * upperLength;
+        Vector3 wristTarget = framedElbow + lowerDirection * lowerLength;
         Vector3 palm = wristTarget + grip * Vector3.Scale(throwGripOffset, wrist.lossyScale);
 
         position = palm + bookOffset;
@@ -236,6 +281,16 @@ public sealed class ToastBookCarry : MonoBehaviour
         throwWristRotation = grip;
         throwPoseFrame = Time.frameCount;
         return true;
+    }
+
+    private static float FramePenalty(Camera camera, Vector3 point)
+    {
+        Vector3 p = camera.WorldToViewportPoint(point);
+        if (p.z <= camera.nearClipPlane + 0.05f)
+            return 1000f + 100f * Mathf.Abs(p.z - camera.nearClipPlane - 0.05f);
+        float x = Mathf.Max(0f, 0.08f - p.x, p.x - 0.92f);
+        float y = Mathf.Max(0f, 0.08f - p.y, p.y - 0.90f);
+        return 100f * (x * x + y * y);
     }
 
     /// <summary>Duvar/oda sinirlamasi kitabi kaydirinca el de ayni kadar kayar.</summary>
@@ -326,6 +381,10 @@ public sealed class ToastBookCarry : MonoBehaviour
         Vector3 pole = Vector3.ProjectOnPlane(
             outward * elbowPoleBias.x + transform.up * elbowPoleBias.y + transform.forward * elbowPoleBias.z,
             direction);
+        // Use the selected elbow, so IK cannot choose the opposite (low-biceps)
+        // solution for the same wrist. Remote players retain the fallback pole.
+        if (throwPoseFrame == Time.frameCount)
+            pole = Vector3.ProjectOnPlane(framedElbow - a, direction);
         if (pole.sqrMagnitude < 0.000001f) pole = Vector3.ProjectOnPlane(outward, direction);
         if (pole.sqrMagnitude < 0.000001f) pole = Vector3.ProjectOnPlane(-transform.forward, direction);
         if (pole.sqrMagnitude < 0.000001f) pole = Vector3.ProjectOnPlane(-transform.up, direction);
