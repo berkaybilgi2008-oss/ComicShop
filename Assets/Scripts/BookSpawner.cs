@@ -139,6 +139,7 @@ public class BookSpawner : MonoBehaviour
 
         bookItem.bookID = bookID;
         bookItem.brandID = brandID;
+        bookItem.displayName = data.DisplayName;
         BookToonEffect.ApplyToBook(book);
 
         Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
