@@ -77,9 +77,10 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float minThrowSpin = 10f;
     [Min(0f)] public float maxThrowSpin = 34f;
 
-    // Applied at runtime so existing scene/prefab tuning also gets the arcade kick.
+    // Normalize the existing charge curve to a 207 km/h full-charge launch.
     public float ChargedThrowSpeed(float charge) =>
-        Mathf.Lerp(minThrowSpeed, maxThrowSpeed, Mathf.Clamp01(charge)) * releaseSnap * 2.8f;
+        Mathf.Lerp(Mathf.Clamp01(minThrowSpeed / Mathf.Max(0.001f, maxThrowSpeed)),
+            1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
 
     [Header("Etkilesim")]
     public float interactRange = 3f;
