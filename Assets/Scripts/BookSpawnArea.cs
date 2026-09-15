@@ -12,6 +12,7 @@ public sealed class BookSpawnArea : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        if (!isActiveAndEnabled) return;
         Matrix4x4 previous = Gizmos.matrix;
         Color color = Gizmos.color;
         Gizmos.matrix = transform.localToWorldMatrix;

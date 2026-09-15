@@ -1,3 +1,13 @@
+# Yeni: dogrudan kutu secimi
+BookSpawner Inspector > Tek kutu alanla basla dugmesi onceki alan bilesenlerini kapatir,
+listeyi yeni 2x2 alanla degistirir ve bu alani secer. Undo desteklenir.
+BookSpawnArea Inspector > Edit Area acikken Scene kenarlarindan boyutlandir.
+W ile konum/yukseklik, E ile Y donusu ayarla. Ek kutu alan ekle dugmesi listeye otomatik baglar.
+Yeni Spawn Areas listesi doluyken eski V16 / Area Size degerleri kullanilmaz.
+V16 Spawn Area kendi basina kitap ureten bir bilesen degil, Transform referansidir.
+Birden fazla aktif BookSpawner varsa Inspector uyari gosterir; her birine secim dugmesiyle ulasilir.
+Unity editor derlemesi ve gorsel test bu ortamda yapilamadi.
+
 # Spawn alanlari ve havada uyku duzeltmesi
 
 ## Kurulum

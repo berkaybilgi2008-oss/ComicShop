@@ -8,8 +8,18 @@ using UnityEngine;
 public sealed class BookSpawnAreaEditor : Editor
 {
     private readonly BoxBoundsHandle bounds = new BoxBoundsHandle();
+    private bool editArea = true;
+    public override void OnInspectorGUI()
+    {
+        EditorGUILayout.HelpBox("Bu alan kitaplarin dogacagi yuzeydir. Edit Area acikken Scene'deki kenar tutamaclarini collider gibi surukle. W ile tasi, E ile Y ekseninde dondur. Fizik collider'i eklemek gerekmez.", MessageType.Info);
+        DrawDefaultInspector();
+        editArea = GUILayout.Toggle(editArea, "Edit Area - kenarlardan boyutlandir", "Button");
+        if (GUILayout.Button("Scene'de alana odaklan"))
+            SceneView.lastActiveSceneView?.FrameSelected();
+    }
     private void OnSceneGUI()
     {
+        if (!editArea || EditorApplication.isPlaying) return;
         var area = (BookSpawnArea)target;
         using (new Handles.DrawingScope(area.transform.localToWorldMatrix))
         {
