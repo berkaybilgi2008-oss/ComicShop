@@ -1,3 +1,19 @@
+# Rastgele dagilim ve kuleler
+BookSpawner > Rastgele Kuleler: Tower Book Fraction = 0.2, Books Per Tower = 25.
+Her yeni spawn oturumunda liste, alan secimi, konum ve yon yeniden rastgele secilir.
+Daginik kitaplarin 3D donusleri de rastgeledir; kulede kitaplar yatay kalir, ust/alt kapak ve yon sapmasi rastgeledir.
+Toplam kitap/yayin turu sayilari mevcut BookData ve Copies Per Book ayarlarindan gelir; kitap eksiltilmez veya eklenmez.
+Kule sayisi en yakin tam kuleye yuvarlanir: 150 kitapta 1 kule (25 kitap), 1000 kitapta 8 kule (200 kitap).
+Tower Yaw Jitter kule icindeki rastgele yon sapmasidir (varsayilan 8 derece).
+25 kitaplik kulenin sigacagi bos, duz zemin bulunamazsa ilgili kitaplar daginik kalir ve Console uyari verir.
+Dagilim alanlari ve kitap adedi Inspector'da senin kontrolundedir; bu sinirlar rastgele degistirilmez.
+Host son konumlari belirledikten sonra kitaplari agda spawn eder; clientlar yeniden zar atmaz.
+Kuleler normal fizik nesneleridir; yapistirilmaz/dondurulmaz. Oyun icinde devrilebilirler.
+
+Unity testleri: Farkli oturumlarda konum/sira degisimi, 25 kitap sayisi, yuksek kule stabilitesi,
+karisik prefab olculeri, dar/alansiz zemin fallback'i, host-client ve gec katilim kontrol edilmelidir.
+Unity bu ortamda yok; derleme ve Play Mode testleri calistirilamadi.
+
 # Yeni: dogrudan kutu secimi
 BookSpawner Inspector > Tek kutu alanla basla dugmesi onceki alan bilesenlerini kapatir,
 listeyi yeni 2x2 alanla degistirir ve bu alani secer. Undo desteklenir.
