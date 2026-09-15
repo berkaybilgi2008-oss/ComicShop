@@ -367,6 +367,9 @@ public class PlayerInteraction : MonoBehaviour
 
         Transform cam = playerCamera.transform;
 
+        var throwView = GetComponentInChildren<FirstPersonThrowView>();
+        if (throwView != null) throwView.BeginFlightHandoff(book);
+
         ThrowBook(
             book,
             cam.forward * (Mathf.Lerp(minThrowSpeed, maxThrowSpeed, finalCharge) * releaseSnap),
