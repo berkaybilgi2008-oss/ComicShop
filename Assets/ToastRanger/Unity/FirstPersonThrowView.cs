@@ -20,11 +20,11 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     float enteredAt;
     Vector3 entryPosition, entryScale;
     Quaternion entryRotation;
-    const float flightHandoffDuration = 0.14f;
+    const float flightHandoffDuration = 0.065f;
     bool flightHandoff;
     float releasedAt;
     Vector3 releaseOffset, releaseScale;
-    Quaternion releaseRotationOffset;
+    Quaternion releaseViewRotation;
     readonly Dictionary<Transform, Transform> bones = new Dictionary<Transform, Transform>();
     readonly List<Mesh> meshes = new List<Mesh>();
     readonly List<Renderer> visuals = new List<Renderer>();
@@ -87,8 +87,10 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         RestoreRendering();
         if (flightHandoff)
         {
+            var flight = activeBook ? activeBook.GetComponent<ThrownBook>() : null;
             if (IsLocal() && IsFirstPersonCamera(inventory.playerCamera) && activeBook &&
                 activeBook.gameObject.activeInHierarchy && !inventory.IsThrowPoseActive &&
+                (flight == null || !flight.HasImpacted) &&
                 inventory.ActiveHeldBook != activeBook && activeBook.currentSlot == null &&
                 Time.time - releasedAt < flightHandoffDuration)
             {
@@ -144,7 +146,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         if (!ready || activeBook != book || !bookRoot || !IsLocal() ||
             !IsFirstPersonCamera(inventory.playerCamera)) return;
         releaseOffset = bookRoot.transform.position - book.transform.position;
-        releaseRotationOffset = bookRoot.transform.rotation * Quaternion.Inverse(book.transform.rotation);
+        releaseViewRotation = bookRoot.transform.rotation;
         releaseScale = bookRoot.transform.lossyScale;
         releasedAt = Time.time;
         flightHandoff = true;
@@ -153,11 +155,12 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     void PoseFlight()
     {
         float t = Mathf.Clamp01((Time.time - releasedAt) / flightHandoffDuration);
-        float blend = Mathf.SmoothStep(0f, 1f, t);
+        float blend = 1f - Mathf.Pow(1f - t, 3f);
         Transform world = activeBook.transform;
-        // World-space offset must not rotate with the spinning projectile.
+        // A brief release flourish, then exactly the real projectile pose.
+        // Absolute rotation avoids compounding the handoff with its launch alignment.
         bookRoot.transform.SetPositionAndRotation(world.position + releaseOffset * (1f - blend),
-            Quaternion.Slerp(releaseRotationOffset, Quaternion.identity, blend) * world.rotation);
+            Quaternion.Slerp(releaseViewRotation, world.rotation, blend));
         bookRoot.transform.localScale = Vector3.Lerp(releaseScale, world.lossyScale, blend);
     }
 

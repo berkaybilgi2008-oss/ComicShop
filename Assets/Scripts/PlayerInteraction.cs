@@ -77,6 +77,10 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float minThrowSpin = 10f;
     [Min(0f)] public float maxThrowSpin = 34f;
 
+    // Applied at runtime so existing scene/prefab tuning also gets the arcade kick.
+    public float ChargedThrowSpeed(float charge) =>
+        Mathf.Lerp(minThrowSpeed, maxThrowSpeed, Mathf.Clamp01(charge)) * releaseSnap * 2.8f;
+
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
@@ -340,12 +344,13 @@ public class PlayerInteraction : MonoBehaviour
         isThrowing = true;
 
         float elapsed = 0f;
+        float snapDuration = Mathf.Max(0.02f, throwArcDuration * 0.6f);
 
         // Bas arkasindan one dogru tek temiz yay; sona dogru hizlanir (bilek sokumu).
-        while (elapsed < throwArcDuration)
+        while (elapsed < snapDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / throwArcDuration);
+            float t = Mathf.Clamp01(elapsed / snapDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
             ThrowReleaseProgress = t * t * t;
             float angle = ThrowSwingAngle(finalCharge, ThrowReleaseProgress);
@@ -372,7 +377,7 @@ public class PlayerInteraction : MonoBehaviour
 
         ThrowBook(
             book,
-            cam.forward * (Mathf.Lerp(minThrowSpeed, maxThrowSpeed, finalCharge) * releaseSnap),
+            cam.forward * ChargedThrowSpeed(finalCharge),
             cam.right,
             Mathf.Lerp(minThrowSpin, maxThrowSpin, finalCharge),
             true);
@@ -1025,8 +1030,12 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
 
             // Sarjli atista kitap diger kitaplara CARPAR ama onlari SAVURMAZ.
-            if (charged && book.GetComponent<ThrownBook>() == null)
-                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
+            if (charged)
+            {
+                var flight = book.GetComponent<ThrownBook>();
+                if (flight == null) flight = book.gameObject.AddComponent<ThrownBook>();
+                flight.Configure(spinAxis, transform);
+            }
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));

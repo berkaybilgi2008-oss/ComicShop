@@ -362,10 +362,12 @@ public class NetworkBook : NetworkBehaviour
         // Validate on the host too; a client hand pose can be beyond a wall.
         position = player.ConstrainBookToRoom(item, position);
         transform.SetPositionAndRotation(position, rotation);
-        float maxSpeed = Mathf.Max(player.maxThrowSpeed * player.releaseSnap,
-            player.dropForwardForce + player.dropUpwardForce);
+        bool chargedRelease = charged && player.throwAbilityUnlocked;
+        float maxSpeed = chargedRelease
+            ? Mathf.Max(player.ChargedThrowSpeed(0f), player.ChargedThrowSpeed(1f))
+            : player.dropForwardForce + player.dropUpwardForce;
         Release(Vector3.ClampMagnitude(velocity, maxSpeed), spinAxis,
-            Mathf.Clamp(spin, -player.maxThrowSpin, player.maxThrowSpin), charged && player.throwAbilityUnlocked);
+            Mathf.Clamp(spin, -player.maxThrowSpin, player.maxThrowSpin), chargedRelease);
     }
 
     private void Release(Vector3 velocity, Vector3 axis, float spin, bool charged)
