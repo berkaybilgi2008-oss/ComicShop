@@ -8,7 +8,10 @@ Tower Yaw Jitter kule icindeki rastgele yon sapmasidir (varsayilan 8 derece).
 25 kitaplik kulenin sigacagi bos, duz zemin bulunamazsa ilgili kitaplar daginik kalir ve Console uyari verir.
 Dagilim alanlari ve kitap adedi Inspector'da senin kontrolundedir; bu sinirlar rastgele degistirilmez.
 Host son konumlari belirledikten sonra kitaplari agda spawn eder; clientlar yeniden zar atmaz.
-Kuleler normal fizik nesneleridir; yapistirilmaz/dondurulmaz. Oyun icinde devrilebilirler.
+Kuleler baslangicta destek kaydi ile sabitlenir. Her kitap altindaki collider izini tutar.
+Alttaki kitap alininca/yer degistirince ust kitaplar sirayla fizik moduna doner.
+Ustten kitap almak kalan kuleyi bozmaz; destekli kule Q carpmasiyla uyanmaz.
+Hostun ilk ag spawn callbacki destek kaydini silmez; clientlar host durumunu izler.
 
 Unity testleri: Farkli oturumlarda konum/sira degisimi, 25 kitap sayisi, yuksek kule stabilitesi,
 karisik prefab olculeri, dar/alansiz zemin fallback'i, host-client ve gec katilim kontrol edilmelidir.

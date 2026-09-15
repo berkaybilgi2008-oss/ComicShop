@@ -277,6 +277,7 @@ public class BookSpawner : MonoBehaviour
             radius += 0.02f;
             bool found = false;
             Vector3 basePoint = default;
+            Collider baseSupport = null;
             for (int attempt = 0; attempt < 128; attempt++)
             {
                 Vector3 candidate = SampleSpawnPosition();
@@ -297,7 +298,7 @@ public class BookSpawner : MonoBehaviour
                     new Vector3(radius, height * 0.5f, radius), Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore))
                     if (col.GetComponentInParent<BookItem>() == null) { clear = false; break; }
                 if (!clear) continue;
-                basePoint = candidate; found = true; break;
+                basePoint = candidate; baseSupport = floor.collider; found = true; break;
             }
             if (!found) continue;
             float top = basePoint.y + 0.002f;
@@ -308,6 +309,18 @@ public class BookSpawner : MonoBehaviour
                 book.transform.position += new Vector3(basePoint.x - b.center.x, top - b.min.y, basePoint.z - b.center.z);
                 top += b.size.y + 0.001f;
                 stacked.Add(book);
+            }
+            Collider support = baseSupport;
+            for (int i = first; i < first + count; i++)
+            {
+                if (!books[i].InitializeSupportedSpawn(support))
+                {
+                    Debug.LogWarning("BookSpawner: Kule destegi kaydedilemedi; kalan kisim normal fizikte.");
+                    break;
+                }
+                support = null;
+                foreach (var col in books[i].GetComponentsInChildren<Collider>())
+                    if (col.enabled && !col.isTrigger) { support = col; break; }
             }
             reservations.Add(new Vector4(basePoint.x, basePoint.y, basePoint.z, radius));
         }

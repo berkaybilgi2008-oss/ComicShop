@@ -130,7 +130,10 @@ public class NetworkBook : NetworkBehaviour
             IsPlacementAnimating = false;
         item.bookID = current.BookId;
         item.brandID = current.BrandId;
-        bool changedHolder = item.IsHeld != (current.Holder != NoHolder) || previous.Holder != current.Holder;
+        // The initial default state is not a release. Preserve spawn-time support
+        // tracking on the host instead of clearing it through SetHeld(false).
+        bool changedHolder = item.IsHeld != (current.Holder != NoHolder) ||
+            (hasState && previous.Holder != current.Holder);
         if (item.currentSlot != null && item.currentSlot.NetworkKey != current.Slot)
             item.currentSlot.RemoveBook(item);
         if (boundPlayer != null && !HeldByLocal)

@@ -57,6 +57,39 @@ public class BookItem : MonoBehaviour
     }
     private readonly List<RestSupport> restSupports = new List<RestSupport>(8);
 
+    // Only the spawn layout calls this, bottom to top, after validating the floor.
+    // Reuse the normal support tracking: removing a lower book releases the upper one.
+    public bool InitializeSupportedSpawn(Collider support)
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return false;
+        if (body == null || IsHeld || currentSlot != null || support == null ||
+            !support.enabled || support.isTrigger || !support.gameObject.activeInHierarchy ||
+            support.attachedRigidbody == body) return false;
+        var supportingBody = support.attachedRigidbody;
+        if (supportingBody != null && (!supportingBody.isKinematic || !supportingBody.detectCollisions)) return false;
+        var supportingBook = support.GetComponentInParent<BookItem>();
+        if (supportingBook != null && (supportingBook.IsHeld || !supportingBook.frozenAtRest)) return false;
+        restSupports.Clear();
+        restSupports.Add(new RestSupport {
+            collider = support, position = support.transform.position,
+            rotation = support.transform.rotation, scale = support.transform.lossyScale
+        });
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        body.isKinematic = true;
+        body.detectCollisions = true;
+        body.useGravity = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        stillTimer = 0f;
+        edgeAssistUntil = 0f;
+        return true;
+    }
+
     private bool CaptureRestSupports()
     {
         restSupports.Clear();
