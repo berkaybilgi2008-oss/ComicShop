@@ -24,7 +24,37 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int testBookTypeCount = 15;
 
+    [Header("Elle Duzenlenebilir Spawn Alanlari")]
+    [Tooltip("Bos ise eski alan kullanilir. Alanlari Scene ekraninda duzenleyin.")]
+    public BookSpawnArea[] spawnAreas;
+
     private bool sessionSpawned;
+
+    private Vector3 SampleSpawnPosition()
+    {
+        float total = 0f;
+        if (spawnAreas != null)
+            foreach (var region in spawnAreas)
+                if (region != null && region.isActiveAndEnabled) total += region.Area;
+        if (total > 0f)
+        {
+            float pick = Random.value * total;
+            BookSpawnArea last = null;
+            foreach (var region in spawnAreas)
+            {
+                if (region == null || !region.isActiveAndEnabled || region.Area <= 0f) continue;
+                last = region;
+                pick -= region.Area;
+                if (pick <= 0f) return region.Sample();
+            }
+            return last.Sample();
+        }
+        if (spawnAreas != null && spawnAreas.Length > 0)
+            throw new System.InvalidOperationException("BookSpawner: Spawn Areas listesinde aktif, gecerli alan yok.");
+        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
+        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f),
+            spawnHeight, Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f)));
+    }
 
     void Start()
     {
@@ -71,6 +101,18 @@ public class BookSpawner : MonoBehaviour
 
     void SpawnBooks(int bookTypeCount)
     {
+        // Validate before instantiating any books, including the all-disabled case.
+        if (spawnAreas != null && spawnAreas.Length > 0)
+        {
+            bool valid = false;
+            foreach (var region in spawnAreas)
+                if (region != null && region.isActiveAndEnabled && region.Area > 0f) valid = true;
+            if (!valid)
+            {
+                Debug.LogError("BookSpawner: Aktif spawn alani yok. En az bir alani acin.");
+                return;
+            }
+        }
         List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
 
         for (int index = 0; index < bookTypeCount; index++)
@@ -105,10 +147,7 @@ public class BookSpawner : MonoBehaviour
             return;
         }
 
-        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        float x = Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
-        float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
-        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
+        Vector3 pos = SampleSpawnPosition();
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.

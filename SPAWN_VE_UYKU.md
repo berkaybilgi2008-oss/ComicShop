@@ -1,0 +1,35 @@
+# Spawn alanlari ve havada uyku duzeltmesi
+
+## Kurulum
+Unity Play modundan cik. Hierarchy'de BookSpawner bileseni olan nesneyi sec.
+Tools > ComicShop > Spawn > Mevcut Alandan Guvenli Bolgeler Olustur komutunu calistir.
+Eski v16SpawnArea / areaSize sinirlari icinde zemin ve bosluk taranir.
+Olusan BookSpawnAreas altindaki yesil alanlari Scene gorunumunde kontrol et; Ctrl+S ile sahneyi kaydet.
+Bu arac raf duzenini senin acik sahnenden okur; Git'teki sahne otomatik degistirilmedi.
+
+## Manuel ayar
+- SpawnArea nesnesini sec. W ile tasi, E ile sadece Y ekseninde dondur.
+- Width / Depth genislik ve derinliktir; Scene tutamaclariyla da degisir.
+- Height zeminden dogma yuksekligidir. Varsayilan 0.4 birim.
+- Alan duvar ve raflardan kitap yarisi kadar uzak olmali. Otomatik tarama 0.2 birim pay birakir; buyuk kitaplarda daha fazla pay birak.
+- Yeni alan icin Ctrl+D kullan; kopyayi BookSpawner > Spawn Areas listesine ekle.
+- Kullanmayacagin alanin GameObject tikini kapat. Listedeki tum alanlar kapaliysa kitap uretilmez ve hata yazilir.
+- Liste tamamen bossa eski dikdortgen spawn sistemi kullanilir.
+- Buyuk bolgeler alanlari oraninda daha fazla kitap alir; toplam kitap adedi degismez.
+- Otomatik tarama collider gerektirir; masa/raf ustunu zemin sanabilir. Alanlarin dukkân zemini uzerinde kaldigini kontrol et.
+- Raflar eski spawn sinirlari disina tasindiysa once eski alanin konumunu ve areaSize degerini ayarla.
+- Yeniden uretme mevcut listeyi ezmez. Undo ile geri alabilirsin.
+
+## Uyku duzeltmesi
+BookItem, destek yakalayamadigi uyuyan dinamik kitabi artik WakeUp ile uyandirir.
+Onceki erken return uyuyan kitabin yercekimiyle dusmesini baslatmiyordu.
+Yerde destekli ve kinematic olarak dondurulmus kitaplar bu yoldan uyandirilmaz.
+Kontrol yalnizca offline/host fiziginde calisir; client Rigidbody yetkisi degismez.
+Bu, kodda bulunan bir acigi kapatir; bildirilen tum donmalarin tek nedeni oldugu henuz dogrulanmadi.
+
+## Unity dogrulamasi (bu ortamda calistirilamadi)
+1. Offline ve host/client olarak hizli birakma, dusuk/tam sarjli Q atisini tekrarla.
+2. Havada donan kitap olursa Inspector'da BookItem.IsHeld, currentSlot ve Rigidbody Is Kinematic / Use Gravity durumlarini incele.
+3. Zeminde duran kitaplarin Q carpmasiyla yeniden hareket etmedigini; altindaki kitap alininca usttekinin dustugunu kontrol et.
+4. Spawn bolgelerini tasiyip dondur, yeniden oturum baslat; tum kitaplarin alanlarda dogdugunu kontrol et.
+5. Alan listesini bosaltarak eski akisi ve tum alanlari kapatarak hata durumunu kontrol et.

@@ -143,6 +143,17 @@ public class BookItem : MonoBehaviour
         if (manager != null && manager.IsListening && !manager.IsServer) return;
         CheckFrozenSupport();
         if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        // PhysX can sleep before our own rest timer. An unsupported sleeping
+        // body receives no gravity integration and must be explicitly awakened.
+        if (body.IsSleeping() && !CaptureRestSupports())
+        {
+            body.useGravity = true;
+            body.WakeUp();
+            stillTimer = 0f;
+            settlingContactCount = 0;
+            contactStep = float.NegativeInfinity;
+            return;
+        }
         if (ContinueEdgeSettling()) return;
         if (Time.time < settleNotBefore) return;
 
@@ -156,7 +167,11 @@ public class BookItem : MonoBehaviour
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;
-        if (!CaptureRestSupports()) return;
+        if (!CaptureRestSupports())
+        {
+            body.WakeUp();
+            return;
+        }
         if (!CanFreezeAfterSettling()) return;
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
