@@ -49,6 +49,8 @@ public class BookItem : MonoBehaviour
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
     private bool frozenAtRest;
     private float nextSupportCheck;
+    private Vector3 frozenPosition;
+    private Quaternion frozenRotation;
     private struct RestSupport
     {
         public Collider collider;
@@ -84,6 +86,8 @@ public class BookItem : MonoBehaviour
         body.detectCollisions = true;
         body.useGravity = true;
         frozenAtRest = true;
+        frozenPosition = transform.position;
+        frozenRotation = transform.rotation;
         nextSupportCheck = Time.time + 0.1f;
         stillTimer = 0f;
         edgeAssistUntil = 0f;
@@ -128,7 +132,9 @@ public class BookItem : MonoBehaviour
     {
         if (!frozenAtRest || Time.time < nextSupportCheck) return;
         nextSupportCheck = Time.time + 0.1f;
-        bool intact = restSupports.Count > 0;
+        bool intact = restSupports.Count > 0 &&
+            (transform.position - frozenPosition).sqrMagnitude < 0.000001f &&
+            Quaternion.Angle(transform.rotation, frozenRotation) < 0.1f;
         foreach (var saved in restSupports)
         {
             var support = saved.collider;
@@ -137,7 +143,7 @@ public class BookItem : MonoBehaviour
             var supportBody = support.attachedRigidbody;
             var other = support.GetComponentInParent<BookItem>();
             if ((supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) ||
-                (other != null && other.IsHeld) ||
+                (other != null && (other.IsHeld || (other.currentSlot == null && !other.frozenAtRest))) ||
                 (support.transform.position - saved.position).sqrMagnitude > 0.000001f ||
                 Quaternion.Angle(support.transform.rotation, saved.rotation) > 0.1f ||
                 (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f)
@@ -175,7 +181,19 @@ public class BookItem : MonoBehaviour
         var manager = Unity.Netcode.NetworkManager.Singleton;
         if (manager != null && manager.IsListening && !manager.IsServer) return;
         CheckFrozenSupport();
-        if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        if (IsHeld || currentSlot != null || body == null) return;
+        // A loose authoritative book may be kinematic only while its tracked
+        // resting support is intact. Recover stale hand/network physics state.
+        if (body.isKinematic && !frozenAtRest)
+        {
+            body.isKinematic = false;
+            body.detectCollisions = true;
+            body.useGravity = true;
+            body.WakeUp();
+            stillTimer = 0f;
+            settleNotBefore = Time.time + 0.5f;
+        }
+        if (body.isKinematic) return;
         // PhysX can sleep before our own rest timer. An unsupported sleeping
         // body receives no gravity integration and must be explicitly awakened.
         if (body.IsSleeping() && !CaptureRestSupports())
@@ -210,6 +228,8 @@ public class BookItem : MonoBehaviour
         body.angularVelocity = Vector3.zero;
         body.isKinematic = true;
         frozenAtRest = true;
+        frozenPosition = transform.position;
+        frozenRotation = transform.rotation;
         nextSupportCheck = Time.time + 0.1f;
     }
 

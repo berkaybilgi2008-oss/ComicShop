@@ -595,8 +595,11 @@ public class PlayerInteraction : MonoBehaviour
 
     Quaternion GetHeldLocalRotation(BookItem book)
     {
-        // Preserve the authored hand anchor and each prefab's calibrated pose.
-        return book != null ? book.NativeRotation : Quaternion.identity;
+        if (book == null || rightHandPoint == null) return Quaternion.identity;
+        // Reuse prefab-specific front-cover calibration, with the cover facing up.
+        Vector3 heading = Vector3.ProjectOnPlane(rightHandPoint.forward, Vector3.up);
+        if (heading.sqrMagnitude < 0.001f) heading = Vector3.forward;
+        return Quaternion.Inverse(rightHandPoint.rotation) * book.GetAlignedRotation(Vector3.up, heading);
     }
 
     IEnumerator MoveBookIntoHand(BookItem book)
@@ -619,16 +622,27 @@ public class PlayerInteraction : MonoBehaviour
         Quaternion currentLocalRotation = book.transform.localRotation;
         Vector3 currentLocalScale = book.transform.localScale;
 
-        float duration = Mathf.Max(0.01f, bookMoveDuration);
+        // A short tuck hides the orientation change at minimum scale instead
+        // of visibly interpolating a 180-degree flip all the way into the hand.
+        const float duration = 0.16f;
         float elapsed = 0f;
-
         while (elapsed < duration)
         {
+            if (book == null || !book.IsHeld || !heldBooks.Contains(book))
+            {
+                isBookAnimating = false;
+                yield break;
+            }
             elapsed += Time.deltaTime;
-            float t = EvaluateBookMoveCurve(elapsed / duration);
-            book.transform.localPosition = Vector3.LerpUnclamped(currentLocalPosition, targetLocalPosition, t);
-            book.transform.localRotation = Quaternion.SlerpUnclamped(currentLocalRotation, targetLocalRotation, t);
-            book.transform.localScale = Vector3.LerpUnclamped(currentLocalScale, targetLocalScale, t);
+            float progress = Mathf.Clamp01(elapsed / duration);
+            float travel = 1f - Mathf.Pow(1f - progress, 3f);
+            book.transform.localPosition = Vector3.Lerp(currentLocalPosition, targetLocalPosition, travel);
+            // Rotate only while tucked down to 8% size; no visible slow somersault.
+            float turn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.5f, progress));
+            book.transform.localRotation = Quaternion.Slerp(currentLocalRotation, targetLocalRotation, turn);
+            float shrink = progress < 0.3f ? Mathf.Lerp(1f, 0.08f, progress / 0.3f) :
+                progress < 0.5f ? 0.08f : Mathf.Lerp(0.08f, 1f, Mathf.SmoothStep(0f, 1f, (progress - 0.5f) / 0.5f));
+            book.transform.localScale = Vector3.Lerp(currentLocalScale, targetLocalScale, travel) * shrink;
             yield return null;
         }
 
@@ -1110,3 +1124,4 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, false);
     }
 }
+
