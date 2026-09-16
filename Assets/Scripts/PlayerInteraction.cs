@@ -77,6 +77,11 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float minThrowSpin = 10f;
     [Min(0f)] public float maxThrowSpin = 34f;
 
+    // Normalize the existing charge curve to a 207 km/h full-charge launch.
+    public float ChargedThrowSpeed(float charge) =>
+        Mathf.Lerp(Mathf.Clamp01(minThrowSpeed / Mathf.Max(0.001f, maxThrowSpeed)),
+            1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
+
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
@@ -340,12 +345,13 @@ public class PlayerInteraction : MonoBehaviour
         isThrowing = true;
 
         float elapsed = 0f;
+        float snapDuration = Mathf.Max(0.02f, throwArcDuration * 0.6f);
 
         // Bas arkasindan one dogru tek temiz yay; sona dogru hizlanir (bilek sokumu).
-        while (elapsed < throwArcDuration)
+        while (elapsed < snapDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / throwArcDuration);
+            float t = Mathf.Clamp01(elapsed / snapDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
             ThrowReleaseProgress = t * t * t;
             float angle = ThrowSwingAngle(finalCharge, ThrowReleaseProgress);
@@ -367,9 +373,12 @@ public class PlayerInteraction : MonoBehaviour
 
         Transform cam = playerCamera.transform;
 
+        var throwView = GetComponentInChildren<FirstPersonThrowView>();
+        if (throwView != null) throwView.BeginFlightHandoff(book);
+
         ThrowBook(
             book,
-            cam.forward * (Mathf.Lerp(minThrowSpeed, maxThrowSpeed, finalCharge) * releaseSnap),
+            cam.forward * ChargedThrowSpeed(finalCharge),
             cam.right,
             Mathf.Lerp(minThrowSpin, maxThrowSpin, finalCharge),
             true);
@@ -586,7 +595,8 @@ public class PlayerInteraction : MonoBehaviour
 
     Quaternion GetHeldLocalRotation(BookItem book)
     {
-        // Preserve the authored hand anchor and each prefab's calibrated pose.
+        // The hand anchor already defines the carrying plane. World-up alignment
+        // made the first pickup disagree with the authored arm/hand pose.
         return book != null ? book.NativeRotation : Quaternion.identity;
     }
 
@@ -610,16 +620,24 @@ public class PlayerInteraction : MonoBehaviour
         Quaternion currentLocalRotation = book.transform.localRotation;
         Vector3 currentLocalScale = book.transform.localScale;
 
-        float duration = Mathf.Max(0.01f, bookMoveDuration);
+        // Set the calibrated orientation once; slide into the hand without a
+        // somersault or scale pulse. All books, including the first, use this pose.
+        book.transform.localRotation = targetLocalRotation;
+        const float duration = 0.12f;
         float elapsed = 0f;
-
         while (elapsed < duration)
         {
+            if (book == null || !book.IsHeld || !heldBooks.Contains(book))
+            {
+                isBookAnimating = false;
+                yield break;
+            }
             elapsed += Time.deltaTime;
-            float t = EvaluateBookMoveCurve(elapsed / duration);
-            book.transform.localPosition = Vector3.LerpUnclamped(currentLocalPosition, targetLocalPosition, t);
-            book.transform.localRotation = Quaternion.SlerpUnclamped(currentLocalRotation, targetLocalRotation, t);
-            book.transform.localScale = Vector3.LerpUnclamped(currentLocalScale, targetLocalScale, t);
+            float progress = Mathf.Clamp01(elapsed / duration);
+            float travel = 1f - Mathf.Pow(1f - progress, 3f);
+            book.transform.localPosition = Vector3.Lerp(currentLocalPosition, targetLocalPosition, travel);
+            book.transform.localRotation = targetLocalRotation;
+            book.transform.localScale = Vector3.Lerp(currentLocalScale, targetLocalScale, travel);
             yield return null;
         }
 
@@ -1022,8 +1040,12 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
 
             // Sarjli atista kitap diger kitaplara CARPAR ama onlari SAVURMAZ.
-            if (charged && book.GetComponent<ThrownBook>() == null)
-                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
+            if (charged)
+            {
+                var flight = book.GetComponent<ThrownBook>();
+                if (flight == null) flight = book.gameObject.AddComponent<ThrownBook>();
+                flight.Configure(spinAxis, transform);
+            }
         }
 
         StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
@@ -1097,3 +1119,4 @@ public class PlayerInteraction : MonoBehaviour
         IgnorePlayerCollision(book, false);
     }
 }
+
