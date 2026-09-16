@@ -33,7 +33,9 @@ public class BookToonEffect : MonoBehaviour
 
     private void BuildBlackEdgeLines()
     {
-        Shader shader = Resources.Load<Shader>("BookCel");
+        Material template = Resources.Load<Material>("ComicShopToon/ToonRuntimeTemplate");
+        Shader shader = ComicShop.Rendering.ToonStyleController.DefaultStyle.ToonShader;
+        if (shader == null) shader = Shader.Find("ComicShop/ToonLit");
         if (shader == null) return;
         foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>(true))
         {
@@ -46,7 +48,11 @@ public class BookToonEffect : MonoBehaviour
                 if (source == null || source.shader == shader) continue;
                 if (!Materials.TryGetValue(source, out Material cel) || cel == null)
                 {
-                    cel = new Material(shader) { name = source.name + "_BookCel", enableInstancing = true };
+                    cel = template != null ? new Material(template) : new Material(shader);
+                    cel.name = source.name + "_GlobalToon";
+                    cel.enableInstancing = true;
+                    cel.SetFloat("_HalftoneEnabled", 1);
+                    cel.EnableKeyword("_TOON_HALFTONE");
                     string map = source.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
                     if (source.HasProperty(map))
                     {
