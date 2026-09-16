@@ -97,7 +97,7 @@ namespace ComicShopV16
                         string path = AssetDatabase.GetAssetPath(original);
                         if (path.StartsWith(materialFolder + "/", StringComparison.Ordinal)) continue;
                         string guid = AssetDatabase.AssetPathToGUID(path);
-                        if (string.IsNullOrEmpty(guid)) guid = original.GetInstanceID().ToString();
+                        if (string.IsNullOrEmpty(guid)) guid = Guid.NewGuid().ToString("N");
                         string destination = materialFolder + "/Warm-" + guid + ".mat";
                         replacement = AssetDatabase.LoadAssetAtPath<Material>(destination);
                         if (!replacement)
