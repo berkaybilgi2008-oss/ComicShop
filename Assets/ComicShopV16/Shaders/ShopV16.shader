@@ -17,7 +17,7 @@ Shader "ComicShop/V16 Source Toon"
         _OffsetFactor("Depth offset factor", Float) = 0
         _OffsetUnits("Depth offset units", Float) = 0
         _ShadowColor("Warm shadow tint", Color) = (0.52,0.39,0.30,1)
-        _AmbientFloor("Ambient floor", Range(0,0.3)) = 0.06
+        _AmbientFloor("Ambient floor", Range(0,0.6)) = 0.32
         _LightSteps("Light steps", Range(2,3)) = 3
         _LightThreshold("Light threshold", Range(0.01,1)) = 0.18
     }
@@ -133,7 +133,8 @@ Shader "ComicShop/V16 Source Toon"
                         direct += ToonLight(GetAdditionalLight(lightIndex, i.positionWS, half4(1,1,1,1)), n);
                     LIGHT_LOOP_END
                 #endif
-                half3 lighting = _ShadowColor.rgb * _AmbientFloor + direct;
+                half3 ambient = lerp(half3(1,1,1), _ShadowColor.rgb, 0.25) * _AmbientFloor;
+                half3 lighting = ambient + direct;
                 half3 color = albedo.rgb * lerp(lighting, half3(1,1,1), saturate(_Unlit)) + _Emission.rgb;
                 return half4(MixFog(color, i.fog), albedo.a);
             }
