@@ -19,7 +19,9 @@ namespace ComicShop.Rendering.Editor
             for (int i = 0; i < names.Length; i++)
             {
                 var mat = new Material(shader) { name = "Toon_" + names[i], enableInstancing = true };
-                mat.SetFloat("_Palette", i);
+                string[] colors = { "FFFFFF", "8A5A33", "C8913F", "DCD0A8", "6E8768", "D9A441", "E2542B", "5F7A66", "E8E3D7" };
+                ColorUtility.TryParseHtmlString("#" + colors[i], out Color baseColor);
+                mat.SetColor("_BaseColor", baseColor);
                 mat.SetFloat("_HalftoneEnabled", 1);
                 mat.EnableKeyword("_TOON_HALFTONE");
                 mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.BakedEmissive;
