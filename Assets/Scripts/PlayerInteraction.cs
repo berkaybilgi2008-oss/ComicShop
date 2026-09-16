@@ -138,6 +138,9 @@ public class PlayerInteraction : MonoBehaviour
         if (crosshair == null)
             crosshair = gameObject.AddComponent<Crosshair>();
 
+        if (GetComponent<HeldBookFlatCarry>() == null)
+            gameObject.AddComponent<HeldBookFlatCarry>();
+
         // Optional character package: bind when present, including spawned players.
         if (GetComponent<CharacterBookCarryBridge>() == null)
             gameObject.AddComponent<CharacterBookCarryBridge>();
@@ -595,9 +598,16 @@ public class PlayerInteraction : MonoBehaviour
 
     Quaternion GetHeldLocalRotation(BookItem book)
     {
-        // The hand anchor already defines the carrying plane. World-up alignment
-        // made the first pickup disagree with the authored arm/hand pose.
-        return book != null ? book.NativeRotation : Quaternion.identity;
+        if (book == null || rightHandPoint == null) return Quaternion.identity;
+        return Quaternion.Inverse(rightHandPoint.rotation) * GetFlatCarryRotation(book);
+    }
+
+    public Quaternion GetFlatCarryRotation(BookItem book)
+    {
+        // Player heading stays stable while the empty hand rises into its carry pose.
+        Vector3 heading = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        if (heading.sqrMagnitude < 0.001f) heading = Vector3.forward;
+        return book.GetAlignedRotation(Vector3.up, heading.normalized);
     }
 
     IEnumerator MoveBookIntoHand(BookItem book)
