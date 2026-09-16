@@ -4,7 +4,7 @@ using UnityEngine;
 /// Sarjli atisla firlatilan kitaba GECICI olarak eklenir.
 ///
 /// Iki isi var:
-///   1) Kitap ucarken kendi duzleminde temiz doner (yalpalamaz).
+///   1) Kisa cikis hareketinden sonra kendi duzleminde donerek ucar.
 ///   2) Temastan sonra kendi donusunu yavaslatir. Diger dinamik kitaplarin
 ///      hizini sifirlamaz; aksi halde dusme ve yerlesme engellenir.
 ///
@@ -21,8 +21,8 @@ public class ThrownBook : MonoBehaviour
     [Min(0f)] public float flightLinearDamping = 0.08f;
     [Min(0f)] public float flightAngularDamping = 0.05f;
 
-    [Tooltip("Donme eksenini her fizik adiminda hizalar. Kitabin havada yalpalayip " +
-             "yamuk donmesini engeller. Ilk carpismadan sonra devre disi kalir.")]
+    [Tooltip("Kisa cikistan sonra kitabi tek duzleme hizalar ve bu duzlemde surekli dondurur. " +
+             "Ilk carpismadan sonra normal fizik geri gelir.")]
     public bool lockSpinAxis = true;
 
     [Header("Carpma Sonrasi")]
@@ -39,8 +39,15 @@ public class ThrownBook : MonoBehaviour
     private float spawnTime;
     private float originalLinearDamping;
     private float originalAngularDamping;
+    private float originalMaxAngularVelocity;
+    private float flightSpin;
     private Vector3 spinAxis = Vector3.right;
+    private BookItem item;
+    private Quaternion launchRotation;
+    private float alignmentElapsed;
+    private const float alignmentDuration = 0.065f;
     private bool hasHit;
+    public bool HasImpacted => hasHit;
     private Transform thrower;
     private Vector3 previousPosition;
     private readonly RaycastHit[] obstructionHits = new RaycastHit[32];
@@ -48,6 +55,7 @@ public class ThrownBook : MonoBehaviour
     void Awake()
     {
         body = GetComponent<Rigidbody>();
+        item = GetComponent<BookItem>();
         spawnTime = Time.time;
         previousPosition = transform.position;
 
@@ -55,6 +63,7 @@ public class ThrownBook : MonoBehaviour
         {
             originalLinearDamping = body.linearDamping;
             originalAngularDamping = body.angularDamping;
+            originalMaxAngularVelocity = body.maxAngularVelocity;
 
             body.linearDamping = flightLinearDamping;
             body.angularDamping = flightAngularDamping;
@@ -65,18 +74,52 @@ public class ThrownBook : MonoBehaviour
     public void Configure(Vector3 axis, Transform source = null)
     {
         thrower = source;
+        hasHit = false;
+        spawnTime = Time.time;
+        previousPosition = transform.position;
+        alignmentElapsed = 0f;
+        launchRotation = body != null ? body.rotation : transform.rotation;
         if (axis.sqrMagnitude > 0.0001f)
             spinAxis = axis.normalized;
+        if (body != null)
+        {
+            // Capture the charge-dependent spin before the short alignment bridge.
+            flightSpin = Vector3.Dot(body.angularVelocity, spinAxis);
+            body.maxAngularVelocity = Mathf.Max(originalMaxAngularVelocity, Mathf.Abs(flightSpin));
+            body.linearDamping = flightLinearDamping;
+            body.angularDamping = flightAngularDamping;
+            if (lockSpinAxis) body.angularVelocity = Vector3.zero;
+        }
     }
 
     void FixedUpdate()
     {
         if (body != null && !hasHit && !body.isKinematic) CheckPlayerHit();
-        if (body == null || hasHit || !lockSpinAxis)
+        if (body == null || body.isKinematic || hasHit || !lockSpinAxis)
             return;
 
-        // Acisal hizin eksen disi bileseni atilir -> yalpalama olmaz.
-        body.angularVelocity = spinAxis * Vector3.Dot(body.angularVelocity, spinAxis);
+        // Only the authoritative Rigidbody steers the flight. Gravity and all
+        // translational motion remain physical; aiming does not bend toward a target.
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return;
+        if (alignmentElapsed >= alignmentDuration)
+        {
+            // Keep spinning around one fixed axis; do not aim the long edge forward
+            // again each frame, which would cancel the rotation. Collision unlocks it.
+            body.angularVelocity = spinAxis * flightSpin;
+            return;
+        }
+        if (item == null || body.linearVelocity.sqrMagnitude < 0.01f) return;
+        Vector3 direction = body.linearVelocity.normalized;
+        Vector3 normal = spinAxis;
+        if (Vector3.ProjectOnPlane(direction, normal).sqrMagnitude < 0.0001f) return;
+        Quaternion aligned = item.GetAlignedRotation(normal.normalized, direction);
+        alignmentElapsed += Time.fixedDeltaTime;
+        float t = Mathf.Clamp01(alignmentElapsed / alignmentDuration);
+        float blend = 1f - Mathf.Pow(1f - t, 3f);
+        body.angularVelocity = Vector3.zero;
+        Quaternion spin = Quaternion.AngleAxis(flightSpin * alignmentElapsed * Mathf.Rad2Deg, normal.normalized);
+        body.MoveRotation(spin * Quaternion.Slerp(launchRotation, aligned, blend));
     }
 
     private void CheckPlayerHit()
@@ -152,6 +195,7 @@ public class ThrownBook : MonoBehaviour
         {
             body.linearDamping = originalLinearDamping;
             body.angularDamping = originalAngularDamping;
+            body.maxAngularVelocity = originalMaxAngularVelocity;
         }
     }
 }

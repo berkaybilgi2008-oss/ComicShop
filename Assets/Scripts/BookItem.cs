@@ -49,6 +49,8 @@ public class BookItem : MonoBehaviour
     private readonly HashSet<BookItem> supportVisited = new HashSet<BookItem>();
     private bool frozenAtRest;
     private float nextSupportCheck;
+    private Vector3 frozenPosition;
+    private Quaternion frozenRotation;
     private struct RestSupport
     {
         public Collider collider;
@@ -57,10 +59,46 @@ public class BookItem : MonoBehaviour
     }
     private readonly List<RestSupport> restSupports = new List<RestSupport>(8);
 
+    // Only the spawn layout calls this, bottom to top, after validating the floor.
+    // Reuse the normal support tracking: removing a lower book releases the upper one.
+    public bool InitializeSupportedSpawn(Collider support)
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return false;
+        if (body == null || IsHeld || currentSlot != null || support == null ||
+            !support.enabled || support.isTrigger || !support.gameObject.activeInHierarchy ||
+            support.attachedRigidbody == body) return false;
+        var supportingBody = support.attachedRigidbody;
+        if (supportingBody != null && (!supportingBody.isKinematic || !supportingBody.detectCollisions)) return false;
+        var supportingBook = support.GetComponentInParent<BookItem>();
+        if (supportingBook != null && (supportingBook.IsHeld || !supportingBook.frozenAtRest)) return false;
+        restSupports.Clear();
+        restSupports.Add(new RestSupport {
+            collider = support, position = support.transform.position,
+            rotation = support.transform.rotation, scale = support.transform.lossyScale
+        });
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        body.isKinematic = true;
+        body.detectCollisions = true;
+        body.useGravity = true;
+        frozenAtRest = true;
+        frozenPosition = transform.position;
+        frozenRotation = transform.rotation;
+        nextSupportCheck = Time.time + 0.1f;
+        stillTimer = 0f;
+        edgeAssistUntil = 0f;
+        return true;
+    }
+
     private bool CaptureRestSupports()
     {
         restSupports.Clear();
-        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f) return false;
+        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f ||
+            (!body.IsSleeping() && Time.fixedTime - contactStep > Time.fixedDeltaTime * 1.5f)) return false;
         Vector3 up = -Physics.gravity.normalized;
         for (int i = 0; i < settlingContactCount; i++)
         {
@@ -91,26 +129,33 @@ public class BookItem : MonoBehaviour
         return restSupports.Count > 0;
     }
 
-    private void CheckFrozenSupport()
+    // Follow the entire support chain immediately, rather than waiting 0.1s
+    // per layer. A 25-book tower otherwise releases as a visibly delayed wave.
+    private bool SupportChainIntact(int depth)
     {
-        if (!frozenAtRest || Time.time < nextSupportCheck) return;
-        nextSupportCheck = Time.time + 0.1f;
-        bool intact = restSupports.Count > 0;
+        if (depth > 128 || !frozenAtRest || IsHeld || body == null || !body.isKinematic ||
+            restSupports.Count == 0 || (transform.position - frozenPosition).sqrMagnitude >= 0.000001f ||
+            Quaternion.Angle(transform.rotation, frozenRotation) >= 0.1f) return false;
         foreach (var saved in restSupports)
         {
             var support = saved.collider;
             if (support == null || !support.enabled || !support.gameObject.activeInHierarchy || support.isTrigger)
-            { intact = false; break; }
+                return false;
             var supportBody = support.attachedRigidbody;
             var other = support.GetComponentInParent<BookItem>();
             if ((supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) ||
-                (other != null && other.IsHeld) ||
                 (support.transform.position - saved.position).sqrMagnitude > 0.000001f ||
                 Quaternion.Angle(support.transform.rotation, saved.rotation) > 0.1f ||
-                (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f)
-            { intact = false; break; }
+                (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f) return false;
+            if (other != null && (other.IsHeld || (other.currentSlot == null && !other.SupportChainIntact(depth + 1))))
+                return false;
         }
-        if (intact) return; // Incoming Q impacts never unfreeze a supported book.
+        return true;
+    }
+
+    private void CheckFrozenSupport()
+    {
+        if (!frozenAtRest || SupportChainIntact(0)) return;
         frozenAtRest = false;
         restSupports.Clear();
         body.isKinematic = false;
@@ -142,7 +187,30 @@ public class BookItem : MonoBehaviour
         var manager = Unity.Netcode.NetworkManager.Singleton;
         if (manager != null && manager.IsListening && !manager.IsServer) return;
         CheckFrozenSupport();
-        if (IsHeld || currentSlot != null || body == null || body.isKinematic) return;
+        if (IsHeld || currentSlot != null || body == null) return;
+        // A loose authoritative book may be kinematic only while its tracked
+        // resting support is intact. Recover stale hand/network physics state.
+        if (body.isKinematic && !frozenAtRest)
+        {
+            body.isKinematic = false;
+            body.detectCollisions = true;
+            body.useGravity = true;
+            body.WakeUp();
+            stillTimer = 0f;
+            settleNotBefore = Time.time + 0.5f;
+        }
+        if (body.isKinematic) return;
+        // PhysX can sleep before our own rest timer. An unsupported sleeping
+        // body receives no gravity integration and must be explicitly awakened.
+        if (body.IsSleeping() && !CaptureRestSupports())
+        {
+            body.useGravity = true;
+            body.WakeUp();
+            stillTimer = 0f;
+            settlingContactCount = 0;
+            contactStep = float.NegativeInfinity;
+            return;
+        }
         if (ContinueEdgeSettling()) return;
         if (Time.time < settleNotBefore) return;
 
@@ -153,15 +221,29 @@ public class BookItem : MonoBehaviour
             return;
         }
 
+        // Require continuous real support during the whole rest delay.
+        // A brief collision after a slow airborne phase must not freeze the book.
+        if (!CaptureRestSupports())
+        {
+            stillTimer = 0f;
+            body.WakeUp();
+            return;
+        }
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;
-        if (!CaptureRestSupports()) return;
+        if (!CaptureRestSupports())
+        {
+            body.WakeUp();
+            return;
+        }
         if (!CanFreezeAfterSettling()) return;
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
         body.isKinematic = true;
         frozenAtRest = true;
+        frozenPosition = transform.position;
+        frozenRotation = transform.rotation;
         nextSupportCheck = Time.time + 0.1f;
     }
 

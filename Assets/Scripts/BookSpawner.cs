@@ -24,7 +24,49 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int testBookTypeCount = 15;
 
+    [Header("Elle Duzenlenebilir Spawn Alanlari")]
+    [Tooltip("Bos ise eski alan kullanilir. Alanlari Scene ekraninda duzenleyin.")]
+    public BookSpawnArea[] spawnAreas;
+    [Tooltip("Sadece eski sahneler icin: Spawn Areas bossa V16 alanini kullan. Elle alan kullaniyorsan kapali tut.")]
+    public bool allowLegacyArea = false;
+
+    [Header("Rastgele Kuleler")]
+    // New field names intentionally avoid restoring serialized 20% / 25-book settings.
+    [Range(0f, 1f)] public float mixedTowerBookFraction = 0.1f;
+    [Min(2)] public int smallTowerSize = 10;
+    [Min(2)] public int largeTowerSize = 15;
+    [Tooltip("Her kitap icin kule yonunden rastgele sapma (derece).")]
+    [Range(0f, 180f)] public float towerYawJitter = 8f;
+
     private bool sessionSpawned;
+
+    private Vector3 SampleSpawnPosition()
+    {
+        float total = 0f;
+        if (spawnAreas != null)
+            foreach (var region in spawnAreas)
+                if (region != null && region.isActiveAndEnabled) total += region.Area;
+        if (total > 0f)
+        {
+            float pick = Random.value * total;
+            BookSpawnArea last = null;
+            foreach (var region in spawnAreas)
+            {
+                if (region == null || !region.isActiveAndEnabled || region.Area <= 0f) continue;
+                last = region;
+                pick -= region.Area;
+                if (pick <= 0f) return region.Sample();
+            }
+            return last.Sample();
+        }
+        if (spawnAreas != null && spawnAreas.Length > 0)
+            throw new System.InvalidOperationException("BookSpawner: Spawn Areas listesinde aktif, gecerli alan yok.");
+        if (!allowLegacyArea)
+            throw new System.InvalidOperationException("BookSpawner: Spawn Areas listesi bos; eski genis alana gecis engellendi.");
+        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
+        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f),
+            spawnHeight, Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f)));
+    }
 
     void Start()
     {
@@ -71,6 +113,24 @@ public class BookSpawner : MonoBehaviour
 
     void SpawnBooks(int bookTypeCount)
     {
+        if ((spawnAreas == null || spawnAreas.Length == 0) && !allowLegacyArea)
+        {
+            Debug.LogError($"BookSpawner '{name}': Spawn Areas bos. 4x4 alanini bu listeye bagla. V16 alanina otomatik gecilmedi.", this);
+            return;
+        }
+        Debug.Log($"BookSpawner '{name}': {(spawnAreas != null ? spawnAreas.Length : 0)} atanmis alan; eski alan izni={allowLegacyArea}.", this);
+        // Validate before instantiating any books, including the all-disabled case.
+        if (spawnAreas != null && spawnAreas.Length > 0)
+        {
+            bool valid = false;
+            foreach (var region in spawnAreas)
+                if (region != null && region.isActiveAndEnabled && region.Area > 0f) valid = true;
+            if (!valid)
+            {
+                Debug.LogError("BookSpawner: Aktif spawn alani yok. En az bir alani acin.");
+                return;
+            }
+        }
         List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
 
         for (int index = 0; index < bookTypeCount; index++)
@@ -85,13 +145,26 @@ public class BookSpawner : MonoBehaviour
             (ids[i], ids[j]) = (ids[j], ids[i]);
         }
 
+        var books = new List<BookItem>(ids.Count);
         foreach (int index in ids)
-            SpawnSingleBook(index);
-
-        Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
+        {
+            var book = SpawnSingleBook(index);
+            if (book != null) books.Add(book);
+        }
+        int towers = ArrangeTowers(books);
+        SeparateInitialBooks(books);
+        // Publish only the final layout. Clients never roll their own random layout.
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+            foreach (var book in books)
+            {
+                var networkBook = book.GetComponent<NetworkBook>();
+                networkBook.Initialize(book.bookID, book.brandID);
+                networkBook.NetworkObject.Spawn(true);
+            }
+        Debug.Log($"BookSpawner: {books.Count} kitap, {towers} kule ({Mathf.Max(2, smallTowerSize)} / {Mathf.Max(2, largeTowerSize)} kitaplik).");
     }
 
-    void SpawnSingleBook(int index)
+    BookItem SpawnSingleBook(int index)
     {
         BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
 
@@ -102,13 +175,10 @@ public class BookSpawner : MonoBehaviour
         if (prefabToSpawn == null)
         {
             Debug.LogError($"BookSpawner: BookID {bookID} icin spawn edilecek prefab yok.");
-            return;
+            return null;
         }
 
-        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        float x = Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
-        float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
-        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
+        Vector3 pos = SampleSpawnPosition();
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
@@ -119,7 +189,7 @@ public class BookSpawner : MonoBehaviour
         {
             Debug.LogError($"BookSpawner: '{prefabToSpawn.name}' prefab'inda BookItem bulunamadi. BookData BookID {bookID}.");
             Destroy(book);
-            return;
+            return null;
         }
 
         bookItem.bookID = bookID;
@@ -129,10 +199,9 @@ public class BookSpawner : MonoBehaviour
         // bu nesneleri henuz goremez. Toon efektini spawn aninda uyguluyoruz.
         BookToonEffect.ApplyToBook(book);
 
-        // Start broad-face down with a random heading. An edge-first spawn plus
-        // an impulse was making every book spin violently on session startup.
-        Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
-        book.transform.rotation = bookItem.GetAlignedRotation(Vector3.up, heading);
+        // Scattered books start with independently random 3D orientations.
+        // Tower members are aligned to their supporting plane below.
+        book.transform.rotation = Random.rotationUniform;
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null && !rb.isKinematic)
         {
@@ -140,12 +209,217 @@ public class BookSpawner : MonoBehaviour
             rb.angularVelocity = Vector3.zero;
         }
 
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+        return bookItem;
+    }
+
+    private static Bounds BookBounds(BookItem book)
+    {
+        Bounds result = new Bounds(book.transform.position, Vector3.zero);
+        bool found = false;
+        foreach (var col in book.GetComponentsInChildren<Collider>())
         {
-            var networkBook = book.GetComponent<NetworkBook>();
-            networkBook.Initialize(bookID, brandID);
-            networkBook.NetworkObject.Spawn(true);
+            if (!col.enabled || col.isTrigger) continue;
+            if (!found) { result = col.bounds; found = true; }
+            else result.Encapsulate(col.bounds);
         }
+        return result;
+    }
+
+    private bool InsideArea(Vector3 point, float radius)
+    {
+        if (spawnAreas != null && spawnAreas.Length > 0)
+        {
+            foreach (var area in spawnAreas)
+                if (area != null && area.isActiveAndEnabled && Fits(area.transform, area.width, area.depth, point, radius))
+                    return true;
+            return false;
+        }
+        return Fits(v16SpawnArea != null ? v16SpawnArea : transform, areaSize.x, areaSize.y, point, radius);
+    }
+
+    private static bool Fits(Transform area, float width, float depth, Vector3 point, float radius)
+    {
+        Vector3 p = area.InverseTransformPoint(point);
+        Vector3 scale = area.lossyScale;
+        return Mathf.Abs(p.x) + radius / Mathf.Max(0.0001f, Mathf.Abs(scale.x)) <= Mathf.Abs(width) * 0.5f &&
+            Mathf.Abs(p.z) + radius / Mathf.Max(0.0001f, Mathf.Abs(scale.z)) <= Mathf.Abs(depth) * 0.5f;
+    }
+
+    private static bool Ground(Vector3 start, out RaycastHit ground)
+    {
+        ground = default;
+        float nearest = float.PositiveInfinity;
+        foreach (var hit in Physics.RaycastAll(start, Vector3.down, 30f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.collider.GetComponentInParent<BookItem>() != null) continue;
+            if (hit.distance >= nearest) continue;
+            nearest = hit.distance;
+            ground = hit;
+        }
+        return nearest < float.PositiveInfinity && ground.normal.y > 0.98f && ground.collider.attachedRigidbody == null;
+    }
+
+    private int ArrangeTowers(List<BookItem> books)
+    {
+        int small = Mathf.Max(2, smallTowerSize);
+        int large = Mathf.Max(2, largeTowerSize);
+        int budget = Mathf.Clamp(Mathf.RoundToInt(books.Count * Mathf.Clamp01(mixedTowerBookFraction)), 0, books.Count);
+        // Half of the tower BOOK budget goes to each size, not half of the towers.
+        // 3600 -> 360 -> 180/10 + 180/15 = 18 + 12 towers.
+        var sizes = new List<int>();
+        for (int i = 0; i < (budget / 2) / small; i++) sizes.Add(small);
+        for (int i = 0; i < (budget - budget / 2) / large; i++) sizes.Add(large);
+        for (int i = sizes.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (sizes[i], sizes[j]) = (sizes[j], sizes[i]);
+        }
+        int requested = sizes.Count;
+        if (requested == 0) return 0;
+        var reservations = new List<Vector4>();
+        var stacked = new HashSet<BookItem>();
+        Physics.SyncTransforms();
+        int cursor = 0;
+        for (int tower = 0; tower < requested; tower++)
+        {
+            int count = sizes[tower];
+            int first = cursor;
+            cursor += count;
+            float yaw = Random.Range(0f, 360f);
+            float radius = 0f, height = 0f;
+            for (int i = first; i < first + count; i++)
+            {
+                var book = books[i];
+                Vector3 heading = Quaternion.Euler(0f, yaw + Random.Range(-towerYawJitter, towerYawJitter), 0f) * Vector3.forward;
+                book.transform.rotation = book.GetAlignedRotation(Random.value < 0.5f ? Vector3.up : Vector3.down, heading);
+            }
+            Physics.SyncTransforms();
+            for (int i = first; i < first + count; i++)
+            {
+                Bounds b = BookBounds(books[i]);
+                radius = Mathf.Max(radius, new Vector2(b.extents.x, b.extents.z).magnitude);
+                height += b.size.y + 0.001f;
+            }
+            if (radius <= 0f || height <= 0f) continue;
+            radius += 0.02f;
+            bool found = false;
+            Vector3 basePoint = default;
+            Collider baseSupport = null;
+            for (int attempt = 0; attempt < 128; attempt++)
+            {
+                Vector3 candidate = SampleSpawnPosition();
+                if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
+                candidate.y = floor.point.y;
+                bool clear = true;
+                foreach (var reservation in reservations)
+                    if (Vector2.Distance(new Vector2(candidate.x, candidate.z), new Vector2(reservation.x, reservation.z)) < radius + reservation.w + 0.1f)
+                        clear = false;
+                // Confirm support at all corners, not just beneath the center.
+                for (int c = 0; c < 4 && clear; c++)
+                {
+                    Vector3 corner = candidate + new Vector3((c % 2 == 0 ? -1f : 1f) * radius, 0.1f, (c < 2 ? -1f : 1f) * radius);
+                    if (!Ground(corner, out var edge) || Mathf.Abs(edge.point.y - candidate.y) > 0.01f) clear = false;
+                }
+                if (!clear) continue;
+                foreach (var col in Physics.OverlapBox(candidate + Vector3.up * (height * 0.5f + 0.005f),
+                    new Vector3(radius, height * 0.5f, radius), Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+                    if (col.GetComponentInParent<BookItem>() == null) { clear = false; break; }
+                if (!clear) continue;
+                basePoint = candidate; baseSupport = floor.collider; found = true; break;
+            }
+            if (!found) continue;
+            float top = basePoint.y + 0.002f;
+            for (int i = first; i < first + count; i++)
+            {
+                var book = books[i];
+                Bounds b = BookBounds(book);
+                book.transform.position += new Vector3(basePoint.x - b.center.x, top - b.min.y, basePoint.z - b.center.z);
+                top += b.size.y + 0.001f;
+                stacked.Add(book);
+            }
+            Collider support = baseSupport;
+            for (int i = first; i < first + count; i++)
+            {
+                if (!books[i].InitializeSupportedSpawn(support))
+                {
+                    Debug.LogWarning("BookSpawner: Kule destegi kaydedilemedi; kalan kisim normal fizikte.");
+                    break;
+                }
+                support = null;
+                foreach (var col in books[i].GetComponentsInChildren<Collider>())
+                    if (col.enabled && !col.isTrigger) { support = col; break; }
+            }
+            reservations.Add(new Vector4(basePoint.x, basePoint.y, basePoint.z, radius));
+        }
+        // Keep scattered books from starting inside/above the newly built towers.
+        foreach (var book in books)
+        {
+            if (stacked.Contains(book)) continue;
+            Bounds b = BookBounds(book);
+            float radius = new Vector2(b.extents.x, b.extents.z).magnitude;
+            for (int attempt = 0; attempt < 128; attempt++)
+            {
+                bool overlaps = false;
+                foreach (var r in reservations)
+                    if (Vector2.Distance(new Vector2(book.transform.position.x, book.transform.position.z), new Vector2(r.x, r.z)) < radius + r.w + 0.05f)
+                        overlaps = true;
+                if (!overlaps) break;
+                book.transform.position = SampleSpawnPosition();
+                if (attempt == 127) Debug.LogWarning("BookSpawner: Dagilim alani cok dar; kule yakininda kitap kalabilir.");
+            }
+        }
+        Physics.SyncTransforms();
+        if (reservations.Count < requested) Debug.LogWarning($"BookSpawner: {requested} kuleden {reservations.Count} tanesi sigdi; kalan kitaplar daginik.");
+        return reservations.Count;
+    }
+
+    private void SeparateInitialBooks(List<BookItem> books)
+    {
+        Physics.SyncTransforms();
+        var placed = new List<Bounds>(books.Count);
+        // Towers stay where they were authored; reserve their physical volume first.
+        foreach (var book in books)
+            if (book.TryGetComponent<Rigidbody>(out var rb) && rb.isKinematic) placed.Add(BookBounds(book));
+        int unresolved = 0;
+        foreach (var book in books)
+        {
+            if (book.TryGetComponent<Rigidbody>(out var rb) && rb.isKinematic) continue;
+            Bounds original = BookBounds(book);
+            Vector3 offset = original.center - book.transform.position;
+            float radius = new Vector2(original.extents.x, original.extents.z).magnitude;
+            bool found = false;
+            for (int attempt = 0; attempt < 128; attempt++)
+            {
+                Vector3 candidate = SampleSpawnPosition();
+                if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
+                Bounds test = new Bounds(new Vector3(candidate.x, floor.point.y + original.extents.y + 0.003f, candidate.z), original.size);
+                // Raise above already placed books, instead of spawning intersecting
+                // rigidbodies that explode apart on the first physics step.
+                bool raised;
+                do
+                {
+                    raised = false;
+                    foreach (var other in placed)
+                    {
+                        if (!test.Intersects(other)) continue;
+                        test.center = new Vector3(test.center.x, other.max.y + test.extents.y + 0.003f, test.center.z);
+                        raised = true;
+                    }
+                } while (raised);
+                bool blocked = false;
+                foreach (var col in Physics.OverlapBox(test.center, test.extents, Quaternion.identity,
+                    Physics.AllLayers, QueryTriggerInteraction.Ignore))
+                    if (col.GetComponentInParent<BookItem>() == null) { blocked = true; break; }
+                if (blocked) continue;
+                book.transform.position = test.center - offset;
+                placed.Add(test);
+                found = true;
+                break;
+            }
+            if (!found) { placed.Add(original); unresolved++; }
+        }
+        Physics.SyncTransforms();
+        if (unresolved > 0) Debug.LogWarning($"BookSpawner: {unresolved} kitap icin cakismasiz yer bulunamadi. Alan cok dar veya zemin eksik; alan/adet ayarini kontrol et.", this);
     }
 
     int GetBrandID(int bookID)
