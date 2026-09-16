@@ -78,10 +78,12 @@
     <Compile Include="Assets\ComicShopV16\Runtime\ShopV16Fan.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastLocomotion.cs" />
     <Compile Include="Assets\ComicShopV16\Runtime\ShopV16Appearance.cs" />
+    <Compile Include="Assets\Scripts\BookItemCompatibilityExtensions.cs" />
     <Compile Include="Assets\Scripts\HeldBookHandOffset.cs" />
     <Compile Include="Assets\Scripts\BookRecallMachine.cs" />
     <Compile Include="Assets\Scripts\BookToonEffect.cs" />
     <Compile Include="Assets\Scripts\Net\OnlineSessionTransport.cs" />
+    <Compile Include="Assets\Scripts\BookCatalog.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotGenerator.cs" />
     <Compile Include="Assets\Scripts\InteractionSettingsSanitizer.cs" />
     <Compile Include="Assets\ComicShopToon\Runtime\ToonGlobals.cs" />

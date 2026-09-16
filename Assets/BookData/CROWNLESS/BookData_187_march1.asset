@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca31a001144f36b4682873e9276d6497, type: 3}
+  m_Name: BookData_187_march1
+  m_EditorClassIdentifier: Assembly-CSharp::BookData
+  BookID: 187
+  BrandID: 3
+  bookPrefab: {fileID: 9195725827240277188, guid: faadc3365ac68ee4dac875c056ab0575, type: 3}
