@@ -6,7 +6,7 @@ namespace ComicShop.Rendering
     public sealed class ToonStyleAsset : ScriptableObject
     {
         [Range(2, 3)] public float ShadowSteps = 2f;
-        [Range(0, 0.05)] public float RampSmoothness = 0.02f;
+        [Range(0f, 0.05f)] public float RampSmoothness = 0.02f;
          public Color ShadowTint = new Color(0.22745098f,0.18039216f,0.32156863f,1f);
         [Range(2, 8)] public float BakedSteps = 3f;
         [Range(0, 1)] public float BakedInfluence = 0.2f;
