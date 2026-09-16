@@ -11,7 +11,7 @@ public sealed class BookSpawnerEditor : Editor
     {
         serializedObject.Update();
         var spawner = (BookSpawner)target;
-        EditorGUILayout.HelpBox("Kitaplari BookSpawner uretir. V16 Spawn Area sadece eski konum/olcek referansidir. Spawn Areas doluysa V16 ve eski Area Size kullanilmaz.", MessageType.Info);
+        EditorGUILayout.HelpBox("Kitaplari BookSpawner uretir. V16 Spawn Area sadece eski konum/olcek referansidir. Spawn Areas doluysa V16 ve eski Area Size kullanilmaz. Bos liste varsayilan olarak hata verir; eski genis alana gecmez.", MessageType.Info);
         var all = Object.FindObjectsByType<BookSpawner>(FindObjectsSortMode.None);
         int active = 0;
         foreach (var entry in all) if (entry.isActiveAndEnabled) active++;
@@ -24,7 +24,7 @@ public sealed class BookSpawnerEditor : Editor
         }
         DrawPropertiesExcluding(serializedObject, "m_Script", "v16SpawnArea", "areaSize", "spawnHeight");
         bool manual = spawner.spawnAreas != null && spawner.spawnAreas.Length > 0;
-        EditorGUILayout.LabelField("Kullanilan alan", manual ? "Spawn Areas (elle cizilen)" : "Eski alan (V16 veya kendi Transform'u)");
+        EditorGUILayout.LabelField("Kullanilan alan", manual ? "Spawn Areas (elle cizilen)" : spawner.allowLegacyArea ? "Eski alan (V16)" : "ALAN YOK - spawn engelli");
         showLegacy = EditorGUILayout.Foldout(showLegacy, "Eski V16 / alan ayarlari");
         if (showLegacy)
         {

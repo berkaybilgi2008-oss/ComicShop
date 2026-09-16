@@ -27,6 +27,8 @@ public class BookSpawner : MonoBehaviour
     [Header("Elle Duzenlenebilir Spawn Alanlari")]
     [Tooltip("Bos ise eski alan kullanilir. Alanlari Scene ekraninda duzenleyin.")]
     public BookSpawnArea[] spawnAreas;
+    [Tooltip("Sadece eski sahneler icin: Spawn Areas bossa V16 alanini kullan. Elle alan kullaniyorsan kapali tut.")]
+    public bool allowLegacyArea = false;
 
     [Header("Rastgele Kuleler")]
     [Range(0f, 1f)] public float towerBookFraction = 0.2f;
@@ -57,6 +59,8 @@ public class BookSpawner : MonoBehaviour
         }
         if (spawnAreas != null && spawnAreas.Length > 0)
             throw new System.InvalidOperationException("BookSpawner: Spawn Areas listesinde aktif, gecerli alan yok.");
+        if (!allowLegacyArea)
+            throw new System.InvalidOperationException("BookSpawner: Spawn Areas listesi bos; eski genis alana gecis engellendi.");
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
         return area.TransformPoint(new Vector3(Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f),
             spawnHeight, Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f)));
@@ -107,6 +111,12 @@ public class BookSpawner : MonoBehaviour
 
     void SpawnBooks(int bookTypeCount)
     {
+        if ((spawnAreas == null || spawnAreas.Length == 0) && !allowLegacyArea)
+        {
+            Debug.LogError($"BookSpawner '{name}': Spawn Areas bos. 4x4 alanini bu listeye bagla. V16 alanina otomatik gecilmedi.", this);
+            return;
+        }
+        Debug.Log($"BookSpawner '{name}': {(spawnAreas != null ? spawnAreas.Length : 0)} atanmis alan; eski alan izni={allowLegacyArea}.", this);
         // Validate before instantiating any books, including the all-disabled case.
         if (spawnAreas != null && spawnAreas.Length > 0)
         {
@@ -140,6 +150,7 @@ public class BookSpawner : MonoBehaviour
             if (book != null) books.Add(book);
         }
         int towers = ArrangeTowers(books);
+        SeparateInitialBooks(books);
         // Publish only the final layout. Clients never roll their own random layout.
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
             foreach (var book in books)
@@ -344,6 +355,55 @@ public class BookSpawner : MonoBehaviour
         Physics.SyncTransforms();
         if (reservations.Count < requested) Debug.LogWarning($"BookSpawner: {requested} kuleden {reservations.Count} tanesi sigdi; kalan kitaplar daginik.");
         return reservations.Count;
+    }
+
+    private void SeparateInitialBooks(List<BookItem> books)
+    {
+        Physics.SyncTransforms();
+        var placed = new List<Bounds>(books.Count);
+        // Towers stay where they were authored; reserve their physical volume first.
+        foreach (var book in books)
+            if (book.TryGetComponent<Rigidbody>(out var rb) && rb.isKinematic) placed.Add(BookBounds(book));
+        int unresolved = 0;
+        foreach (var book in books)
+        {
+            if (book.TryGetComponent<Rigidbody>(out var rb) && rb.isKinematic) continue;
+            Bounds original = BookBounds(book);
+            Vector3 offset = original.center - book.transform.position;
+            float radius = new Vector2(original.extents.x, original.extents.z).magnitude;
+            bool found = false;
+            for (int attempt = 0; attempt < 128; attempt++)
+            {
+                Vector3 candidate = SampleSpawnPosition();
+                if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
+                Bounds test = new Bounds(new Vector3(candidate.x, floor.point.y + original.extents.y + 0.003f, candidate.z), original.size);
+                // Raise above already placed books, instead of spawning intersecting
+                // rigidbodies that explode apart on the first physics step.
+                bool raised;
+                do
+                {
+                    raised = false;
+                    foreach (var other in placed)
+                    {
+                        if (!test.Intersects(other)) continue;
+                        test.center = new Vector3(test.center.x, other.max.y + test.extents.y + 0.003f, test.center.z);
+                        raised = true;
+                    }
+                } while (raised);
+                bool blocked = false;
+                foreach (var col in Physics.OverlapBox(test.center, test.extents, Quaternion.identity,
+                    Physics.AllLayers, QueryTriggerInteraction.Ignore))
+                    if (col.GetComponentInParent<BookItem>() == null) { blocked = true; break; }
+                if (blocked) continue;
+                book.transform.position = test.center - offset;
+                placed.Add(test);
+                found = true;
+                break;
+            }
+            if (!found) { placed.Add(original); unresolved++; }
+        }
+        Physics.SyncTransforms();
+        if (unresolved > 0) Debug.LogWarning($"BookSpawner: {unresolved} kitap icin cakismasiz yer bulunamadi. Alan cok dar veya zemin eksik; alan/adet ayarini kontrol et.", this);
     }
 
     int GetBrandID(int bookID)

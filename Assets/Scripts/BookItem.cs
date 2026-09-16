@@ -97,7 +97,8 @@ public class BookItem : MonoBehaviour
     private bool CaptureRestSupports()
     {
         restSupports.Clear();
-        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f) return false;
+        if (physicsCollider == null || Physics.gravity.sqrMagnitude < 0.0001f ||
+            (!body.IsSleeping() && Time.fixedTime - contactStep > Time.fixedDeltaTime * 1.5f)) return false;
         Vector3 up = -Physics.gravity.normalized;
         for (int i = 0; i < settlingContactCount; i++)
         {
@@ -128,28 +129,33 @@ public class BookItem : MonoBehaviour
         return restSupports.Count > 0;
     }
 
-    private void CheckFrozenSupport()
+    // Follow the entire support chain immediately, rather than waiting 0.1s
+    // per layer. A 25-book tower otherwise releases as a visibly delayed wave.
+    private bool SupportChainIntact(int depth)
     {
-        if (!frozenAtRest || Time.time < nextSupportCheck) return;
-        nextSupportCheck = Time.time + 0.1f;
-        bool intact = restSupports.Count > 0 &&
-            (transform.position - frozenPosition).sqrMagnitude < 0.000001f &&
-            Quaternion.Angle(transform.rotation, frozenRotation) < 0.1f;
+        if (depth > 128 || !frozenAtRest || IsHeld || body == null || !body.isKinematic ||
+            restSupports.Count == 0 || (transform.position - frozenPosition).sqrMagnitude >= 0.000001f ||
+            Quaternion.Angle(transform.rotation, frozenRotation) >= 0.1f) return false;
         foreach (var saved in restSupports)
         {
             var support = saved.collider;
             if (support == null || !support.enabled || !support.gameObject.activeInHierarchy || support.isTrigger)
-            { intact = false; break; }
+                return false;
             var supportBody = support.attachedRigidbody;
             var other = support.GetComponentInParent<BookItem>();
             if ((supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) ||
-                (other != null && (other.IsHeld || (other.currentSlot == null && !other.frozenAtRest))) ||
                 (support.transform.position - saved.position).sqrMagnitude > 0.000001f ||
                 Quaternion.Angle(support.transform.rotation, saved.rotation) > 0.1f ||
-                (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f)
-            { intact = false; break; }
+                (support.transform.lossyScale - saved.scale).sqrMagnitude > 0.000001f) return false;
+            if (other != null && (other.IsHeld || (other.currentSlot == null && !other.SupportChainIntact(depth + 1))))
+                return false;
         }
-        if (intact) return; // Incoming Q impacts never unfreeze a supported book.
+        return true;
+    }
+
+    private void CheckFrozenSupport()
+    {
+        if (!frozenAtRest || SupportChainIntact(0)) return;
         frozenAtRest = false;
         restSupports.Clear();
         body.isKinematic = false;
@@ -215,6 +221,14 @@ public class BookItem : MonoBehaviour
             return;
         }
 
+        // Require continuous real support during the whole rest delay.
+        // A brief collision after a slow airborne phase must not freeze the book.
+        if (!CaptureRestSupports())
+        {
+            stillTimer = 0f;
+            body.WakeUp();
+            return;
+        }
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;

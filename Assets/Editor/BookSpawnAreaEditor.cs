@@ -13,6 +13,12 @@ public sealed class BookSpawnAreaEditor : Editor
     {
         EditorGUILayout.HelpBox("Bu alan kitaplarin dogacagi yuzeydir. Edit Area acikken Scene'deki kenar tutamaclarini collider gibi surukle. W ile tasi, E ile Y ekseninde dondur. Fizik collider'i eklemek gerekmez.", MessageType.Info);
         DrawDefaultInspector();
+        var area = (BookSpawnArea)target;
+        Vector3 scale = area.transform.lossyScale;
+        EditorGUILayout.LabelField("Gercek alan (Unity birimi)",
+            $"{Mathf.Abs(area.width * scale.x):0.##} x {Mathf.Abs(area.depth * scale.z):0.##}");
+        if (Mathf.Abs(Mathf.Abs(scale.x) - 1f) > 0.001f || Mathf.Abs(Mathf.Abs(scale.z) - 1f) > 0.001f)
+            EditorGUILayout.HelpBox("Transform veya ust nesne Scale degeri Width/Depth ile carpiliyor. Yukaridaki gercek boyutu kontrol et.", MessageType.Warning);
         editArea = GUILayout.Toggle(editArea, "Edit Area - kenarlardan boyutlandir", "Button");
         if (GUILayout.Button("Scene'de alana odaklan"))
             SceneView.lastActiveSceneView?.FrameSelected();

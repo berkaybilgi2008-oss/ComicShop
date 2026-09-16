@@ -1,3 +1,15 @@
+# Son duzeltme
+El acisi tekrar prefab NativeRotation + mevcut hand anchor kalibrasyonundan gelir.
+Dunya-yukari hesap ve kuculup buyume kaldirildi; 0.12 saniyelik kisa kayma kullanilir.
+Kule destek zinciri her fizik adiminda kokune kadar kontrol edilir; kat basina 0.1s beklemez.
+Normal kitaplar sabitlenmeden once tum dinlenme suresince destek gostermelidir.
+Spawn Areas bossa Allow Legacy Area kapaliyken spawn durur; sessiz V16 fallback yoktur.
+BookSpawnArea Inspector gercek dunya olcusunu ve miras alinan Scale uyarisini gosterir.
+Baslangicta daginik kitaplarin collider kutulari cakismayacak sekilde konumlari ayarlanir.
+Bu alanlar dogma alanidir, fiziksel duvar degildir; dusme/carpisma sonrasinda kitaplar disina cikabilir.
+Cok dar alanlarda yer bulunamazsa Console uyari verir; mevcut kitap adedi korunur.
+Unity derlemesi/Play Mode burada calistirilamadi; ilk kitap, kule ortasi alma ve dolu 4x4 alan testi gerekir.
+
 # Rastgele dagilim ve kuleler
 BookSpawner > Rastgele Kuleler: Tower Book Fraction = 0.2, Books Per Tower = 25.
 Her yeni spawn oturumunda liste, alan secimi, konum ve yon yeniden rastgele secilir.
