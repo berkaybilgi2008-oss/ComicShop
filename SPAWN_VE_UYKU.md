@@ -1,3 +1,12 @@
+# Guncel kule dagilimi
+Mixed Tower Book Fraction = 0.1, Small Tower Size = 10, Large Tower Size = 15.
+3600 kitap: 18 adet 10 kitaplik + 12 adet 15 kitaplik = 30 kule / 360 kitap.
+3240 kitap daginik kalir. Kule konumlari, boy gruplarinin uretim sirasi ve kitaplar rastgele.
+Yeni alan adlari eski sahnelerde kayitli %20 / 25 ayarinin geri gelmesini engeller.
+Diger toplam adetlerde her gruba ayrilan kitap butcesinden tam kuleler yapilir; artanlar daginik kalir.
+Yer bulunamazsa ilgili kitaplar daginik kalir ve Console uyari verir.
+Asagidaki eski %20 / 25 aciklamalari onceki surume aittir.
+
 # Son duzeltme
 El acisi tekrar prefab NativeRotation + mevcut hand anchor kalibrasyonundan gelir.
 Dunya-yukari hesap ve kuculup buyume kaldirildi; 0.12 saniyelik kisa kayma kullanilir.

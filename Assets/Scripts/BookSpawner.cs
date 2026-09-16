@@ -31,8 +31,10 @@ public class BookSpawner : MonoBehaviour
     public bool allowLegacyArea = false;
 
     [Header("Rastgele Kuleler")]
-    [Range(0f, 1f)] public float towerBookFraction = 0.2f;
-    [Min(2)] public int booksPerTower = 25;
+    // New field names intentionally avoid restoring serialized 20% / 25-book settings.
+    [Range(0f, 1f)] public float mixedTowerBookFraction = 0.1f;
+    [Min(2)] public int smallTowerSize = 10;
+    [Min(2)] public int largeTowerSize = 15;
     [Tooltip("Her kitap icin kule yonunden rastgele sapma (derece).")]
     [Range(0f, 180f)] public float towerYawJitter = 8f;
 
@@ -159,7 +161,7 @@ public class BookSpawner : MonoBehaviour
                 networkBook.Initialize(book.bookID, book.brandID);
                 networkBook.NetworkObject.Spawn(true);
             }
-        Debug.Log($"BookSpawner: {books.Count} kitap, {towers} kule (kule basina {Mathf.Max(2, booksPerTower)} kitap).");
+        Debug.Log($"BookSpawner: {books.Count} kitap, {towers} kule ({Mathf.Max(2, smallTowerSize)} / {Mathf.Max(2, largeTowerSize)} kitaplik).");
     }
 
     BookItem SpawnSingleBook(int index)
@@ -259,16 +261,30 @@ public class BookSpawner : MonoBehaviour
 
     private int ArrangeTowers(List<BookItem> books)
     {
-        int count = Mathf.Max(2, booksPerTower);
-        // Whole towers only; leftover books stay scattered. Never add or remove books.
-        int requested = Mathf.Clamp(Mathf.RoundToInt(books.Count * Mathf.Clamp01(towerBookFraction) / count), 0, books.Count / count);
+        int small = Mathf.Max(2, smallTowerSize);
+        int large = Mathf.Max(2, largeTowerSize);
+        int budget = Mathf.Clamp(Mathf.RoundToInt(books.Count * Mathf.Clamp01(mixedTowerBookFraction)), 0, books.Count);
+        // Half of the tower BOOK budget goes to each size, not half of the towers.
+        // 3600 -> 360 -> 180/10 + 180/15 = 18 + 12 towers.
+        var sizes = new List<int>();
+        for (int i = 0; i < (budget / 2) / small; i++) sizes.Add(small);
+        for (int i = 0; i < (budget - budget / 2) / large; i++) sizes.Add(large);
+        for (int i = sizes.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (sizes[i], sizes[j]) = (sizes[j], sizes[i]);
+        }
+        int requested = sizes.Count;
         if (requested == 0) return 0;
         var reservations = new List<Vector4>();
         var stacked = new HashSet<BookItem>();
         Physics.SyncTransforms();
+        int cursor = 0;
         for (int tower = 0; tower < requested; tower++)
         {
-            int first = tower * count;
+            int count = sizes[tower];
+            int first = cursor;
+            cursor += count;
             float yaw = Random.Range(0f, 360f);
             float radius = 0f, height = 0f;
             for (int i = first; i < first + count; i++)
