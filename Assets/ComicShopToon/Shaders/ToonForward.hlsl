@@ -62,12 +62,12 @@ void AccumulateToonLight(Light l,float3 n,float3 v,bool punctual,
     float angular=Band(saturate(dot(n,l.direction))*l.shadowAttenuation);
     float energy=max(l.color.r,max(l.color.g,l.color.b));
     float attenuation=punctual ? saturate(l.distanceAttenuation*_LightFalloffScale) : saturate(l.distanceAttenuation);
-    // Include light energy BEFORE quantization. Never multiply a smooth radial falloff after the ramp.
+    // Quantize spatial falloff; keep the intensity control continuous.
     float intensitySteps=max(2,round(_ShadowSteps))-1;
-    float irradiance=floor(saturate(energy*attenuation)*intensitySteps+0.5)/intensitySteps;
-    float lightBand=angular*irradiance;
+    float irradiance=floor(attenuation*intensitySteps+0.5)/intensitySteps;
+    float lightBand=angular*irradiance*step(0.0001,energy);
     float3 hue=l.color/max(energy,0.0001);
-    direct+=hue*lightBand;
+    direct+=l.color*lightBand;
     litMask=max(litMask,lightBand);
 #if defined(_TOON_SPECULAR)
     float3 h=SafeNormalize(l.direction+v);
@@ -140,8 +140,8 @@ half4 ToonFragment(Varyings i):SV_Target
         shifted=lerp(shifted,anchor,_PaletteShadowMix);
     }
     baseColor=lerp(shifted,baseColor,litMask);
-    // Tint energy is bounded; eight overlapping pendants cannot wash the surface to white.
-    float3 color=baseColor*lerp(_ShadowFloor.xxx,max(saturate(direct*_DirectGain),float3(0.35,0.35,0.35)),litMask);
+    // Add each shadowed light once, independently from the ambient floor.
+    float3 color=shifted*_ShadowFloor + albedo*direct*_DirectGain;
     color+=albedo*PosterizeGI(gi)*_BakedInfluence;
 #if defined(_TOON_HALFTONE) && !defined(_COMIC_HALFTONE_OFF)
     if(_ComicHalftoneDisabled<0.5)
