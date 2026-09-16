@@ -9,12 +9,18 @@ struct AuxAttributes
 {
     float4 positionOS:POSITION;
     float3 normalOS:NORMAL;
+    float4 tangentOS:TANGENT;
+    float2 uv:TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 struct AuxVaryings
 {
     float4 positionCS:SV_POSITION;
     float3 normalWS:TEXCOORD0;
+    float2 uv:TEXCOORD1;
+#if defined(_NORMALMAP)
+    float4 tangentWS:TEXCOORD2;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
 };
@@ -26,6 +32,10 @@ AuxVaryings AuxVertex(AuxAttributes i)
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
     o.positionCS=TransformObjectToHClip(i.positionOS.xyz);
     o.normalWS=TransformObjectToWorldNormal(i.normalOS);
+    o.uv=TRANSFORM_TEX(i.uv,_BaseMap);
+#if defined(_NORMALMAP)
+    o.tangentWS=float4(TransformObjectToWorldDir(i.tangentOS.xyz),i.tangentOS.w*GetOddNegativeScale());
+#endif
     return o;
 }
 AuxVaryings ShadowVertex(AuxAttributes i)
@@ -46,12 +56,16 @@ AuxVaryings ShadowVertex(AuxAttributes i)
     return o;
 }
 half4 DepthFragment(AuxVaryings i):SV_Target { return 0; }
-half4 MaskFragment(AuxVaryings i):SV_Target { return 1; }
+half4 MaskFragment(AuxVaryings i):SV_Target { UNITY_SETUP_INSTANCE_ID(i); return _OutlineEnabled; }
 half4 NormalsFragment(AuxVaryings i):SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(i);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+#if defined(_NORMALMAP)
+    float3 n=ToonNormal(i.uv,i.normalWS,i.tangentWS);
+#else
     float3 n=normalize(i.normalWS);
+#endif
 #if defined(_GBUFFER_NORMALS_OCT)
     float2 oct=PackNormalOctQuadEncode(n);
     return half4(PackFloat2To888(saturate(oct*0.5+0.5)),0);

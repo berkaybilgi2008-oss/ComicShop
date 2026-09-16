@@ -150,27 +150,13 @@ namespace ComicShop.Rendering.Editor
                 if (source.HasProperty("_EmissionColor") && source.IsKeywordEnabled("_EMISSION"))
                     material.SetColor("_EmissionColor", source.GetColor("_EmissionColor"));
                 material.globalIlluminationFlags = source.globalIlluminationFlags;
-                material.SetFloat("_Palette", 0);
+
             }
-            material.SetColor("_WoodLit", Hex("8A5A33"));
-            material.SetColor("_WoodShadow", Hex("795033"));
-            material.SetColor("_WallpaperLit", Hex("C8913F"));
-            material.SetColor("_WallpaperShadow", Hex("956336"));
-            // Warm chromatic shadow for custom textured surfaces as well as palette materials.
-            material.SetColor("_ShadowTint", Hex("BD956F"));
-            material.SetFloat("_ShadowHueShift", 0);
-            material.SetFloat("_PaletteShadowMix", 1);
-            material.SetFloat("_ShadowFloor", .9f);
-            material.SetFloat("_ShadowSteps", 2);
-            material.SetFloat("_RampSmoothness", .02f);
-            material.SetFloat("_BakedSteps", 3);
-            material.SetFloat("_BakedInfluence", .15f);
-            material.SetFloat("_HalftoneEnabled", 0);
-            material.DisableKeyword("_TOON_HALFTONE");
-            material.SetFloat("_SpecEnabled", 0);
-            material.DisableKeyword("_TOON_SPECULAR");
-            material.SetFloat("_RimEnabled", 0);
-            material.DisableKeyword("_TOON_RIM");
+            // All style comes from ToonStyleAsset; never stamp look values into materials.
+            if (source.HasProperty("_BumpMap")) material.SetTexture("_BumpMap", source.GetTexture("_BumpMap"));
+            foreach (string parameter in ToonLitGUI.Parameters) material.SetFloat("_Override" + parameter, 0);
+            material.SetFloat("_HalftoneEnabled", 1);
+            ToonLitGUI.SyncKeywords(material);
             return material;
         }
         static void SetupVolume(Scene scene, string folder)
