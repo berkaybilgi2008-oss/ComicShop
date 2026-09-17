@@ -478,7 +478,7 @@ public class BookItem : MonoBehaviour
 
     public void SetCoverMaterial(Material coverMaterial)
     {
-        if (coverRenderer != null && coverMaterial != null) coverRenderer.material = coverMaterial;
+        if (coverRenderer != null && coverMaterial != null) coverRenderer.sharedMaterial = BookToonEffect.ResolveMaterial(coverMaterial);
     }
 
     public void SetHighlight(bool on) { }
