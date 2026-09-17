@@ -32,6 +32,8 @@ public class BookEdgeLines : MonoBehaviour
             if (filter.sharedMesh == null || filter.transform.name.EndsWith("_CreaseLines")) continue;
             var renderer = filter.GetComponent<MeshRenderer>();
             if (renderer == null) continue;
+            if (renderer.sharedMaterial != null && renderer.sharedMaterial.shader != null
+                && renderer.sharedMaterial.shader.name == "ComicShop/ToonLit") continue;
             Bounds bounds = filter.sharedMesh.bounds;
             Vector3 scale = filter.transform.lossyScale;
             scale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));

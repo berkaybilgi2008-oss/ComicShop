@@ -34,3 +34,9 @@ MonoBehaviour:
   HalftoneRadius: 0.27
   HalftoneColor: {r: 0.14117647, g: 0.10980392, b: 0.20784314, a: 1}
   ToonShader: {fileID: 4800000, guid: f1af52fcb16efb942a96ac3c174b7236, type: 3}
+  OutlineColor: {r: 0.025, g: 0.018, b: 0.04, a: 1}
+  OutlineWidth: 0.01
+  OutlineReferenceDistance: 5
+  OutlineThicknessPixels: 1.5
+  DepthThreshold: 0.035
+  NormalThreshold: 0.25

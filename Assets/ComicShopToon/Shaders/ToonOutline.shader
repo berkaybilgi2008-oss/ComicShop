@@ -1,12 +1,5 @@
 Shader "ComicShop/ToonOutline"
 {
-    Properties
-    {
-        _OutlineColor("Outline Color",Color)=(0.025,0.018,0.04,1)
-        _OutlineWidth("Width At Reference Distance (Meters)",Range(0,0.1))=0.01
-        _ReferenceDistance("Reference Distance (Meters)",Float)=5
-        [ToggleUI] _UseBakedNormals("Use Baked Color Normals",Float)=1
-    }
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry+10" }
@@ -22,16 +15,15 @@ Shader "ComicShop/ToonOutline"
             #pragma multi_compile_instancing
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            CBUFFER_START(UnityPerMaterial)
+            // Shared global style, no per-material look properties.
             float4 _OutlineColor;
-            float _OutlineWidth, _ReferenceDistance, _UseBakedNormals;
-            CBUFFER_END
+            float _OutlineWidth, _OutlineReferenceDistance;
             struct A
             {
                 float4 positionOS:POSITION;
                 float3 normalOS:NORMAL;
                 float4 tangentOS:TANGENT;
-                float4 color:COLOR;
+                float4 smoothNormal:TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
             struct V
@@ -46,17 +38,17 @@ Shader "ComicShop/ToonOutline"
                 UNITY_SETUP_INSTANCE_ID(i);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 n=normalize(i.normalOS);
-                if(_UseBakedNormals>0.5 && dot(i.tangentOS.xyz,i.tangentOS.xyz)>0.1)
+                if(i.smoothNormal.w>0.5 && dot(i.tangentOS.xyz,i.tangentOS.xyz)>0.1)
                 {
                     float3 t=normalize(i.tangentOS.xyz);
                     float3 b=cross(n,t)*i.tangentOS.w;
-                    float3 s=i.color.rgb*2-1;
+                    float3 s=i.smoothNormal.xyz;
                     n=normalize(t*s.x+b*s.y+n*s.z);
                 }
                 float3 p=TransformObjectToWorld(i.positionOS.xyz);
                 float3 nw=TransformObjectToWorldNormal(n);
                 float depth=max(0.01,-TransformWorldToView(p).z);
-                float reference=max(0.01,_ReferenceDistance);
+                float reference=max(0.01,_OutlineReferenceDistance);
                 float projectionY=abs(UNITY_MATRIX_P._m11);
                 float compensation=depth/reference*1.7320508/max(0.001,projectionY);
                 if(unity_OrthoParams.w>0.5)

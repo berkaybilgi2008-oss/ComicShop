@@ -13,10 +13,7 @@ namespace ComicShop.Rendering
         public sealed class Settings
         {
             public Shader outlineShader;
-            public Color outlineColor = new Color(0.025f, 0.018f, 0.04f, 1);
-            [Range(1, 4)] public float thickness = 1.5f;
-            [Range(0.001f, 0.2f)] public float depthThreshold = 0.035f;
-            [Range(0.01f, 2)] public float normalThreshold = 0.25f;
+            [Tooltip("Everything avoids a mask geometry pass. A restricted mask redraws matching opaque renderers.")]
             public LayerMask layerMask = -1;
         }
         public Settings settings = new Settings();
@@ -32,7 +29,7 @@ namespace ComicShop.Rendering
         }
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
-            if (pass == null || renderingData.cameraData.cameraType == CameraType.Preview ||
+            if (settings.layerMask.value == 0 || pass == null || renderingData.cameraData.cameraType == CameraType.Preview ||
                 renderingData.cameraData.cameraType == CameraType.Reflection ||
                 renderingData.cameraData.renderType == CameraRenderType.Overlay) return;
             if (renderingData.cameraData.cameraTargetDescriptor.msaaSamples > 1)
@@ -53,12 +50,9 @@ namespace ComicShop.Rendering
         {
             readonly Settings settings;
             readonly Material material;
-            static readonly ShaderTagId MaskTag = new ShaderTagId("ToonMask");
-            static readonly int ColorId = Shader.PropertyToID("_OutlineColor");
-            static readonly int ThicknessId = Shader.PropertyToID("_Thickness");
-            static readonly int DepthId = Shader.PropertyToID("_DepthThreshold");
-            static readonly int NormalId = Shader.PropertyToID("_NormalThreshold");
-
+            static readonly ShaderTagId MaskTag = new ShaderTagId("UniversalForward");
+            static readonly ShaderTagId ForwardOnlyTag = new ShaderTagId("UniversalForwardOnly");
+            static readonly ShaderTagId UnlitTag = new ShaderTagId("SRPDefaultUnlit");
             sealed class MaskData { public RendererListHandle list; public bool draw; }
             sealed class InkData { public TextureHandle mask; public Material material; }
             public OutlinePass(Settings settings, Material material)
@@ -95,6 +89,10 @@ namespace ComicShop.Rendering
                     {
                         var draw = RenderingUtils.CreateDrawingSettings(MaskTag, rendering, camera, lights,
                             camera.defaultOpaqueSortFlags);
+                        draw.SetShaderPassName(1, ForwardOnlyTag);
+                        draw.SetShaderPassName(2, UnlitTag);
+                        draw.overrideMaterial = material;
+                        draw.overrideMaterialPassIndex = 1;
                         var filter = new FilteringSettings(RenderQueueRange.opaque, settings.layerMask);
                         data.list = graph.CreateRendererList(new RendererListParams(rendering.cullResults, draw, filter));
                         builder.UseRendererList(data.list);
@@ -106,10 +104,6 @@ namespace ComicShop.Rendering
                         if (data.draw) context.cmd.DrawRendererList(data.list);
                     });
                 }
-                material.SetColor(ColorId, settings.outlineColor.linear);
-                material.SetFloat(ThicknessId, settings.thickness);
-                material.SetFloat(DepthId, settings.depthThreshold);
-                material.SetFloat(NormalId, settings.normalThreshold);
                 using (var builder = graph.AddRasterRenderPass<InkData>("ComicShop Sobel Ink", out var data))
                 {
                     data.mask = mask;
