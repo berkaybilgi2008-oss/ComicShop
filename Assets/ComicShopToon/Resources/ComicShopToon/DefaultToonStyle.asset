@@ -11,17 +11,13 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1dda25b68b634888ac0f4a47a46b0def, type: 3}
   m_Name: DefaultToonStyle
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   ShadowSteps: 2
   RampSmoothness: 0.02
-  ShadowTint: {r: 0.22745098, g: 0.18039216, b: 0.32156863, a: 1}
-  ShadowLift: 0.12
-  BakedExposure: 2
-  DirectMax: 2
-  EmissionGain: 4
+  ShadowTint: {r: 0.22745098, g: 0.18039216, b: 0.32156864, a: 1}
   BakedSteps: 3
   BakedInfluence: 0.2
-  LightFalloffScale: 8
+  LightFalloffScale: 1
   SpecEnabled: 0
   SpecThreshold: 0.96
   SpecColor: {r: 1, g: 0.98, b: 0.9, a: 1}
@@ -36,11 +32,15 @@ MonoBehaviour:
   HalftoneStrength: 0.4
   HalftoneAngle: 45
   HalftoneRadius: 0.27
-  HalftoneColor: {r: 0.14117647, g: 0.10980392, b: 0.20784314, a: 1}
-  ToonShader: {fileID: 4800000, guid: f1af52fcb16efb942a96ac3c174b7236, type: 3}
+  HalftoneColor: {r: 0.14117648, g: 0.10980392, b: 0.20784314, a: 1}
+  ShadowLift: 0.12
+  BakedExposure: 2
+  DirectMax: 2
+  EmissionGain: 4
   OutlineColor: {r: 0.025, g: 0.018, b: 0.04, a: 1}
   OutlineWidth: 0.01
   OutlineReferenceDistance: 5
   OutlineThicknessPixels: 1.5
   DepthThreshold: 0.035
   NormalThreshold: 0.25
+  ToonShader: {fileID: 4800000, guid: f1af52fcb16efb942a96ac3c174b7236, type: 3}
