@@ -278,8 +278,7 @@ public class NetworkBook : NetworkBehaviour
         if (player.TryGetComponent<NetworkPlayerSetup>(out var setup) && setup.IsDown) return false;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         var collider = GetComponentInChildren<Collider>();
-        Vector3 closest = collider != null ? collider.ClosestPoint(eye) : transform.position;
-        return Vector3.Distance(eye, closest) <= player.interactRange + 0.5f;
+        return collider != null && GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f);
     }
 
     [Rpc(SendTo.Server, RequireOwnership = false)]
@@ -288,10 +287,7 @@ public class NetworkBook : NetworkBehaviour
         ulong sender = rpc.Receive.SenderClientId;
         var player = GetPlayer(sender);
         if (Holder != NoHolder || IsPlacementAnimating || !WithinReach(player)) return;
-        int count = 0;
-        foreach (var book in FindObjectsByType<NetworkBook>(FindObjectsSortMode.None))
-            if (book.IsSpawned && book.Holder == sender) count++;
-        if (count >= player.maxHeldBooks) return;
+        if (CountHeldBy(sender) >= player.maxHeldBooks) return;
         Claim(sender);
     }
 
@@ -318,7 +314,7 @@ public class NetworkBook : NetworkBehaviour
             player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         var collider = slot.GetComponentInChildren<Collider>();
-        if (collider == null || Vector3.Distance(eye, collider.ClosestPoint(eye)) > player.interactRange + 0.5f) return;
+        if (collider == null || !GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f)) return;
         if (!slot.TryGetNextPlacementPose(item, out Vector3 position, out _) ||
             Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance) return;
         Vector3 startPosition = transform.position;

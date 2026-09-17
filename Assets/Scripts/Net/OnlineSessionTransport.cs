@@ -23,35 +23,50 @@ public interface IOnlineSessionTransport
 public sealed class UnityRelaySessionTransport : IOnlineSessionTransport
 {
     private const string ConnectionType = "dtls";
+    private int generation;
+    private static Task signInTask;
+
+    private void CheckCurrent(int operation, UnityTransport transport)
+    {
+        if (operation != generation || transport == null)
+            throw new OperationCanceledException("Relay preparation was superseded.");
+    }
 
     public string ProviderName => "Unity Relay";
     public string JoinCode { get; private set; } = string.Empty;
 
     public async Task PrepareHostAsync(NetworkManager manager, int maxPlayers)
     {
+        int operation = ++generation;
         UnityTransport transport = RequireTransport(manager);
         await EnsureSignedInAsync();
+        CheckCurrent(operation, transport);
 
         // Relay expects joining peers, excluding the host itself.
         Allocation allocation = await RelayService.Instance.CreateAllocationAsync(
             Math.Max(1, maxPlayers - 1));
-        JoinCode = (await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId))
-            .Trim().ToUpperInvariant();
+        CheckCurrent(operation, transport);
+        string code = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+        CheckCurrent(operation, transport);
+        JoinCode = code.Trim().ToUpperInvariant();
         transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, ConnectionType));
     }
 
     public async Task PrepareClientAsync(NetworkManager manager, string joinCode)
     {
+        int operation = ++generation;
         UnityTransport transport = RequireTransport(manager);
         await EnsureSignedInAsync();
+        CheckCurrent(operation, transport);
 
         string normalized = NormalizeJoinCode(joinCode);
         JoinAllocation allocation = await RelayService.Instance.JoinAllocationAsync(normalized);
+        CheckCurrent(operation, transport);
         JoinCode = normalized;
         transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, ConnectionType));
     }
 
-    public void Reset() => JoinCode = string.Empty;
+    public void Reset() { generation++; JoinCode = string.Empty; }
 
     public static string NormalizeJoinCode(string value) =>
         string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToUpperInvariant();
@@ -63,7 +78,15 @@ public sealed class UnityRelaySessionTransport : IOnlineSessionTransport
         return transport;
     }
 
-    private static async Task EnsureSignedInAsync()
+    private static Task EnsureSignedInAsync()
+    {
+        // A cancelled preparation can still be inside UGS authentication. Share
+        // that task instead of starting a second concurrent anonymous sign-in.
+        if (signInTask == null || signInTask.IsCompleted) signInTask = SignInCoreAsync();
+        return signInTask;
+    }
+
+    private static async Task SignInCoreAsync()
     {
         if (UnityServices.State != ServicesInitializationState.Initialized)
             await UnityServices.InitializeAsync();
