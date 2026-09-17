@@ -79,6 +79,8 @@ public class ConnectionManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        onlineOperation++;
+        relayTransport.Reset();
         if (Instance == this) Instance = null;
     }
 
@@ -221,6 +223,7 @@ public class ConnectionManager : MonoBehaviour
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
             networkManager.NetworkConfig.ProtocolVersion = 3;
+            ShelfSlot.ResetNetworkSession();
             ShelfSlot.BuildNetworkRegistry();
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
                 spawner.PrepareSession(networkManager);
@@ -249,6 +252,7 @@ public class ConnectionManager : MonoBehaviour
     private void StopWithStatus(string message)
     {
         onlineOperation++;
+        relayTransport.Reset();
         State = SessionState.Disconnecting;
         SetCursor(false);
         SetStatus(message);
@@ -379,7 +383,9 @@ public class ConnectionManager : MonoBehaviour
                 GUILayout.Label($"Oyuncu: {networkManager.ConnectedClientsIds.Count}/{maxPlayers}");
             if (State == SessionState.Connected && GUILayout.Button("Oyuna don (Esc)", GUILayout.Height(30)))
                 SetCursor(true);
-            if (State != SessionState.Disconnecting && GUILayout.Button("Ayril / Iptal", GUILayout.Height(30)))
+            string leaveLabel = State == SessionState.Connected && networkManager.IsServer
+                ? "Odayı kapat (ilerleme kaybolur)" : "Ayrıl / İptal";
+            if (State != SessionState.Disconnecting && GUILayout.Button(leaveLabel, GUILayout.Height(30)))
                 Disconnect();
         }
         GUILayout.EndArea();

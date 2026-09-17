@@ -66,7 +66,7 @@ public class PlayerController : MonoBehaviour
         bool isSprinting = Input.GetKey(sprintKey);
         float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
 
-        Vector3 move = transform.right * h + transform.forward * v;
+        Vector3 move = Vector3.ClampMagnitude(transform.right * h + transform.forward * v, 1f);
         controller.Move(move * currentSpeed * Time.deltaTime);
 
         if (Input.GetButtonDown("Jump") && isGrounded)
