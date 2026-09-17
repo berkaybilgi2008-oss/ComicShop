@@ -14,8 +14,11 @@ namespace ComicShop.Rendering.Editor
         [MenuItem("Tools/ComicShop/Repair Existing Pendant Lighting (Undo)")]
         public static void Apply()
         {
-            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (EditorApplication.isPlayingOrWillChangePlaymode)
+            { Debug.LogError("Stop Play Mode before repairing lights. No changes were made."); return; }
             var scene = SceneManager.GetActiveScene();
+            if (string.IsNullOrEmpty(scene.path))
+            { Debug.LogError("Save the scene before repairing lights. No changes were made."); return; }
             var lamps = new List<Light>();
             foreach (var root in scene.GetRootGameObjects())
                 foreach (var l in root.GetComponentsInChildren<Light>(true))
@@ -54,7 +57,7 @@ namespace ComicShop.Rendering.Editor
                     l.lightmapBakeType = LightmapBakeType.Realtime;
                     l.color = Color.white; l.useColorTemperature = true; l.colorTemperature = 3400;
                     l.lightUnit = LightUnit.Candela; l.enableSpotReflector = false;
-                    l.intensity = 24; l.range = 9; l.spotAngle = 110; l.innerSpotAngle = 85;
+                    l.intensity = 24; l.range = 9; l.spotAngle = 110; l.innerSpotAngle = 50;
                     l.cullingMask = ~0;
                     // One 256px spot map per fixture fits up to 64 lamps into a 2048 atlas.
                     // Keep every enabled lamp shadowed so wall-facing cones cannot leak.
@@ -126,8 +129,11 @@ namespace ComicShop.Rendering.Editor
                 Undo.RecordObject(style, Label); style.HalftoneEnabled = 0;
                 style.LightFalloffScale = 1; style.ShadowLift = Mathf.Max(style.ShadowLift,0.12f);
                 EditorUtility.SetDirty(style); ToonStyleController.PublishActive();
-                EditorSceneManager.MarkSceneDirty(scene); AssetDatabase.SaveAssets(); SceneView.RepaintAll();
-                Debug.Log($"[PENDANT REPAIR] Before: {enabledBefore} enabled; repaired: {repaired}; skipped: {skipped}; old light cards hidden: {cards}. Save scene. All repaired spots face world-down. Real-time lighting: no bake required. Profile shadow cost before shipping.");
+                EditorSceneManager.MarkSceneDirty(scene);
+                if (!EditorSceneManager.SaveScene(scene))
+                    throw new InvalidOperationException("Could not save repaired scene.");
+                AssetDatabase.SaveAssets(); SceneView.RepaintAll();
+                Debug.Log($"[PENDANT REPAIR] Before: {enabledBefore} enabled; repaired: {repaired}; skipped: {skipped}; old light cards hidden: {cards}. Saved scene: {scene.path}. All repaired spots face world-down. Real-time lighting: no bake required. Profile shadow cost before shipping.");
             }
             catch { Undo.RevertAllDownToGroup(group); throw; }
             finally { Undo.CollapseUndoOperations(group); }
