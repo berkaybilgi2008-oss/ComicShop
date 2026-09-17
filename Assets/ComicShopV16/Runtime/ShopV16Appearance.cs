@@ -31,7 +31,7 @@ namespace ComicShopV16
             light.shadowStrength = 1f;
             light.shadowBias = .05f;
             light.shadowNormalBias = .08f;
-            if (pendant) light.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            if (pendant) light.transform.rotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
         }
 
         void OnEnable()

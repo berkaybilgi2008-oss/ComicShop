@@ -78,11 +78,11 @@ Shader "ComicShop/V16 Source Toon"
             float shadow = lerp(1.0, light.shadowAttenuation, saturate(_Receive));
             float energy = max(light.color.r, max(light.color.g, light.color.b));
             float exposure = saturate(dot(normal, light.direction)) *
-                light.distanceAttenuation * shadow;
+                light.distanceAttenuation * shadow * energy;
             float bands = max(2.0, round(_LightSteps));
             float band = floor(saturate(exposure / max(_LightThreshold, 0.001)) *
                 (bands - 1.0) + 0.5) / (bands - 1.0);
-            return light.color * band * step(0.00001, energy);
+            return (light.color / max(energy, 0.00001)) * band * step(0.00001, energy);
         }
         ENDHLSL
 
