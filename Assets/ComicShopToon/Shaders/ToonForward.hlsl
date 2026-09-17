@@ -76,11 +76,16 @@ float3 PosterizeGI(float3 gi)
 void AccumulateToonLight(Light l,float3 n,float3 v,bool punctual,
     inout float3 direct,inout float3 spec,inout float litMask)
 {
-    float angular=Band(saturate(dot(n,l.direction))*l.shadowAttenuation);
+    // Punctual NdotL also varies radially on a flat floor: banding it creates rings.
+    float ndotl=saturate(dot(n,l.direction));
+    float angular=(punctual ? ndotl : Band(ndotl))*l.shadowAttenuation;
     float energy=max(l.color.r,max(l.color.g,l.color.b));
     float attenuation=punctual ? l.distanceAttenuation*max(0,_LightFalloffScale) : l.distanceAttenuation;
-    float count=clamp(round(_ShadowSteps),2,3)-1;
-    float irradiance=floor(clamp(energy*attenuation,0,max(1,_ToonDirectMax))*count+0.5)/count;
+    // Band only the surface lighting. Lamp range and cone attenuation stay continuous.
+    // A rational shoulder avoids both concentric quantization rings and a clipped bright disk.
+    float maximum=max(1,_ToonDirectMax);
+    float exposure=max(0,energy*attenuation);
+    float irradiance=maximum*exposure/(maximum+exposure);
     float lightBand=angular*irradiance;
     float3 hue=l.color/max(energy,0.0001);
     // Strongest RGB contribution avoids overlap washing out the palette.

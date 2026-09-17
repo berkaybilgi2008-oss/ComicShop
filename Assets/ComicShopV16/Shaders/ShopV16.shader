@@ -71,18 +71,17 @@ Shader "ComicShop/V16 Source Toon"
             clip(tex.a * _BaseColor.a - max(_Cutoff, 0.001));
             return tex * _BaseColor;
         }
-        // Quantize the attenuated contribution: a disabled or occluded light adds zero.
-        // Intensity remains continuous; light boundaries remain discrete.
-        half3 ToonLight(Light light, half3 normal)
+        // Surface orientation is toon-banded; source distance and spot edges are continuous.
+        half3 ToonLight(Light light, half3 normal, bool punctual)
         {
             float shadow = lerp(1.0, light.shadowAttenuation, saturate(_Receive));
             float energy = max(light.color.r, max(light.color.g, light.color.b));
-            float exposure = saturate(dot(normal, light.direction)) *
-                light.distanceAttenuation * shadow * energy;
-            float bands = max(2.0, round(_LightSteps));
-            float band = floor(saturate(exposure / max(_LightThreshold, 0.001)) *
-                (bands - 1.0) + 0.5) / (bands - 1.0);
-            return (light.color / max(energy, 0.00001)) * band * step(0.00001, energy);
+            float bands = max(2.0, round(_LightSteps)) - 1.0;
+            float orientation = saturate(dot(normal, light.direction));
+            float band = punctual ? orientation : floor(saturate(orientation / max(_LightThreshold, 0.001)) * bands + 0.5) / bands;
+            float exposure = max(0.0, energy * light.distanceAttenuation);
+            float irradiance = 2.0 * exposure / (2.0 + exposure);
+            return (light.color / max(energy, 0.00001)) * band * shadow * irradiance;
         }
         ENDHLSL
 
@@ -118,19 +117,19 @@ Shader "ComicShop/V16 Source Toon"
                 #if defined(_MAIN_LIGHT_SHADOWS_SCREEN)
                     shadowCoord = ComputeScreenPos(TransformWorldToHClip(i.positionWS));
                 #endif
-                half3 direct = ToonLight(GetMainLight(shadowCoord, i.positionWS, half4(1,1,1,1)), n);
+                half3 direct = ToonLight(GetMainLight(shadowCoord, i.positionWS, half4(1,1,1,1)), n, false);
                 #if USE_CLUSTER_LIGHT_LOOP
                     UNITY_LOOP for (uint lightIndex = 0;
                         lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS);
                         ++lightIndex)
                     {
-                        direct += ToonLight(GetAdditionalLight(lightIndex, i.positionWS, half4(1,1,1,1)), n);
+                        direct += ToonLight(GetAdditionalLight(lightIndex, i.positionWS, half4(1,1,1,1)), n, false);
                     }
                 #endif
                 #if defined(_ADDITIONAL_LIGHTS) || USE_CLUSTER_LIGHT_LOOP
                     uint count = GetAdditionalLightsCount();
                     LIGHT_LOOP_BEGIN(count)
-                        direct += ToonLight(GetAdditionalLight(lightIndex, i.positionWS, half4(1,1,1,1)), n);
+                        direct += ToonLight(GetAdditionalLight(lightIndex, i.positionWS, half4(1,1,1,1)), n, true);
                     LIGHT_LOOP_END
                 #endif
                 half3 ambient = lerp(half3(1,1,1), _ShadowColor.rgb, 0.25) * _AmbientFloor;
