@@ -20,7 +20,7 @@ namespace ComicShop.Rendering
         [Range(0, 1)] public float RimLitOnly = 1f;
          public Color RimColor = new Color(0.85f,0.9f,1f,1f);
         [Range(0, 2)] public float RimStrength = 0.2f;
-        [Range(0, 1)] public float HalftoneEnabled = 1f;
+        [Range(0, 1)] public float HalftoneEnabled = 0f;
         [Range(4, 32)] public float HalftoneScale = 8f;
         [Range(0, 1)] public float HalftoneStrength = 0.4f;
         [Range(0, 180)] public float HalftoneAngle = 45f;
