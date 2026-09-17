@@ -45,7 +45,7 @@ namespace ComicShop.Rendering.Editor
                 if (go.scene.IsValid() && go.GetComponent<ToonArchitecture>() == null)
                 { Undo.AddComponent<ToonArchitecture>(go); EditorSceneManager.MarkSceneDirty(go.scene); }
         }
-        static bool IsArchitecture(MeshRenderer r, ToonRoom room)
+        internal static bool IsArchitecture(MeshRenderer r, ToonRoom room)
         {
             if (r.transform.IsChildOf(room.transform)) return false;
             for (Transform t = r.transform; t != null; t = t.parent)

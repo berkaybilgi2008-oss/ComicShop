@@ -26,6 +26,12 @@ namespace ComicShop.Rendering
         [Range(0, 180)] public float HalftoneAngle = 45f;
         [Range(0.05f, 0.45f)] public float HalftoneRadius = 0.27f;
          public Color HalftoneColor = new Color(0.14117647f,0.10980392f,0.20784314f,1f);
+        [Header("Interior exposure — global only")]
+        [Tooltip("Art-directed shadow readability floor, not baked or physical GI.")]
+        [Range(0f, 0.3f)] public float ShadowLift = 0.12f;
+        [Range(0f, 4f)] public float BakedExposure = 2f;
+        [Range(1f, 4f)] public float DirectMax = 2f;
+        [Range(0f, 8f)] public float EmissionGain = 4f;
         [Header("Outlines — shared by all materials")]
         public Color OutlineColor = new Color(0.025f, 0.018f, 0.04f, 1f);
         [Range(0f, 0.1f)] public float OutlineWidth = 0.01f;
@@ -65,6 +71,10 @@ namespace ComicShop.Rendering
         static readonly int NormalThresholdId = Shader.PropertyToID("_NormalThreshold");
         public void Apply()
         {
+            Shader.SetGlobalFloat("_ToonShadowLift", Mathf.Clamp(ShadowLift, 0f, 0.3f));
+            Shader.SetGlobalFloat("_ToonBakedExposure", Mathf.Clamp(BakedExposure, 0f, 4f));
+            Shader.SetGlobalFloat("_ToonDirectMax", Mathf.Clamp(DirectMax, 1f, 4f));
+            Shader.SetGlobalFloat("_ToonEmissionGain", Mathf.Clamp(EmissionGain, 0f, 8f));
             Shader.SetGlobalFloat(Ids[0], ShadowSteps);
             Shader.SetGlobalFloat(Ids[1], RampSmoothness);
             Shader.SetGlobalColor(Ids[2], QualitySettings.activeColorSpace == ColorSpace.Linear ? ShadowTint.linear : ShadowTint);

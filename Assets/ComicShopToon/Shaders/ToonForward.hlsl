@@ -71,7 +71,7 @@ float3 PosterizeGI(float3 gi)
 {
     float n=clamp(round(_BakedSteps),2,8)-1;
     // Quantize RGB independently; continuous chroma must not reintroduce gradients.
-    return floor(saturate(gi)*n+0.5)/n;
+    return floor(saturate(gi*exp2(_ToonBakedExposure))*n+0.5)/n;
 }
 void AccumulateToonLight(Light l,float3 n,float3 v,bool punctual,
     inout float3 direct,inout float3 spec,inout float litMask)
@@ -80,11 +80,12 @@ void AccumulateToonLight(Light l,float3 n,float3 v,bool punctual,
     float energy=max(l.color.r,max(l.color.g,l.color.b));
     float attenuation=punctual ? l.distanceAttenuation*max(0,_LightFalloffScale) : l.distanceAttenuation;
     float count=clamp(round(_ShadowSteps),2,3)-1;
-    float irradiance=floor(saturate(energy*attenuation)*count+0.5)/count;
+    float irradiance=floor(clamp(energy*attenuation,0,max(1,_ToonDirectMax))*count+0.5)/count;
     float lightBand=angular*irradiance;
     float3 hue=l.color/max(energy,0.0001);
-    direct+=hue*lightBand;
-    litMask=max(litMask,lightBand);
+    // Strongest RGB contribution avoids overlap washing out the palette.
+    direct=max(direct,hue*lightBand);
+    litMask=max(litMask,saturate(lightBand));
 #if defined(_TOON_GLOBAL_SPECULAR) || defined(_TOON_LOCAL_STYLE)
     if (_SpecEnabled>0.5)
     {
@@ -160,9 +161,11 @@ half4 ToonFragment(Varyings i):SV_Target
     LIGHT_LOOP_END
 #endif
     float3 albedo=ToonAlbedo(i.uv);
-    float3 color=lerp(_ShadowTint.rgb*albedo,albedo,litMask);
+    float3 tint=_ShadowTint.rgb;
+    float3 shadowHue=tint/max(max(tint.r,max(tint.g,tint.b)),0.0001);
+    float3 color=lerp((tint+shadowHue*_ToonShadowLift)*albedo,albedo,litMask);
     // Normalize out the band already used in the palette lerp; preserve light hue.
-    float3 lightHue=saturate(direct/max(litMask,0.0001));
+    float3 lightHue=clamp(direct/max(litMask,0.0001),0,max(1,_ToonDirectMax));
     color*=lerp(float3(1,1,1),lightHue,litMask);
     color+=albedo*PosterizeGI(gi)*saturate(_BakedInfluence);
 #if defined(_TOON_HALFTONE) && (defined(_TOON_GLOBAL_HALFTONE) || defined(_TOON_LOCAL_STYLE))
