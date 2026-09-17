@@ -5,7 +5,6 @@ using System.Collections.Generic;
 public class BookToonEffect : MonoBehaviour
 {
     private static readonly Dictionary<Material, Material> Materials = new Dictionary<Material, Material>();
-    private bool edgesBuilt;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCache()
@@ -16,7 +15,7 @@ public class BookToonEffect : MonoBehaviour
     }
     private void Awake()
     {
-        BuildBlackEdgeLines();
+        ApplyGlobalToonMaterials();
     }
 
     public static void ApplyToBook(GameObject book)
@@ -28,10 +27,10 @@ public class BookToonEffect : MonoBehaviour
             book.AddComponent<BookToonEffect>();
             return;
         }
-        effect.BuildBlackEdgeLines();
+        effect.ApplyGlobalToonMaterials();
     }
 
-    private void BuildBlackEdgeLines()
+    private void ApplyGlobalToonMaterials()
     {
         Material template = Resources.Load<Material>("ComicShopToon/ToonRuntimeTemplate");
         Shader shader = ComicShop.Rendering.ToonStyleController.DefaultStyle.ToonShader;
@@ -69,11 +68,8 @@ public class BookToonEffect : MonoBehaviour
             }
             if (changed) renderer.sharedMaterials = slots;
         }
-        if (!edgesBuilt)
-        {
-            edgesBuilt = true;
-            BookEdgeLines.ApplyToBook(gameObject);
-        }
+        // Books use the renderer feature. Do not attach legacy per-object ink MPBs.
+
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

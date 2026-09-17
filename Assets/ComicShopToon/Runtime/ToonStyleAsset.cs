@@ -26,6 +26,13 @@ namespace ComicShop.Rendering
         [Range(0, 180)] public float HalftoneAngle = 45f;
         [Range(0.05f, 0.45f)] public float HalftoneRadius = 0.27f;
          public Color HalftoneColor = new Color(0.14117647f,0.10980392f,0.20784314f,1f);
+        [Header("Outlines — shared by all materials")]
+        public Color OutlineColor = new Color(0.025f, 0.018f, 0.04f, 1f);
+        [Range(0f, 0.1f)] public float OutlineWidth = 0.01f;
+        [Min(0.1f)] public float OutlineReferenceDistance = 5f;
+        [Range(0f, 4f)] public float OutlineThicknessPixels = 1.5f;
+        [Range(0.001f, 0.2f)] public float DepthThreshold = 0.035f;
+        [Range(0.01f, 2f)] public float NormalThreshold = 0.25f;
         [HideInInspector] public Shader ToonShader;
         static readonly int[] Ids = {
             Shader.PropertyToID("_ToonShadowSteps"),
@@ -50,6 +57,12 @@ namespace ComicShop.Rendering
             Shader.PropertyToID("_ToonHalftoneRadius"),
             Shader.PropertyToID("_ToonHalftoneColor")
         };
+        static readonly int OutlineColorId = Shader.PropertyToID("_OutlineColor");
+        static readonly int OutlineWidthId = Shader.PropertyToID("_OutlineWidth");
+        static readonly int OutlineReferenceId = Shader.PropertyToID("_OutlineReferenceDistance");
+        static readonly int OutlineThicknessId = Shader.PropertyToID("_OutlineThickness");
+        static readonly int DepthThresholdId = Shader.PropertyToID("_DepthThreshold");
+        static readonly int NormalThresholdId = Shader.PropertyToID("_NormalThreshold");
         public void Apply()
         {
             Shader.SetGlobalFloat(Ids[0], ShadowSteps);
@@ -73,6 +86,12 @@ namespace ComicShop.Rendering
             Shader.SetGlobalFloat(Ids[18], HalftoneAngle);
             Shader.SetGlobalFloat(Ids[19], HalftoneRadius);
             Shader.SetGlobalColor(Ids[20], QualitySettings.activeColorSpace == ColorSpace.Linear ? HalftoneColor.linear : HalftoneColor);
+            Shader.SetGlobalColor(OutlineColorId, QualitySettings.activeColorSpace == ColorSpace.Linear ? OutlineColor.linear : OutlineColor);
+            Shader.SetGlobalFloat(OutlineWidthId, Mathf.Max(0, OutlineWidth));
+            Shader.SetGlobalFloat(OutlineReferenceId, Mathf.Max(0.1f, OutlineReferenceDistance));
+            Shader.SetGlobalFloat(OutlineThicknessId, Mathf.Max(0, OutlineThicknessPixels));
+            Shader.SetGlobalFloat(DepthThresholdId, Mathf.Max(0.001f, DepthThreshold));
+            Shader.SetGlobalFloat(NormalThresholdId, Mathf.Max(0.01f, NormalThreshold));
             SetKeyword("_TOON_GLOBAL_SPECULAR", SpecEnabled > 0.5f);
             SetKeyword("_TOON_GLOBAL_RIM", RimEnabled > 0.5f);
             SetKeyword("_TOON_GLOBAL_HALFTONE", HalftoneEnabled > 0.5f);
