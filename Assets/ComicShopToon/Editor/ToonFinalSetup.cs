@@ -197,7 +197,7 @@ namespace ComicShop.Rendering.Editor
             style.ShadowSteps = 3; style.RampSmoothness = 0.01f; style.LightFalloffScale = 1;
             style.ShadowTint = new Color(58f/255f,46f/255f,82f/255f);
             style.ShadowLift = 0.12f; style.BakedExposure = 2; style.BakedSteps = 3; style.BakedInfluence = 0.25f;
-            style.DirectMax = 2; style.EmissionGain = 4; style.HalftoneStrength = 0.25f;
+            style.DirectMax = 2; style.EmissionGain = 4; style.HalftoneEnabled = 0f; style.HalftoneStrength = 0.25f;
             style.HalftoneScale = 8; style.HalftoneAngle = 45; style.SpecEnabled = 0; style.RimEnabled = 0;
             style.OutlineThicknessPixels = 1.25f;
             AssetDatabase.CreateAsset(style, AssetPath("FinalToonStyle.asset"));
