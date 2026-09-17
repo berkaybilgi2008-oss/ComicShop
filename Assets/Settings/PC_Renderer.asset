@@ -15,10 +15,6 @@ MonoBehaviour:
   m_Active: 1
   settings:
     outlineShader: {fileID: 4800000, guid: e45ea9dbb9d0d30478e3296c60c59e2d, type: 3}
-    outlineColor: {r: 0.025, g: 0.018, b: 0.04, a: 1}
-    thickness: 1
-    depthThreshold: 0.035
-    normalThreshold: 0.4
     layerMask:
       serializedVersion: 2
       m_Bits: 4294967295
