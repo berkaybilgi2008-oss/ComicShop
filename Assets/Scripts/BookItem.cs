@@ -77,9 +77,8 @@ public class BookItem : MonoBehaviour
             if (supportBody != null && (!supportBody.isKinematic || !supportBody.detectCollisions)) continue;
             // Sleeping contacts can be old. Both actual surfaces must still touch
             // the recorded point; a nearby bounding box is not proof of support.
-            const float toleranceSquared = 0.025f * 0.025f;
-            if ((support.ClosestPoint(contact.point) - contact.point).sqrMagnitude > toleranceSquared ||
-                (physicsCollider.ClosestPoint(contact.point) - contact.point).sqrMagnitude > toleranceSquared) continue;
+            if (!GameplayPhysics.SurfaceStillTouches(support, contact.point, contact.normal, 0.025f) ||
+                !GameplayPhysics.SurfaceStillTouches(physicsCollider, contact.point, -contact.normal, 0.025f)) continue;
             bool duplicate = false;
             foreach (var saved in restSupports)
                 if (saved.collider == support) { duplicate = true; break; }
@@ -135,6 +134,11 @@ public class BookItem : MonoBehaviour
         outlineObjects = null;
         body = GetComponent<Rigidbody>();
         physicsCollider = GetComponentInChildren<Collider>();
+    }
+
+    void OnDestroy()
+    {
+        if (currentSlot != null) currentSlot.RemoveBook(this);
     }
 
     void FixedUpdate()
