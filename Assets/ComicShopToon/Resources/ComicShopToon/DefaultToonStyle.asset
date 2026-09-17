@@ -31,7 +31,7 @@ MonoBehaviour:
   RimLitOnly: 1
   RimColor: {r: 0.85, g: 0.9, b: 1, a: 1}
   RimStrength: 0.2
-  HalftoneEnabled: 1
+  HalftoneEnabled: 0
   HalftoneScale: 8
   HalftoneStrength: 0.4
   HalftoneAngle: 45
