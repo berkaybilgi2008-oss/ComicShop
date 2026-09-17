@@ -38,6 +38,8 @@ namespace ComicShopV16
             var block = new MaterialPropertyBlock();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>(true))
             {
+                // ToonLit uses global style values and must not receive legacy property blocks.
+                if (!renderer.sharedMaterial || renderer.sharedMaterial.shader.name != "ComicShop/V16 Source Toon") continue;
                 block.Clear();
                 renderer.GetPropertyBlock(block);
                 block.SetFloat("_Receive", renderer.receiveShadows ? 1f : 0f);
