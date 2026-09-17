@@ -52,6 +52,7 @@ float4 _LocalHalftoneColor;
 float _OverrideHalftoneColor;
 CBUFFER_END
 // Global uniforms MUST NOT be material properties or UnityPerMaterial entries.
+float _ToonShadowLift, _ToonBakedExposure, _ToonDirectMax;
 float _ToonShadowSteps;
 float _ToonRampSmoothness;
 float4 _ToonShadowTint;

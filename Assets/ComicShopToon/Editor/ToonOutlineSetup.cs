@@ -7,7 +7,7 @@ namespace ComicShop.Rendering.Editor
     public static class ToonOutlineSetup
     {
         [MenuItem("Tools/ComicShop/Step 2/Install Screen Outlines on Project URP Renderers")]
-        static void Install()
+        public static void Install()
         {
             Shader shader = Shader.Find("Hidden/ComicShop/ScreenSpaceOutline");
             if (shader == null) { Debug.LogError("Import ScreenSpaceOutline.shader first."); return; }

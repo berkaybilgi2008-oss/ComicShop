@@ -10,6 +10,7 @@ namespace ComicShopV16 {
     readonly Vector4[] positions = new Vector4[32];
     void OnEnable() {
         foreach(var r in GetComponentsInChildren<MeshRenderer>(true)) {
+            if (!r.sharedMaterial || r.sharedMaterial.shader.name != "ComicShop/V16 Source Toon") continue;
             var p=new MaterialPropertyBlock();r.GetPropertyBlock(p);
             p.SetFloat("_Receive",r.receiveShadows?1:0);r.SetPropertyBlock(p);
         }
@@ -24,7 +25,7 @@ namespace ComicShopV16 {
             Vector3 p = directional[i] ? -sources[i].forward : sources[i].position;
             positions[i] = new Vector4(p.x,p.y,p.z,directional[i]?0:1);
         }
-        foreach(var m in materials) if(m) {
+        foreach(var m in materials) if(m && m.shader.name == "ComicShop/V16 Source Toon") {
             m.SetInt("_ShopLightCount",count); m.SetVectorArray("_ShopLightPositions",positions);
             m.SetVectorArray("_ShopLightColors",colors); m.SetVectorArray("_ShopLightParams",parameters);
             m.SetVector("_ShopAmbient",ambient);
