@@ -140,10 +140,17 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        UpdateCollisionRestoration();
+        if (heldBooks.RemoveAll(book => book == null) > 0)
+        {
+            CancelHandAnimations();
+            activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
+            RepositionHeldBooksImmediate();
+        }
         if (TryGetComponent<PlayerKnockdown>(out var knocked) && knocked.IsDown) return;
         if (Cursor.lockState != CursorLockMode.Locked)
         {
-            if (isChargingThrow)
+            if (isChargingThrow || isThrowing || isBookAnimating)
             {
                 CancelHandAnimations();
                 RepositionHeldBooksImmediate();
@@ -165,16 +172,27 @@ public class PlayerInteraction : MonoBehaviour
         if (isThrowing || isBookAnimating)
             return;
 
+        // One inventory action per input frame. Pickup/placement coroutines
+        // start immediately; a second button must not release that same book.
         if (Input.GetKeyDown(pickupKey))
+        {
             HandlePickupPress();
-
+            return;
+        }
         if (Input.GetKeyDown(dropKey) && heldBooks.Count > 0)
+        {
             HandleDropOrPlacePress();
+            return;
+        }
 
         float wheel = Input.mouseScrollDelta.y;
         if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
             ChangeActiveHeldBook(wheel < 0f ? 1 : -1);
     }
+
+    private readonly RaycastHit[] lookHits = new RaycastHit[128];
+    private static readonly IComparer<RaycastHit> LookHitOrder =
+        Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
 
     void HandleLookDetection()
     {
@@ -185,8 +203,15 @@ public class PlayerInteraction : MonoBehaviour
         lookedSlot = null;
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        RaycastHit[] hits = Physics.RaycastAll(ray, interactRange, interactMask, QueryTriggerInteraction.Ignore);
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        RaycastHit[] hits = lookHits;
+        int hitCount = Physics.RaycastNonAlloc(ray, hits, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        if (hitCount == hits.Length)
+        {
+            // NonAlloc hits are unordered; a full buffer may omit the nearest wall.
+            hits = Physics.RaycastAll(ray, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            hitCount = hits.Length;
+        }
+        System.Array.Sort(hits, 0, hitCount, LookHitOrder);
 
         bool canPickMore = heldBooks.Count < maxHeldBooks;
         ShelfSlot nearestSlot = null;
@@ -195,8 +220,16 @@ public class PlayerInteraction : MonoBehaviour
         // Raf collider'i, kitap collider'indan once gelebiliyor. Bu yuzden ikisini de
         // ayri ayri topluyoruz: en yakin serbest kitap + en yakin raf gozu.
         // (Eskiden kitap bulununca lookedSlot null'lanip rafa koyma tamamen bloklaniyordu.)
-        foreach (RaycastHit hit in hits)
+        for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
         {
+            RaycastHit hit = hits[hitIndex];
+            if (hit.collider.transform.IsChildOf(transform)) continue;
+            var blockingBook = hit.collider.GetComponentInParent<BookItem>();
+            if (blockingBook != null && blockingBook.IsHeld) continue;
+            var blockingSlot = hit.collider.GetComponentInParent<ShelfSlot>();
+            // An interaction mask must never make a wall transparent to pickup.
+            if (blockingBook == null && blockingSlot == null) break;
+            if ((interactMask.value & (1 << hit.collider.gameObject.layer)) == 0) break;
             if (nearestBook == null)
             {
                 BookItem book = hit.collider.GetComponentInParent<BookItem>();
@@ -207,10 +240,6 @@ public class PlayerInteraction : MonoBehaviour
             if (nearestSlot == null)
             {
                 ShelfSlot slot = hit.collider.GetComponentInParent<ShelfSlot>();
-
-                // Slot, kendi child collider'i uzerinden de bulunabilsin.
-                if (slot == null)
-                    slot = hit.collider.GetComponentInChildren<ShelfSlot>();
 
                 if (slot != null)
                     nearestSlot = slot;
@@ -225,6 +254,27 @@ public class PlayerInteraction : MonoBehaviour
 
         if (lookedBook != null)
             lookedBook.SetHighlight(true);
+    }
+
+    private string placementFeedback;
+    private float placementFeedbackUntil;
+    public string InteractionHint
+    {
+        get
+        {
+            if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
+            if (lookedSlot != null && ActiveHeldBook != null)
+            {
+                if (!lookedSlot.IsAvailable) return "Raf gözü dolu";
+                if (ActiveHeldBook.brandID != lookedSlot.brandID) return "Yanlış yayıncı";
+                if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
+                    return "Bu raf gözü başka bir kitap grubuna ayrılmış";
+                return dropKey + ": Rafa yerleştir";
+            }
+            if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
+                return heldBooks.Count >= maxHeldBooks ? "Ellerin dolu" : pickupKey + ": Kitabı al";
+            return string.Empty;
+        }
     }
 
     void HandlePickupPress()
@@ -545,7 +595,6 @@ public class PlayerInteraction : MonoBehaviour
         if (book == null) return;
         bool removed = heldBooks.Remove(book);
         IgnorePlayerCollision(book, false);
-        RestoreBookToBookCollisions(book);
         if (!removed) return;
         CancelHandAnimations();
         activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1);
@@ -572,6 +621,7 @@ public class PlayerInteraction : MonoBehaviour
             book.transform.SetParent(null, true);
             IgnorePlayerCollision(book, false);
         }
+        RestoreAllPlayerCollisions();
         heldBooks.Clear();
         activeHeldIndex = -1;
         lookedBook = null;
@@ -760,21 +810,20 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot == null || book == null)
             return false;
 
+        // Explain a local rejection without changing inventory or dropping the book.
+        if (!lookedSlot.Matches(book))
+        {
+            placementFeedback = !lookedSlot.IsAvailable ? "Raf gözü dolu" :
+                book.brandID != lookedSlot.brandID ? "Yanlış yayıncı" :
+                "Bu kitap grubu farklı bir raf gözüne ayrılmış";
+            placementFeedbackUntil = Time.unscaledTime + 2f;
+            return false;
+        }
         NetworkBook networkBook = book.GetComponent<NetworkBook>();
         if (networkBook != null && networkBook.IsSpawned)
         {
             networkBook.PlaceRpc(lookedSlot.NetworkKey);
             return true;
-        }
-
-        if (!lookedSlot.Matches(book))
-        {
-            if (debugPlacement)
-                Debug.Log($"[Yerlestirme] '{lookedSlot.name}' bu kitabi kabul etmiyor " +
-                          $"(slot brand {lookedSlot.brandID}, kitap brand {book.brandID}, " +
-                          $"dolu {lookedSlot.FilledCount}/{lookedSlot.capacity}, " +
-                          $"sahip bookID {lookedSlot.OwnerBookID}, kitap bookID {book.bookID}).");
-            return false;
         }
 
         if (!lookedSlot.TryGetNextPlacementPose(book, out Vector3 targetPosition, out _))
@@ -838,6 +887,7 @@ public class PlayerInteraction : MonoBehaviour
 
         if (slot.PlaceBook(book))
         {
+            IgnorePlayerCollision(book, false);
             heldBooks.Remove(book);
 
             if (heldBooks.Count == 0)
@@ -947,7 +997,8 @@ public class PlayerInteraction : MonoBehaviour
             {
                 var obstacle = roomOverlaps[i];
                 if (!IsRoomObstacle(obstacle)) continue;
-                Vector3 away = origin - obstacle.ClosestPoint(origin);
+                if (!GameplayPhysics.TryClosestPoint(obstacle, origin, out var closestPoint)) continue;
+                Vector3 away = origin - closestPoint;
                 float distance = away.magnitude;
                 if (distance < 0.0001f || distance >= radius) continue;
                 origin += away / distance * (radius - distance + 0.005f);
@@ -998,7 +1049,6 @@ public class PlayerInteraction : MonoBehaviour
 
         IgnorePlayerCollision(book, true);
         RepositionHeldBooksImmediate();
-        RestoreBookToBookCollisions(book);
 
         book.SetHeld(false);
         Physics.SyncTransforms();
@@ -1026,38 +1076,7 @@ public class PlayerInteraction : MonoBehaviour
                 book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
         }
 
-        StartCoroutine(IgnorePlayerCollisionUntilSettled(book));
-    }
-
-    void RestoreBookToBookCollisions(BookItem releasedBook)
-    {
-        if (releasedBook == null)
-            return;
-
-        Collider[] releasedColliders = releasedBook.GetComponentsInChildren<Collider>(true);
-        BookItem[] allBooks = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
-
-        foreach (BookItem otherBook in allBooks)
-        {
-            if (otherBook == null || otherBook == releasedBook)
-                continue;
-
-            Collider[] otherColliders = otherBook.GetComponentsInChildren<Collider>(true);
-
-            foreach (Collider releasedCollider in releasedColliders)
-            {
-                if (releasedCollider == null || !releasedCollider.enabled)
-                    continue;
-
-                foreach (Collider otherCollider in otherColliders)
-                {
-                    if (otherCollider == null || !otherCollider.enabled || releasedCollider == otherCollider)
-                        continue;
-
-                    Physics.IgnoreCollision(releasedCollider, otherCollider, false);
-                }
-            }
-        }
+        pendingCollisionRestores.Add(new CollisionRestore { book = book, deadline = Time.unscaledTime + 2f, readyAt = -1f });
     }
 
     void IgnorePlayerCollision(BookItem book, bool ignore)
@@ -1065,6 +1084,10 @@ public class PlayerInteraction : MonoBehaviour
         if (book == null)
             return;
 
+        if (ignore) ignoredPlayerBooks.Add(book);
+        else ignoredPlayerBooks.Remove(book);
+        for (int i = pendingCollisionRestores.Count - 1; i >= 0; i--)
+            if (pendingCollisionRestores[i].book == book) pendingCollisionRestores.RemoveAt(i);
         Collider[] playerColliders = GetComponentsInChildren<Collider>();
         Collider[] bookColliders = book.GetComponentsInChildren<Collider>(true);
 
@@ -1075,25 +1098,59 @@ public class PlayerInteraction : MonoBehaviour
 
             foreach (Collider playerCollider in playerColliders)
             {
-                if (playerCollider != null && bookCollider != playerCollider)
+                if (playerCollider != null && bookCollider != playerCollider &&
+                    playerCollider.GetComponentInParent<BookItem>() == null)
                     Physics.IgnoreCollision(bookCollider, playerCollider, ignore);
             }
         }
     }
 
-    IEnumerator IgnorePlayerCollisionUntilSettled(BookItem book)
+    private struct CollisionRestore
     {
-        Rigidbody rb = book != null ? book.GetComponent<Rigidbody>() : null;
+        public BookItem book;
+        public float deadline, readyAt;
+    }
+    private readonly HashSet<BookItem> ignoredPlayerBooks = new HashSet<BookItem>();
+    private readonly List<CollisionRestore> pendingCollisionRestores = new List<CollisionRestore>();
 
-        while (book != null && rb != null && !rb.isKinematic && !rb.IsSleeping())
-            yield return null;
+    private void UpdateCollisionRestoration()
+    {
+        ignoredPlayerBooks.RemoveWhere(book => book == null);
+        for (int i = pendingCollisionRestores.Count - 1; i >= 0; i--)
+        {
+            var pending = pendingCollisionRestores[i];
+            if (pending.book == null) { pendingCollisionRestores.RemoveAt(i); continue; }
+            if (pending.book.IsHeld) { pendingCollisionRestores.RemoveAt(i); continue; }
+            var rb = pending.book.GetComponent<Rigidbody>();
+            if (pending.readyAt < 0f && (rb == null || rb.isKinematic || rb.IsSleeping() || Time.unscaledTime >= pending.deadline))
+            {
+                pending.readyAt = Time.unscaledTime + Mathf.Max(0f, playerCollisionRestoreDelay);
+                pendingCollisionRestores[i] = pending;
+            }
+            if (pending.readyAt >= 0f && Time.unscaledTime >= pending.readyAt)
+                IgnorePlayerCollision(pending.book, false);
+        }
+    }
 
-        if (playerCollisionRestoreDelay > 0f)
-            yield return new WaitForSeconds(playerCollisionRestoreDelay);
+    private void RestoreAllPlayerCollisions()
+    {
+        foreach (var book in new List<BookItem>(ignoredPlayerBooks))
+            if (book != null) IgnorePlayerCollision(book, false);
+        ignoredPlayerBooks.Clear();
+        pendingCollisionRestores.Clear();
+    }
 
-        if (book == null)
-            yield break;
+    void OnApplicationFocus(bool focused)
+    {
+        if (focused) return;
+        CancelHandAnimations();
+        RepositionHeldBooksImmediate();
+    }
 
-        IgnorePlayerCollision(book, false);
+    void OnDisable()
+    {
+        CancelHandAnimations();
+        RepositionHeldBooksImmediate();
+        RestoreAllPlayerCollisions();
     }
 }

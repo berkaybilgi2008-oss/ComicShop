@@ -460,6 +460,7 @@ public class BookRecallMachine : MonoBehaviour
             }
         }
 
+        book.SetHeld(false); // Clear stale frozen support/contact state before recovery.
         book.transform.SetParent(null, true);
         book.transform.SetPositionAndRotation(
             target,

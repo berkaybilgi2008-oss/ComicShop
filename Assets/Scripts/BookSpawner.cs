@@ -66,7 +66,13 @@ public class BookSpawner : MonoBehaviour
             ? bookTypes.Length
             : Mathf.Min(testBookTypeCount, BrandConfig.TotalBookTypeCount);
 
-        GameStats.Initialize(bookTypeCount, copiesPerBook);
+        var ids = new List<int>(bookTypeCount);
+        for (int index = 0; index < bookTypeCount; index++)
+        {
+            var data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
+            ids.Add(data != null ? data.BookID : index);
+        }
+        GameStats.Initialize(ids, copiesPerBook);
     }
 
     void SpawnBooks(int bookTypeCount)

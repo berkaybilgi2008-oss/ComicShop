@@ -576,7 +576,8 @@ public class ShelfSlot : MonoBehaviour
     {
         EnsureArray();
 
-        if (!Matches(book))
+        // A committed book cannot occupy a second index (or count twice).
+        if (book == null || book.currentSlot != null || !Matches(book))
             return false;
 
         int index = FindFreeIndex();

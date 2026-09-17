@@ -31,6 +31,7 @@ public class GameHUD : MonoBehaviour
         for (int i = 0; i < playerInteraction.HeldBooksList.Count; i++)
         {
             BookItem book = playerInteraction.HeldBooksList[i];
+            if (book == null) continue;
             if (i == activeIndex)
                 sb.Append("<color=#FFFF00>");
 
@@ -42,6 +43,8 @@ public class GameHUD : MonoBehaviour
             sb.Append("\n");
         }
         sb.Append("</size>");
+        string hint = playerInteraction.InteractionHint;
+        if (!string.IsNullOrEmpty(hint)) sb.Append("\n").Append(hint);
 
         hudText.text = sb.ToString();
     }
