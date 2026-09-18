@@ -19,13 +19,18 @@ namespace ComicShop.Rendering.Editor
             if (EditorApplication.isPlayingOrWillChangePlaymode)
             { Debug.LogError("Stop Play Mode before applying sunset."); return; }
             var scene=SceneManager.GetActiveScene();
-            var rooms=UnityEngine.Object.FindObjectsByType<ToonRoom>(FindObjectsSortMode.None)
+            var rooms=UnityEngine.Object.FindObjectsByType<ToonRoom>(FindObjectsInactive.Include,FindObjectsSortMode.None)
                 .Where(r=>r.gameObject.scene==scene).ToArray();
-            if(rooms.Length!=1 || !rooms[0].preserveShopfrontOpening || string.IsNullOrEmpty(scene.path))
-            { Debug.LogError("Expected one ToonRoom with the aligned yellow shopfront opening, and a saved scene. Nothing changed."); return; }
+            if(string.IsNullOrEmpty(scene.path))
+            { Debug.LogError("Save the active scene first with Ctrl+S."); return; }
+            if(rooms.Length>1)
+            { Debug.LogError("Multiple ToonRoom components found: " + string.Join(", ",rooms.Select(r=>r.name)) + ". Keep one room configuration."); return; }
             var shader=Shader.Find("ComicShop/Light Shaft");
             if(!shader) { Debug.LogError("Light Shaft shader missing. Wait for import."); return; }
-            var room=rooms[0];
+            ToonRoom room=rooms.FirstOrDefault();
+            Bounds inferredFloor=default, inferredWindow=default;
+            Transform inferredSpace=null;
+            if(!room && !InferWindow(scene,out inferredSpace,out inferredFloor,out inferredWindow)) return;
             var lamps=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<Light>(true))
                 .Where(l=>l.isActiveAndEnabled && l.name=="ComicShop Pendant Spot").ToArray();
             if(!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets/ComicShopToon","Sunset");
@@ -34,6 +39,33 @@ namespace ComicShop.Rendering.Editor
             Undo.IncrementCurrentGroup(); int group=Undo.GetCurrentGroup(); Undo.SetCurrentGroupName("Apply shop sunset");
             try
             {
+                if(!room)
+                {
+                    var config=new GameObject("Sunset Room Configuration");
+                    SceneManager.MoveGameObjectToScene(config,scene);
+                    Undo.RegisterCreatedObjectUndo(config,"Create window configuration");
+                    config.transform.SetPositionAndRotation(inferredSpace.position,inferredSpace.rotation);
+                    room=config.AddComponent<ToonRoom>();
+                    float floorY=inferredFloor.max.y;
+                    float height=Mathf.Max(3.5f,inferredWindow.max.y-floorY+.5f);
+                    room.roomBounds=new Bounds(new Vector3(inferredFloor.center.x,floorY+height*.5f,inferredFloor.center.z),new Vector3(inferredFloor.size.x,height,inferredFloor.size.z));
+                    bool alongX=inferredWindow.size.x>inferredWindow.size.z;
+                    bool positive=alongX?inferredWindow.center.z>inferredFloor.center.z:inferredWindow.center.x>inferredFloor.center.x;
+                    room.shopfront=alongX?(positive?ToonRoom.Facade.PositiveZ:ToonRoom.Facade.NegativeZ):(positive?ToonRoom.Facade.PositiveX:ToonRoom.Facade.NegativeX);
+                    room.openingCenter=new Vector2(alongX?inferredWindow.center.x-inferredFloor.center.x:inferredWindow.center.z-inferredFloor.center.z,inferredWindow.center.y-floorY);
+                    room.openingSize=new Vector2(alongX?inferredWindow.size.x:inferredWindow.size.z,inferredWindow.size.y);
+                    // Align the chosen facade plane to the actual glass, not the floor's outer trim.
+                    var bounds=room.roomBounds;
+                    Vector3 min=bounds.min,max=bounds.max;
+                    if(alongX) { if(positive) max.z=inferredWindow.center.z; else min.z=inferredWindow.center.z; }
+                    else { if(positive) max.x=inferredWindow.center.x; else min.x=inferredWindow.center.x; }
+                    bounds.SetMinMax(min,max);
+                    // Adjust horizontal offset after the bounds center changes.
+                    room.roomBounds=bounds;
+                    room.openingCenter=new Vector2(alongX?inferredWindow.center.x-bounds.center.x:inferredWindow.center.z-bounds.center.z,inferredWindow.center.y-floorY);
+                    room.preserveShopfrontOpening=true;
+                }
+                // A disabled shell-opening toggle must not prevent lighting an existing window.
                 foreach(var old in scene.GetRootGameObjects().Where(r=>r.name==RootName)) Undo.DestroyObjectImmediate(old);
                 var root=new GameObject(RootName); SceneManager.MoveGameObjectToScene(root,scene); Undo.RegisterCreatedObjectUndo(root,"Sunset root");
                 var lampMat=Material(shader,"LampShaft",new Color(1f,.69f,.34f),.028f);
@@ -98,6 +130,48 @@ namespace ComicShop.Rendering.Editor
             }
             catch { Undo.RevertAllDownToGroup(group); throw; }
             finally { Undo.CollapseUndoOperations(group); }
+        }
+        static bool InferWindow(Scene scene,out Transform space,out Bounds floor,out Bounds window)
+        {
+            space=null; floor=default; window=default;
+            var meshes=scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<MeshFilter>(true)).ToArray();
+            var floors=meshes.Where(f=>f.gameObject.activeInHierarchy && f.sharedMesh && f.name=="Mesh_1" && f.sharedMesh.name=="G_0_1").ToArray();
+            if(floors.Length!=1 || !floors[0].transform.parent)
+            { Debug.LogError("Could not uniquely identify the V16 floor. Create a ToonRoom using Tools/ComicShop/Step 2/Create or Select Room Repair Setup, then align its yellow window."); return false; }
+            space=floors[0].transform.parent;
+            floor=LocalBounds(floors[0],space);
+            float largest=0;
+            foreach(var f in meshes)
+            {
+                if(!f.gameObject.activeInHierarchy || !f.sharedMesh) continue;
+                var r=f.GetComponent<MeshRenderer>();
+                if(!r || !r.enabled) continue;
+                bool glass=r.sharedMaterials.Any(m=>m && (m.GetTag("RenderType",false,"")=="Transparent" || (m.HasProperty("_BaseColor") && m.GetColor("_BaseColor").a<.99f)));
+                if(!glass) continue;
+                var b=LocalBounds(f,space);
+                if(b.size.y<.8f || b.min.y>floor.max.y+3 || b.max.y>floor.max.y+5) continue;
+                float dx=Mathf.Min(Mathf.Abs(b.center.x-floor.min.x),Mathf.Abs(b.center.x-floor.max.x));
+                float dz=Mathf.Min(Mathf.Abs(b.center.z-floor.min.z),Mathf.Abs(b.center.z-floor.max.z));
+                bool xwall=b.size.x<.4f && dx<.8f && b.size.z>.6f;
+                bool zwall=b.size.z<.4f && dz<.8f && b.size.x>.6f;
+                if(!xwall && !zwall) continue;
+                float area=b.size.y*(xwall?b.size.z:b.size.x);
+                if(area<=largest) continue;
+                largest=area; window=b;
+            }
+            if(largest==0) { Debug.LogError("No exterior glass pane could be identified. Nothing changed. Send a screenshot of the selected shopfront glass Inspector."); return false; }
+            Debug.Log("[SUNSET] Using largest exterior glass pane; existing roof and blockers remain untouched.");
+            return true;
+        }
+        static Bounds LocalBounds(MeshFilter filter,Transform space)
+        {
+            // Ignore scale in the coordinate frame, matching ToonRoom's meter-based gizmo.
+            var inverse=Matrix4x4.TRS(space.position,space.rotation,Vector3.one).inverse;
+            var matrix=inverse*filter.transform.localToWorldMatrix;
+            var source=filter.sharedMesh.bounds;
+            var result=new Bounds(matrix.MultiplyPoint3x4(source.center),Vector3.zero);
+            for(int i=0;i<8;i++) result.Encapsulate(matrix.MultiplyPoint3x4(source.center+Vector3.Scale(source.extents,new Vector3((i&1)==0?-1:1,(i&2)==0?-1:1,(i&4)==0?-1:1))));
+            return result;
         }
         static Material Material(Shader shader,string name,Color color,float density)
         {
