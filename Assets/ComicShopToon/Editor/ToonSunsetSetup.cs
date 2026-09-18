@@ -81,35 +81,54 @@ namespace ComicShop.Rendering.Editor
                 Vector3 inward=rotation*(alongX?Vector3.forward:Vector3.right)*(positive?-1:1);
                 Vector3 sideways=rotation*(alongX?Vector3.right:Vector3.forward);
                 Vector3 window=room.transform.position+rotation*center;
-                Vector3 direction=(inward+sideways*.25f+Vector3.down*.38f).normalized;
+                Vector3 direction=(inward+sideways*.20f+Vector3.down*.42f).normalized;
+                int glassCount,frameCount;
+                PrepareFacade(scene,room,window,inward,sideways,out glassCount,out frameCount);
                 // Window sources replace prior named window rigs; architectural blockers remain untouched.
                 foreach(var l in scene.GetRootGameObjects().SelectMany(r=>r.GetComponentsInChildren<Light>(true)))
                 {
                     if(l.type==LightType.Directional || l.name.StartsWith("Window ") || l.name.IndexOf("Shopfront",StringComparison.OrdinalIgnoreCase)>=0)
                     { Undo.RecordObject(l,"Retire previous daylight"); l.enabled=false; Record(l); }
                 }
-                for(int k=0;k<2;k++)
-                {
-                    Vector3 aperture=window+sideways*((k==0?-1:1)*room.openingSize.x*.23f)+Vector3.up*(room.openingSize.y*.22f);
-                    var go=new GameObject("Sunset Window "+(k+1)); go.transform.SetParent(root.transform);
-                    // Just inside the opening: avoids transparent window meshes shadowing the source.
-                    go.transform.position=aperture+inward*.12f;
-                    go.transform.rotation=Quaternion.LookRotation(direction,Vector3.up);
-                    var l=go.AddComponent<Light>(); l.type=LightType.Spot; l.lightmapBakeType=LightmapBakeType.Realtime;
-                    l.lightUnit=LightUnit.Candela; l.enableSpotReflector=false; l.intensity=180;
-                    l.color=Color.white; l.useColorTemperature=true; l.colorTemperature=2600;
-                    l.range=30; l.spotAngle=65; l.innerSpotAngle=35; l.shadows=LightShadows.Hard;
-                    l.shadowBias=.04f; l.shadowNormalBias=.06f; l.shadowNearPlane=.05f; l.shadowCustomResolution=1024;
-                    var extra=go.AddComponent<UniversalAdditionalLightData>();
-                    var so=new SerializedObject(extra); var tier=so.FindProperty("m_AdditionalLightsShadowResolutionTier");
-                    if(tier!=null) tier.intValue=2; so.ApplyModifiedProperties();
-                    Shaft(root.transform,go.transform.position,direction,9f,3f,sunMat,"Sunset Shaft "+k);
-                }
+                // One distant exterior source: mullions sit between the source and the room.
+                // The frame geometry, not the spot cone, defines the light pattern inside.
+                Vector3 aperture=window+Vector3.up*(room.openingSize.y*.15f);
+                float sourceDistance=Mathf.Max(24f,room.openingSize.x*2f);
+                var sunObject=new GameObject("Exterior Sunset Sun");
+                sunObject.transform.SetParent(root.transform);
+                sunObject.transform.position=aperture-direction*sourceDistance;
+                sunObject.transform.rotation=Quaternion.LookRotation(direction,Vector3.up);
+                var sun=sunObject.AddComponent<Light>(); sun.type=LightType.Spot;
+                sun.lightmapBakeType=LightmapBakeType.Realtime;
+                sun.lightUnit=LightUnit.Candela; sun.enableSpotReflector=false;
+                sun.intensity=16000f*(sourceDistance/24f)*(sourceDistance/24f);
+                sun.color=Color.white; sun.useColorTemperature=true; sun.colorTemperature=2900;
+                sun.range=sourceDistance+Mathf.Max(b.size.x,b.size.z)+10;
+                sun.spotAngle=60; sun.innerSpotAngle=48; sun.shadows=LightShadows.Hard;
+                sun.shadowStrength=1; sun.shadowBias=.015f; sun.shadowNormalBias=.015f;
+                sun.shadowNearPlane=.1f; sun.shadowCustomResolution=2048; sun.cullingMask=~0;
+                var sunData=sunObject.AddComponent<UniversalAdditionalLightData>();
+                var sunSettings=new SerializedObject(sunData);
+                var usePipeline=sunSettings.FindProperty("m_UsePipelineSettings");
+                if(usePipeline!=null) usePipeline.boolValue=false;
+                var tier=sunSettings.FindProperty("m_AdditionalLightsShadowResolutionTier");
+                if(tier!=null) tier.intValue=2;
+                sunSettings.ApplyModifiedProperties();
+                var sunSerialized=new SerializedObject(sun);
+                var frustum=sunSerialized.FindProperty("m_UseViewFrustumForShadowCasterCull");
+                if(frustum!=null) frustum.boolValue=false;
+                sunSerialized.ApplyModifiedProperties();
+                var style=ToonStyleController.ActiveStyle;
+                Undo.RecordObject(style,"Sunset HDR range"); style.DirectMax=4;
+                EditorUtility.SetDirty(style); ToonStyleController.PublishActive();
+                // Decorative haze starts at the window; the actual light remains outside.
+                Shaft(root.transform,aperture+inward*.10f,direction,12f,2.5f,sunMat,"Sunset Shaft");
                 float floor=(room.transform.position+rotation*new Vector3(b.center.x,b.min.y,b.center.z)).y;
                 foreach(var l in lamps)
                 {
                     Undo.RecordObject(l,"Warm pendant balance"); l.color=Color.white; l.useColorTemperature=true;
-                    l.colorTemperature=3000; l.intensity=24; Record(l);
+                    l.colorTemperature=3200; l.intensity=12;
+                    l.range=12; l.spotAngle=140; l.innerSpotAngle=80; Record(l);
                     float length=Mathf.Clamp(l.transform.position.y-floor-.15f,.3f,5f);
                     Shaft(root.transform,l.transform.position,Vector3.down,length,Mathf.Min(1.8f,length*.5f),lampMat,"Lamp Shaft");
                 }
@@ -121,15 +140,51 @@ namespace ComicShop.Rendering.Editor
                 foreach(var guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset"))
                 {
                     var asset=AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
-                    Undo.RecordObject(asset,"Enable depth texture"); asset.supportsCameraDepthTexture=true; EditorUtility.SetDirty(asset);
+                    Undo.RecordObject(asset,"Enable depth texture"); asset.supportsCameraDepthTexture=true;
+                    var pipeline=new SerializedObject(asset);
+                    SetInt(pipeline,"m_AdditionalLightsShadowmapResolution",4096);
+                    SetInt(pipeline,"m_AdditionalLightsShadowResolutionTierHigh",2048);
+                    SetInt(pipeline,"m_AdditionalLightsShadowResolutionTierLow",256);
+                    var shadows=pipeline.FindProperty("m_AdditionalLightShadowsSupported");
+                    if(shadows!=null) shadows.boolValue=true;
+                    pipeline.ApplyModifiedProperties(); EditorUtility.SetDirty(asset);
                 }
                 EditorSceneManager.MarkSceneDirty(scene);
                 if(!EditorSceneManager.SaveScene(scene)) throw new InvalidOperationException("Could not save scene.");
                 AssetDatabase.SaveAssets(); SceneView.RepaintAll();
-                Debug.Log($"[SUNSET] Saved {scene.path}; 2 warm window spots; {lamps.Length} lamp shafts. Existing roof/blockers untouched. Backup: {backup}. Shafts are decorative depth-clipped volumes, not shadow-aware fog. No bake required.");
+                Debug.Log($"[SUNSET] Saved {scene.path}; 1 exterior sunset source ({sourceDistance:F1} m outside); {glassCount} glass renderers made non-shadowing; {frameCount} opaque facade renderers shadow-enabled; {lamps.Length} lamp shafts. Existing roof/blockers untouched. Backup: {backup}. Shafts are decorative depth-clipped volumes, not shadow-aware fog. No bake required.");
             }
             catch { Undo.RevertAllDownToGroup(group); throw; }
             finally { Undo.CollapseUndoOperations(group); }
+        }
+        static void SetInt(SerializedObject so,string name,int value)
+        { var p=so.FindProperty(name); if(p!=null) p.intValue=value; }
+        static void PrepareFacade(Scene scene,ToonRoom room,Vector3 window,Vector3 inward,Vector3 sideways,out int glassCount,out int frameCount)
+        {
+            glassCount=0; frameCount=0;
+            foreach(var root in scene.GetRootGameObjects())
+                foreach(var renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if(!renderer.enabled || !renderer.gameObject.activeInHierarchy || renderer.shadowCastingMode==ShadowCastingMode.ShadowsOnly) continue;
+                    var bounds=renderer.bounds;
+                    float halfDepth=Vector3.Dot(new Vector3(Mathf.Abs(inward.x),Mathf.Abs(inward.y),Mathf.Abs(inward.z)),bounds.extents);
+                    float halfWidth=Vector3.Dot(new Vector3(Mathf.Abs(sideways.x),Mathf.Abs(sideways.y),Mathf.Abs(sideways.z)),bounds.extents);
+                    var delta=bounds.center-window;
+                    // Only the thin facade strip around the window. Never modify roof or wall blockers.
+                    if(halfDepth>.8f || Mathf.Abs(Vector3.Dot(delta,inward))>halfDepth+.35f ||
+                       Mathf.Abs(Vector3.Dot(delta,sideways))>room.openingSize.x*.5f+halfWidth+.3f ||
+                       Mathf.Abs(delta.y)>room.openingSize.y*.5f+bounds.extents.y+.3f) continue;
+                    var materials=renderer.sharedMaterials;
+                    var valid=materials.Where(m=>m).ToArray();
+                    if(valid.Length==0) continue;
+                    // Mixed glass/frame renderers stay shadow-casting: don't erase frame shadows.
+                    bool allGlass=valid.All(m=>m.GetTag("RenderType",false,"")=="Transparent" ||
+                        (m.HasProperty("_BaseColor") && m.GetColor("_BaseColor").a<.99f));
+                    Undo.RecordObject(renderer,"Window shadow transmission");
+                    renderer.shadowCastingMode=allGlass?ShadowCastingMode.Off:ShadowCastingMode.TwoSided;
+                    if(allGlass) glassCount++; else { renderer.receiveShadows=true; frameCount++; }
+                    Record(renderer);
+                }
         }
         static bool InferWindow(Scene scene,out Transform space,out Bounds floor,out Bounds window)
         {
