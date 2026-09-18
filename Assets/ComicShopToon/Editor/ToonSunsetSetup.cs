@@ -49,20 +49,20 @@ namespace ComicShop.Rendering.Editor
                     float floorY=inferredFloor.max.y;
                     float height=Mathf.Max(3.5f,inferredWindow.max.y-floorY+.5f);
                     room.roomBounds=new Bounds(new Vector3(inferredFloor.center.x,floorY+height*.5f,inferredFloor.center.z),new Vector3(inferredFloor.size.x,height,inferredFloor.size.z));
-                    bool alongX=inferredWindow.size.x>inferredWindow.size.z;
-                    bool positive=alongX?inferredWindow.center.z>inferredFloor.center.z:inferredWindow.center.x>inferredFloor.center.x;
-                    room.shopfront=alongX?(positive?ToonRoom.Facade.PositiveZ:ToonRoom.Facade.NegativeZ):(positive?ToonRoom.Facade.PositiveX:ToonRoom.Facade.NegativeX);
-                    room.openingCenter=new Vector2(alongX?inferredWindow.center.x-inferredFloor.center.x:inferredWindow.center.z-inferredFloor.center.z,inferredWindow.center.y-floorY);
-                    room.openingSize=new Vector2(alongX?inferredWindow.size.x:inferredWindow.size.z,inferredWindow.size.y);
+                    bool inferredAlongX=inferredWindow.size.x>inferredWindow.size.z;
+                    bool inferredPositive=inferredAlongX?inferredWindow.center.z>inferredFloor.center.z:inferredWindow.center.x>inferredFloor.center.x;
+                    room.shopfront=inferredAlongX?(inferredPositive?ToonRoom.Facade.PositiveZ:ToonRoom.Facade.NegativeZ):(inferredPositive?ToonRoom.Facade.PositiveX:ToonRoom.Facade.NegativeX);
+                    room.openingCenter=new Vector2(inferredAlongX?inferredWindow.center.x-inferredFloor.center.x:inferredWindow.center.z-inferredFloor.center.z,inferredWindow.center.y-floorY);
+                    room.openingSize=new Vector2(inferredAlongX?inferredWindow.size.x:inferredWindow.size.z,inferredWindow.size.y);
                     // Align the chosen facade plane to the actual glass, not the floor's outer trim.
                     var bounds=room.roomBounds;
                     Vector3 min=bounds.min,max=bounds.max;
-                    if(alongX) { if(positive) max.z=inferredWindow.center.z; else min.z=inferredWindow.center.z; }
-                    else { if(positive) max.x=inferredWindow.center.x; else min.x=inferredWindow.center.x; }
+                    if(inferredAlongX) { if(inferredPositive) max.z=inferredWindow.center.z; else min.z=inferredWindow.center.z; }
+                    else { if(inferredPositive) max.x=inferredWindow.center.x; else min.x=inferredWindow.center.x; }
                     bounds.SetMinMax(min,max);
                     // Adjust horizontal offset after the bounds center changes.
                     room.roomBounds=bounds;
-                    room.openingCenter=new Vector2(alongX?inferredWindow.center.x-bounds.center.x:inferredWindow.center.z-bounds.center.z,inferredWindow.center.y-floorY);
+                    room.openingCenter=new Vector2(inferredAlongX?inferredWindow.center.x-bounds.center.x:inferredWindow.center.z-bounds.center.z,inferredWindow.center.y-floorY);
                     room.preserveShopfrontOpening=true;
                 }
                 // A disabled shell-opening toggle must not prevent lighting an existing window.
