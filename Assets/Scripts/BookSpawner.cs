@@ -4,7 +4,11 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    public Transform v16SpawnArea; // V16 scaled scene spawn area
+    public Transform v16SpawnArea; // Legacy single-area fallback
+    [Header("Corridor Spawn Areas")]
+    [Tooltip("When assigned, books spawn only in these boxes. Box colliders may stay disabled.")]
+    public BoxCollider[] corridorAreas;
+    [Min(0f)] public float corridorEdgePadding = 0.35f;
 
     [Header("Varsayilan Prefab ve Alan")]
     [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
@@ -111,10 +115,7 @@ public class BookSpawner : MonoBehaviour
             return;
         }
 
-        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        float x = Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
-        float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
-        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
+        Vector3 pos = SampleSpawnPosition();
 
         // Prefab'in root rotasyonunu Instantiate ile ezme.
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
@@ -152,6 +153,52 @@ public class BookSpawner : MonoBehaviour
             networkBook.Initialize(bookID, brandID);
             networkBook.NetworkObject.Spawn(true);
         }
+    }
+
+    public Vector3 SampleSpawnPosition()
+    {
+        if (corridorAreas != null && corridorAreas.Length > 0)
+        {
+            float total = 0;
+            foreach (var zone in corridorAreas) total += ZoneWeight(zone);
+            if (total <= 0) throw new System.InvalidOperationException("BookSpawner: corridor areas have no usable space. Fix their Size/Scale; legacy area was not used.");
+            float choice = Random.value * total;
+            BoxCollider selected = null;
+            foreach (var zone in corridorAreas)
+            {
+                float weight = ZoneWeight(zone);
+                if (weight <= 0) continue;
+                selected = zone; choice -= weight;
+                if (choice <= 0) break;
+            }
+            Vector3 scale = selected.transform.lossyScale;
+            float halfX = selected.size.x * .5f - corridorEdgePadding / Mathf.Abs(scale.x);
+            float halfZ = selected.size.z * .5f - corridorEdgePadding / Mathf.Abs(scale.z);
+            Vector3 local = selected.center + new Vector3(Random.Range(-halfX,halfX),0,Random.Range(-halfZ,halfZ));
+            return selected.transform.TransformPoint(local) + Vector3.up * spawnHeight;
+        }
+        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
+        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f,areaSize.x*.5f),spawnHeight,Random.Range(-areaSize.y*.5f,areaSize.y*.5f)));
+    }
+    float ZoneWeight(BoxCollider zone)
+    {
+        if (!zone || !zone.gameObject.activeInHierarchy) return 0;
+        Vector3 scale = zone.transform.lossyScale;
+        return Mathf.Max(0,zone.size.x*Mathf.Abs(scale.x)-2*corridorEdgePadding) *
+               Mathf.Max(0,zone.size.z*Mathf.Abs(scale.z)-2*corridorEdgePadding);
+    }
+    void OnDrawGizmosSelected()
+    {
+        if (corridorAreas == null) return;
+        var old = Gizmos.matrix;
+        foreach (var zone in corridorAreas)
+        {
+            if (!zone) continue;
+            Gizmos.matrix = zone.transform.localToWorldMatrix;
+            Gizmos.color = new Color(.15f,1f,.35f,.15f); Gizmos.DrawCube(zone.center,zone.size);
+            Gizmos.color = Color.green; Gizmos.DrawWireCube(zone.center,zone.size);
+        }
+        Gizmos.matrix = old;
     }
 
     int GetBrandID(int bookID)
