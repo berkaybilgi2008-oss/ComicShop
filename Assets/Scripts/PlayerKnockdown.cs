@@ -31,8 +31,9 @@ public class PlayerKnockdown : MonoBehaviour
     private bool headHit;
     private float verticalSpeed;
 
-    private float knockdownAnimationTime;
-    private bool wasDownForAnimation;
+    private Animator animator;
+    private bool headHitTriggerSent;
+    private static readonly int HeadHitHash = Animator.StringToHash("HeadHit");
 
     private bool Local => network == null || !network.IsSpawned || network.IsOwner;
     private double Clock => network != null && network.IsSpawned
@@ -70,6 +71,9 @@ public class PlayerKnockdown : MonoBehaviour
         {
             visualPosition = visual.localPosition;
             visualRotation = visual.localRotation;
+            animator = visual.GetComponent<Animator>();
+            if (animator == null)
+                animator = visual.GetComponentInChildren<Animator>(true);
         }
     }
 
@@ -86,8 +90,7 @@ public class PlayerKnockdown : MonoBehaviour
         if (view != null)
             view.localPosition = viewPosition;
 
-        knockdownAnimationTime = 0f;
-        wasDownForAnimation = false;
+        headHitTriggerSent = false;
     }
 
     public Bounds HitBounds
@@ -138,8 +141,7 @@ public class PlayerKnockdown : MonoBehaviour
         if (IsDown && !wasDown)
         {
             verticalSpeed = 1.5f;
-            knockdownAnimationTime = 0f;
-            wasDownForAnimation = false;
+            headHitTriggerSent = false;
 
             var interaction = GetComponent<PlayerInteraction>();
             if (Local && interaction != null)
@@ -150,8 +152,7 @@ public class PlayerKnockdown : MonoBehaviour
         {
             push = Vector3.zero;
             verticalSpeed = 0f;
-            knockdownAnimationTime = 0f;
-            wasDownForAnimation = false;
+            headHitTriggerSent = false;
         }
     }
 
@@ -189,61 +190,43 @@ public class PlayerKnockdown : MonoBehaviour
     {
         float blend = 1f - Mathf.Exp(-12f * Time.deltaTime);
 
-        if (IsDown && !wasDownForAnimation)
+        // Head-hit animation is authored on the character Animator. Normal
+        // knockdowns keep the existing procedural fall presentation.
+        if (IsDown && headHit && animator != null && !headHitTriggerSent)
         {
-            knockdownAnimationTime = 0f;
-            wasDownForAnimation = true;
-        }
-        else if (!IsDown && wasDownForAnimation)
-        {
-            knockdownAnimationTime = 0f;
-            wasDownForAnimation = false;
+            animator.ResetTrigger(HeadHitHash);
+            animator.SetTrigger(HeadHitHash);
+            headHitTriggerSent = true;
         }
 
-        if (IsDown)
+        if (IsDown && !headHit)
         {
-            knockdownAnimationTime += Time.deltaTime;
-
-            float duration = Mathf.Max(0.05f, headFallAnimationDuration);
-            float normalized = Mathf.Clamp01(knockdownAnimationTime / duration);
+            float normalized = Mathf.Clamp01(Time.deltaTime / Mathf.Max(0.05f, headFallAnimationDuration));
             float progress = headFallAnimationCurve != null
                 ? Mathf.Clamp01(headFallAnimationCurve.Evaluate(normalized))
                 : normalized;
 
-            // Kafa carpmasinda model bir anda devrilmez; once agirlik alir,
-            // sonra yere dogru yumusakca kapanir.
-            float targetAngle = headHit ? headFallRotation : headFallRotation * 0.75f;
             Quaternion targetRotation =
-                Quaternion.Euler(0f, 0f, targetAngle * progress) * visualRotation;
+                Quaternion.Euler(0f, 0f, headFallRotation * 0.75f * progress) * visualRotation;
             Vector3 targetPosition =
-                visualPosition + Vector3.down * (headHit ? headFallDrop : headFallDrop * 0.65f) * progress;
+                visualPosition + Vector3.down * headFallDrop * 0.65f * progress;
 
             if (visual != null)
             {
                 visual.localRotation = Quaternion.Slerp(
-                    visual.localRotation,
-                    targetRotation,
-                    blend);
-
+                    visual.localRotation, targetRotation, blend);
                 visual.localPosition = Vector3.Lerp(
-                    visual.localPosition,
-                    targetPosition,
-                    blend);
+                    visual.localPosition, targetPosition, blend);
             }
         }
-        else
+        else if (!IsDown)
         {
             if (visual != null)
             {
                 visual.localRotation = Quaternion.Slerp(
-                    visual.localRotation,
-                    visualRotation,
-                    blend);
-
+                    visual.localRotation, visualRotation, blend);
                 visual.localPosition = Vector3.Lerp(
-                    visual.localPosition,
-                    visualPosition,
-                    blend);
+                    visual.localPosition, visualPosition, blend);
             }
         }
 
