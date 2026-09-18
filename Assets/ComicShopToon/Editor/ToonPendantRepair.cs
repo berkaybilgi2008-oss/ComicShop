@@ -57,7 +57,7 @@ namespace ComicShop.Rendering.Editor
                     l.lightmapBakeType = LightmapBakeType.Realtime;
                     l.color = Color.white; l.useColorTemperature = true; l.colorTemperature = 3400;
                     l.lightUnit = LightUnit.Candela; l.enableSpotReflector = false;
-                    l.intensity = 24; l.range = 9; l.spotAngle = 110; l.innerSpotAngle = 50;
+                    l.intensity = 32; l.range = 12; l.spotAngle = 140; l.innerSpotAngle = 80;
                     l.cullingMask = ~0;
                     // One 256px spot map per fixture fits up to 64 lamps into a 2048 atlas.
                     // Keep every enabled lamp shadowed so wall-facing cones cannot leak.
@@ -137,6 +137,26 @@ namespace ComicShop.Rendering.Editor
             }
             catch { Undo.RevertAllDownToGroup(group); throw; }
             finally { Undo.CollapseUndoOperations(group); }
+        }
+        static readonly Dictionary<Light, LightShadows> diagnosticShadows = new Dictionary<Light, LightShadows>();
+        [MenuItem("Tools/ComicShop/Diagnostics/Toggle Sun Shadows (Play Mode Only)")]
+        public static void ToggleSunShadows()
+        {
+            if (!EditorApplication.isPlaying)
+            { Debug.LogWarning("Enter Play Mode first. This diagnostic does not save the scene."); return; }
+            if (diagnosticShadows.Count > 0)
+            {
+                foreach (var pair in diagnosticShadows) if (pair.Key) pair.Key.shadows = pair.Value;
+                diagnosticShadows.Clear();
+                Debug.Log("[SUN DIAGNOSTIC] Original directional shadows restored.");
+                return;
+            }
+            foreach (var light in UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
+            {
+                if (!light.enabled || light.type != LightType.Directional || light.shadows == LightShadows.None) continue;
+                diagnosticShadows.Add(light, light.shadows); light.shadows = LightShadows.None;
+            }
+            Debug.Log($"[SUN DIAGNOSTIC] Temporarily disabled shadows on {diagnosticShadows.Count} directional lights. Walk along the same ceiling view; invoke again to restore, or exit Play Mode. If the artifact remains, directional shadow maps alone do not explain it.");
         }
         static string Path(Transform t) => t.parent ? Path(t.parent) + "/" + t.name + "[" + t.GetSiblingIndex() + "]" : t.name;
         static void Record(UnityEngine.Object o)
