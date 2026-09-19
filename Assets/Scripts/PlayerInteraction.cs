@@ -95,6 +95,9 @@ public class PlayerInteraction : MonoBehaviour
 
     private readonly List<BookItem> heldBooks = new List<BookItem>();
     public IReadOnlyList<BookItem> HeldBooksList => heldBooks;
+    public string InteractionHint { get; private set; }
+    public void ShowFeedback(string message) { InteractionHint = message ?? string.Empty; }
+
     public int MaxHeldBooks => maxHeldBooks;
     public int ActiveHeldIndex => activeHeldIndex;
     public BookItem ActiveHeldBook => heldBooks.Count == 0 ? null : heldBooks[Mathf.Clamp(activeHeldIndex, 0, heldBooks.Count - 1)];
