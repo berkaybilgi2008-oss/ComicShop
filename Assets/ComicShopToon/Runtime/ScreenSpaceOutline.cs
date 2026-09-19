@@ -13,13 +13,16 @@ namespace ComicShop.Rendering
         public sealed class Settings
         {
             public Shader outlineShader;
-            [Tooltip("Everything avoids a mask geometry pass. A restricted mask redraws matching opaque renderers.")]
+            [Tooltip("Selected opaque layers. ToonLit materials also respect their Outline Mask toggle.")]
             public LayerMask layerMask = -1;
         }
         public Settings settings = new Settings();
         Material material;
         OutlinePass pass;
         bool warned;
+        float nextMaterialScan;
+        bool materialMaskNeeded;
+        static readonly int OutlineEnabledId = Shader.PropertyToID("_OutlineEnabled");
 
         public override void Create()
         {
@@ -38,6 +41,17 @@ namespace ComicShop.Rendering
                 warned = true;
                 return;
             }
+            // Keep the original zero-geometry Everything path when all materials opt in.
+            // Refresh at 4 Hz: material Inspector edits and newly loaded runtime materials are picked up.
+            if (Time.realtimeSinceStartup >= nextMaterialScan)
+            {
+                nextMaterialScan = Time.realtimeSinceStartup + .25f;
+                materialMaskNeeded = false;
+                foreach (var candidate in Resources.FindObjectsOfTypeAll<Material>())
+                    if (candidate.HasProperty(OutlineEnabledId) && candidate.GetFloat(OutlineEnabledId) < .5f)
+                    { materialMaskNeeded = true; break; }
+            }
+            pass.MaterialMaskNeeded = materialMaskNeeded;
             renderer.EnqueuePass(pass);
         }
         protected override void Dispose(bool disposing)
@@ -48,12 +62,13 @@ namespace ComicShop.Rendering
 
         sealed class OutlinePass : ScriptableRenderPass
         {
+            public bool MaterialMaskNeeded;
             readonly Settings settings;
             readonly Material material;
             static readonly ShaderTagId MaskTag = new ShaderTagId("UniversalForward");
             static readonly ShaderTagId ForwardOnlyTag = new ShaderTagId("UniversalForwardOnly");
             static readonly ShaderTagId UnlitTag = new ShaderTagId("SRPDefaultUnlit");
-            sealed class MaskData { public RendererListHandle list; public bool draw; }
+            sealed class MaskData { public RendererListHandle list, toonList; public bool draw; }
             sealed class InkData { public TextureHandle mask; public Material material; }
             public OutlinePass(Settings settings, Material material)
             {
@@ -69,7 +84,7 @@ namespace ComicShop.Rendering
                 var rendering = frameData.Get<UniversalRenderingData>();
                 var lights = frameData.Get<UniversalLightData>();
                 if (!resources.cameraDepthTexture.IsValid() || !resources.cameraNormalsTexture.IsValid()) return;
-                bool filtered = settings.layerMask.value != -1;
+                bool filtered = settings.layerMask.value != -1 || MaterialMaskNeeded;
                 // No full scene redraw for Everything: a 1x1 white mask is sufficient.
                 var desc = camera.cameraTargetDescriptor;
                 desc.depthBufferBits = 0;
@@ -96,12 +111,22 @@ namespace ComicShop.Rendering
                         var filter = new FilteringSettings(RenderQueueRange.opaque, settings.layerMask);
                         data.list = graph.CreateRendererList(new RendererListParams(rendering.cullResults, draw, filter));
                         builder.UseRendererList(data.list);
+                        // Draw fallback coverage first, then overwrite with original ToonLit material flags.
+                        // ZTest against the camera depth keeps hidden surfaces out of both lists.
+                        var toonDraw = RenderingUtils.CreateDrawingSettings(new ShaderTagId("ToonMask"),
+                            rendering, camera, lights, camera.defaultOpaqueSortFlags);
+                        data.toonList = graph.CreateRendererList(new RendererListParams(rendering.cullResults, toonDraw, filter));
+                        builder.UseRendererList(data.toonList);
                         builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.Read);
                     }
                     builder.SetRenderFunc(static (MaskData data, RasterGraphContext context) =>
                     {
                         context.cmd.ClearRenderTarget(RTClearFlags.Color, data.draw ? Color.black : Color.white, 1, 0);
-                        if (data.draw) context.cmd.DrawRendererList(data.list);
+                        if (data.draw)
+                        {
+                            context.cmd.DrawRendererList(data.list);
+                            context.cmd.DrawRendererList(data.toonList);
+                        }
                     });
                 }
                 using (var builder = graph.AddRasterRenderPass<InkData>("ComicShop Sobel Ink", out var data))

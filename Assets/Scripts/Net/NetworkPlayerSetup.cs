@@ -12,6 +12,20 @@ public class NetworkPlayerSetup : NetworkBehaviour
     private PlayerInteraction interaction;
     private PlayerKnockdown knockdown;
     private float nextPowerRequest;
+    private readonly NetworkVariable<ShopRoundState> round = new NetworkVariable<ShopRoundState>();
+    public void PublishRound() { if (IsServer && !round.Value.Equals(ShopRound.State)) round.Value = ShopRound.State; }
+    private void OnRoundChanged(ShopRoundState before, ShopRoundState after) { if (IsOwner) ShopRound.Apply(after); }
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    public void PlayCueRpc(int cue, Vector3 position)
+    {
+        if (cue >= 0 && cue <= (int)ShopCue.Impact) ShopAudio.Play((ShopCue)cue, position);
+    }
+    [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
+    public void ActionRejectedRpc(string reason)
+    {
+        if (interaction != null) interaction.ShowFeedback(reason);
+    }
+
     public bool IsDown => downState.Value.ReadyAt >= 0;
     public struct DownState : INetworkSerializable, System.IEquatable<DownState>
     {
@@ -31,6 +45,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     public void KnockDown(Vector3 impulse, bool head)
     {
         if (!IsServer || IsDown || float.IsNaN(impulse.sqrMagnitude) || float.IsInfinity(impulse.sqrMagnitude)) return;
+        PlayCueRpc((int)ShopCue.Bonk, transform.position);
         downState.Value = new DownState { ReadyAt = NetworkManager.ServerTime.Time + (head ? 3d : 0.6d),
             Head = head, Impulse = Vector3.ClampMagnitude(impulse, 8f) };
     }
@@ -39,14 +54,14 @@ public class NetworkPlayerSetup : NetworkBehaviour
         knockdown.SetState(after.ReadyAt, after.Head);
         if (IsOwner && before.ReadyAt < 0 && after.ReadyAt >= 0) knockdown.Kick(after.Impulse);
     }
-    [Rpc(SendTo.Server, RequireOwnership = true)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void StandUpRpc()
     {
         if (IsDown && NetworkManager.ServerTime.Time >= downState.Value.ReadyAt)
             downState.Value = new DownState { ReadyAt = -1 };
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = true)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void YaratikGucuRpc(int bookId)
     {
         var power = GetComponent<YaratikGucu>();
@@ -100,12 +115,15 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        round.OnValueChanged += OnRoundChanged;
+        if (IsServer) PublishRound();
         downState.OnValueChanged += ApplyDownState;
         SetLocal(IsOwner);
         knockdown.SetState(downState.Value.ReadyAt, downState.Value.Head);
         gameObject.name = IsOwner ? $"Player_LOCAL_{OwnerClientId}" : $"Player_{OwnerClientId}";
         if (!IsOwner) return;
         LocalPlayer = this;
+        if (!IsServer) ShopRound.Apply(round.Value);
         if (interaction != null)
         {
             interaction.playerCamera = playerCamera;
@@ -123,6 +141,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
+        round.OnValueChanged -= OnRoundChanged;
         downState.OnValueChanged -= ApplyDownState;
         knockdown.SetState(-1);
         // Books remain server-owned and must survive the departing player's destruction.
@@ -136,7 +155,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
         ConnectionManager.SetCursor(false);
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = true)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void RecallRpc(Vector3 machinePosition, Vector3 lookDirection)
     {
         float magnitude = lookDirection.sqrMagnitude;
@@ -155,7 +174,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
         }
     }
 
-    [Rpc(SendTo.Owner)]
+    [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
     public void RestoreRejectedReleaseRpc(NetworkObjectReference bookReference, RpcParams rpc = default)
     {
         if (rpc.Receive.SenderClientId != Unity.Netcode.NetworkManager.ServerClientId ||

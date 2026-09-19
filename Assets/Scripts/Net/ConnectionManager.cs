@@ -27,6 +27,7 @@ public class ConnectionManager : MonoBehaviour
     public event Action<string> OnStatusChanged;
 
     private NetworkManager networkManager;
+    public string Status => status;
     private string status = "Bagli degil";
     private float attemptStarted;
     private int onlineOperation;
@@ -222,11 +223,13 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
-            networkManager.NetworkConfig.ProtocolVersion = 3;
+            networkManager.NetworkConfig.ProtocolVersion = 4;
+            ShopRound.Reset();
             ShelfSlot.ResetNetworkSession();
             ShelfSlot.BuildNetworkRegistry();
-            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-                spawner.PrepareSession(networkManager);
+            var spawners = FindObjectsByType<BookSpawner>(FindObjectsSortMode.None);
+            if (spawners.Length != 1) throw new InvalidOperationException("Exactly one active BookSpawner is required in this single-room game.");
+            spawners[0].PrepareSession(networkManager);
             foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
                 machine.ResetSession();
 
@@ -268,6 +271,7 @@ public class ConnectionManager : MonoBehaviour
             // NGO has finished despawning here. Never clear a live session's slots.
             ShelfSlot.ResetNetworkSession();
             GameStats.Initialize(0, 1);
+            ShopRound.Reset();
             State = SessionState.Idle;
             SetCursor(false);
             SetStatus(status + " Yeni oturum acabilirsin.");
@@ -278,7 +282,7 @@ public class ConnectionManager : MonoBehaviour
             StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
                 ? "Internet odasi zaman asimina ugradi. Baglantini ve oda kodunu kontrol et."
                 : "Baglanti zaman asimina ugradi. Host ve adresi kontrol et.");
-        if (State == SessionState.Connected && Input.GetKeyDown(KeyCode.Escape))
+        if (!ShopFrontEnd.IsActive && State == SessionState.Connected && Input.GetKeyDown(KeyCode.Escape))
             SetCursor(Cursor.lockState != CursorLockMode.Locked);
     }
 
@@ -297,12 +301,21 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleServerStarted()
     {
-        foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-            spawner.SpawnSession();
+        try
+        {
+            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None)) spawner.SpawnSession();
+            ShopRound.Begin();
+        }
+        catch (Exception error)
+        {
+            Debug.LogException(error);
+            StopWithStatus("Kitaplar oluşturulamadı: " + error.Message);
+        }
     }
 
     private void HandleConnected(ulong id)
     {
+        if (State == SessionState.Disconnecting || networkManager.ShutdownInProgress) return;
         if (id == networkManager.LocalClientId)
         {
             State = SessionState.Connected;

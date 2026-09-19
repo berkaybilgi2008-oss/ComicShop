@@ -139,8 +139,7 @@ Shader "ComicShop/ToonLit"
         {
             Name "ToonMask"
             Tags { "LightMode"="ToonMask" }
-            Cull Back ZWrite On ZTest LEqual
-            ZWrite Off
+            Cull Back ZWrite Off ZTest LEqual
             HLSLPROGRAM
             #pragma target 4.5
             #pragma multi_compile_instancing

@@ -281,14 +281,22 @@ public class NetworkBook : NetworkBehaviour
         return collider != null && GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f);
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void PickUpRpc(RpcParams rpc = default)
     {
         ulong sender = rpc.Receive.SenderClientId;
         var player = GetPlayer(sender);
-        if (Holder != NoHolder || IsPlacementAnimating || !WithinReach(player)) return;
-        if (CountHeldBy(sender) >= player.maxHeldBooks) return;
+        if (player == null) return;
+        if (Holder != NoHolder || IsPlacementAnimating) { Reject(player, "Kitap şu anda başka bir oyuncuda veya yerleştiriliyor."); return; }
+        if (!WithinReach(player)) { Reject(player, "Kitaba yaklaş; aradaki engeli kaldır."); return; }
+        if (CountHeldBy(sender) >= player.maxHeldBooks) { Reject(player, "Ellerin dolu."); return; }
         Claim(sender);
+        player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Pickup, transform.position);
+    }
+
+    static void Reject(PlayerInteraction player, string reason)
+    {
+        if (player != null && player.TryGetComponent<NetworkPlayerSetup>(out var setup)) setup.ActionRejectedRpc(reason);
     }
 
     private void Claim(ulong sender)
@@ -305,7 +313,7 @@ public class NetworkBook : NetworkBehaviour
         state.Value = value; // Atomic claim: a second requester now sees an occupied book.
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void PlaceRpc(ulong slotKey, RpcParams rpc = default)
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
@@ -314,15 +322,18 @@ public class NetworkBook : NetworkBehaviour
             player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         var collider = slot.GetComponentInChildren<Collider>();
-        if (collider == null || !GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f)) return;
+        if (collider == null || !GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f))
+        { Reject(player, "Rafa yaklaş; arada engel var."); return; }
         if (!slot.TryGetNextPlacementPose(item, out Vector3 position, out _) ||
-            Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance) return;
+            Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance)
+        { Reject(player, "Raf uygun değil: yayıncı, yer veya mesafeyi kontrol et."); return; }
         Vector3 startPosition = transform.position;
         Quaternion startRotation = transform.rotation;
         Vector3 startScale = transform.lossyScale;
         // Claim the exact slot/index before the visual animation starts, so concurrent
         // placements cannot reserve the same space or bypass brand/capacity checks.
-        if (!slot.PlaceBook(item)) return;
+        if (!slot.PlaceBook(item)) { Reject(player, "Raf gözü artık müsait değil."); return; }
+        player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Place, transform.position);
         var value = state.Value;
         value.Holder = NoHolder;
         value.Throwing = false;
@@ -338,7 +349,7 @@ public class NetworkBook : NetworkBehaviour
         state.Value = value;
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void ReleaseRpc(Vector3 position, Quaternion rotation, Vector3 velocity, Vector3 spinAxis,
         float spin, bool charged, RpcParams rpc = default)
     {
@@ -360,6 +371,7 @@ public class NetworkBook : NetworkBehaviour
         transform.SetPositionAndRotation(position, rotation);
         float maxSpeed = Mathf.Max(player.maxThrowSpeed * player.releaseSnap,
             player.dropForwardForce + player.dropUpwardForce);
+        player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Release, position);
         Release(Vector3.ClampMagnitude(velocity, maxSpeed), spinAxis,
             Mathf.Clamp(spin, -player.maxThrowSpin, player.maxThrowSpin), charged && player.throwAbilityUnlocked);
     }
@@ -395,7 +407,7 @@ public class NetworkBook : NetworkBehaviour
         }
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false, Delivery = RpcDelivery.Unreliable)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone, Delivery = RpcDelivery.Unreliable)]
     private void HeldPoseRpc(Vector3 position, Quaternion rotation, Vector3 scale, bool throwing, bool leftHand, RpcParams rpc = default)
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
