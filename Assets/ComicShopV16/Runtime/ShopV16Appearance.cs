@@ -1,10 +1,7 @@
 using UnityEngine;
-<<<<<<< ours
 
 namespace ComicShopV16
 {
-    // Serialized import metadata. Lighting is now evaluated by URP Light components.
-    // Keep these fields so existing prefabs and the importer remain compatible.
     [ExecuteAlways]
     public sealed class ShopV16Appearance : MonoBehaviour
     {
@@ -14,6 +11,8 @@ namespace ComicShopV16
         public Vector4[] colors;
         public Vector4[] parameters;
         public Vector4 ambient;
+
+        readonly Vector4[] positions = new Vector4[32];
 
         public static void ConfigureLight(Light light, bool sun, bool pendant, bool neon, bool shadows)
         {
@@ -44,38 +43,34 @@ namespace ComicShopV16
                 block.SetFloat("_Receive", renderer.receiveShadows ? 1f : 0f);
                 renderer.SetPropertyBlock(block);
             }
-=======
-namespace ComicShopV16 {
-[ExecuteAlways] public sealed class ShopV16Appearance : MonoBehaviour {
-    public Material[] materials;
-    public Transform[] sources;
-    public bool[] directional;
-    public Vector4[] colors;
-    public Vector4[] parameters;
-    public Vector4 ambient;
-    readonly Vector4[] positions = new Vector4[32];
-    void OnEnable() {
-        foreach(var r in GetComponentsInChildren<MeshRenderer>(true)) {
-            if (!r.sharedMaterial || r.sharedMaterial.shader.name != "ComicShop/V16 Source Toon") continue;
-            var p=new MaterialPropertyBlock();r.GetPropertyBlock(p);
-            p.SetFloat("_Receive",r.receiveShadows?1:0);r.SetPropertyBlock(p);
+            Apply();
         }
-        Apply();
-    }
-    void LateUpdate() { Apply(); }
-    void Apply() {
-        if (materials == null || sources == null) return;
-        int count = Mathf.Min(sources.Length, 32);
-        for (int i=0;i<count;i++) {
-            if (!sources[i]) continue;
-            Vector3 p = directional[i] ? -sources[i].forward : sources[i].position;
-            positions[i] = new Vector4(p.x,p.y,p.z,directional[i]?0:1);
+
+        void LateUpdate()
+        {
+            Apply();
         }
-        foreach(var m in materials) if(m && m.shader.name == "ComicShop/V16 Source Toon") {
-            m.SetInt("_ShopLightCount",count); m.SetVectorArray("_ShopLightPositions",positions);
-            m.SetVectorArray("_ShopLightColors",colors); m.SetVectorArray("_ShopLightParams",parameters);
-            m.SetVector("_ShopAmbient",ambient);
->>>>>>> theirs
+
+        void Apply()
+        {
+            if (materials == null || sources == null) return;
+            int count = Mathf.Min(sources.Length, 32);
+            for (int i = 0; i < count; i++)
+            {
+                if (!sources[i]) continue;
+                bool isDirectional = directional != null && i < directional.Length && directional[i];
+                Vector3 p = isDirectional ? -sources[i].forward : sources[i].position;
+                positions[i] = new Vector4(p.x, p.y, p.z, isDirectional ? 0f : 1f);
+            }
+            foreach (var material in materials)
+            {
+                if (!material || material.shader.name != "ComicShop/V16 Source Toon") continue;
+                material.SetInt("_ShopLightCount", count);
+                material.SetVectorArray("_ShopLightPositions", positions);
+                if (colors != null) material.SetVectorArray("_ShopLightColors", colors);
+                if (parameters != null) material.SetVectorArray("_ShopLightParams", parameters);
+                material.SetVector("_ShopAmbient", ambient);
+            }
         }
     }
 }
