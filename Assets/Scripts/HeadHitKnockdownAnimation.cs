@@ -166,14 +166,14 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             settle = 1f - settle;
         }
 
-        // Lean backwards. Positive X is the rig's backward fall direction.
-        Rotate("Hips", Quaternion.Euler(Mathf.Lerp(0f, 64f, backward), 0f, 0f));
-        Rotate("Spine", Quaternion.Euler(Mathf.Lerp(0f, 26f, backward), 0f, 0f));
-        Rotate("Chest", Quaternion.Euler(Mathf.Lerp(0f, 34f, backward), 0f, 0f));
+        // Lean backwards. Negative X pitches the +Z-facing body backward on this rig.
+        Rotate("Hips", Quaternion.Euler(Mathf.Lerp(0f, -64f, backward), 0f, 0f));
+        Rotate("Spine", Quaternion.Euler(Mathf.Lerp(0f, -26f, backward), 0f, 0f));
+        Rotate("Chest", Quaternion.Euler(Mathf.Lerp(0f, -34f, backward), 0f, 0f));
 
         // Head snaps back slightly from the book, then follows the fall.
-        Rotate("Neck", Quaternion.Euler(Mathf.Lerp(0f, -14f, hit), 0f, 0f));
-        Rotate("Head", Quaternion.Euler(Mathf.Lerp(0f, -10f, hit), 0f, 0f));
+        Rotate("Neck", Quaternion.Euler(Mathf.Lerp(0f, 14f, hit), 0f, 0f));
+        Rotate("Head", Quaternion.Euler(Mathf.Lerp(0f, 10f, hit), 0f, 0f));
 
         // Exaggerated cartoon arms: open and trail during the fall.
         Rotate("LeftUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 20f, hit), 0f, Mathf.Lerp(0f, -78f, hit)));
@@ -182,7 +182,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         Rotate("RightForearm", Quaternion.Euler(Mathf.Lerp(0f, -12f, hit), 0f, Mathf.Lerp(0f, 20f, hit)));
 
         // Legs shoot up like the reference, with soles visible, then fall back toward the floor.
-        float thigh = Mathf.Lerp(0f, -112f, feetUp);
+        float thigh = Mathf.Lerp(0f, -96f, feetUp);
         float shin = Mathf.Lerp(0f, 42f, feetUp);
         float foot = Mathf.Lerp(0f, -18f, feetUp);
         Rotate("LeftThigh", Quaternion.Euler(thigh, 0f, 0f));
