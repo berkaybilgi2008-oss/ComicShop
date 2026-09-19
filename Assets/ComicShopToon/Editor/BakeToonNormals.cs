@@ -1,103 +1,182 @@
+using System;
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using Object = UnityEngine.Object;
 
 namespace ComicShop.Rendering.Editor
 {
     public static class BakeToonNormals
     {
         const string Folder = "Assets/ComicShopToon/BakedMeshes";
-
-        [MenuItem("Tools/ComicShop/Bake Outline Normals For Selection")]
-        static void BakeSelection()
+        const string HullName = "ToonHull";
+        [MenuItem("Tools/ComicShop/Step 2/Bake and Install Hero Outlines on Selection")]
+        public static void BakeSelection()
         {
-            if (!AssetDatabase.IsValidFolder(Folder))
-                AssetDatabase.CreateFolder("Assets/ComicShopToon", "BakedMeshes");
-            var meshes = new HashSet<Mesh>(Selection.GetFiltered<Mesh>(SelectionMode.DeepAssets));
-            var renderers = new HashSet<Component>();
-            foreach (GameObject go in Selection.gameObjects)
+            if (Application.isPlaying) return;
+            var selected = new List<GameObject>();
+            foreach (var go in Selection.gameObjects) if (go.scene.IsValid()) selected.Add(go);
+            var roots = selected.ToArray();
+            if (roots.Length == 0) { Debug.LogWarning("Select hero roots in the Hierarchy: mascot, counter, cash register."); return; }
+            var importers = new Dictionary<string, bool>();
+            foreach (var root in roots)
+            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
             {
-                foreach (MeshFilter f in go.GetComponentsInChildren<MeshFilter>(true))
-                    if (f.sharedMesh != null) { meshes.Add(f.sharedMesh); renderers.Add(f); }
-                foreach (SkinnedMeshRenderer s in go.GetComponentsInChildren<SkinnedMeshRenderer>(true))
-                    if (s.sharedMesh != null) { meshes.Add(s.sharedMesh); renderers.Add(s); }
+                if (renderer == null) continue;
+                Mesh mesh = GetMesh(renderer);
+                if (mesh == null || renderer.GetComponent<ToonHullBinding>() != null) continue;
+                string path = AssetDatabase.GetAssetPath(mesh);
+                if (AssetImporter.GetAtPath(path) is ModelImporter importer) importers[path] = importer.isReadable;
             }
-            var copies = new Dictionary<Mesh, Mesh>();
-            foreach (Mesh original in meshes)
+            int installed = 0, retired = 0;
+            Undo.IncrementCurrentGroup();
+            int group = Undo.GetCurrentGroup();
+            Undo.SetCurrentGroupName("Install hero outlines");
+            try
             {
-                if (!original.isReadable)
+                // Temporary importer changes are batched per model, never per object.
+                foreach (var item in importers)
+                    if (!item.Value && AssetImporter.GetAtPath(item.Key) is ModelImporter importer)
+                    { importer.isReadable = true; importer.SaveAndReimport(); }
+                if (!AssetDatabase.IsValidFolder(Folder)) AssetDatabase.CreateFolder("Assets/ComicShopToon", "BakedMeshes");
+                var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/ComicShopToon/Resources/ComicShopToon/ToonHull.mat");
+                if (material == null) throw new InvalidOperationException("ToonHull.mat is missing.");
+                var copies = new Dictionary<Mesh, Mesh>();
+                var processed = new HashSet<Renderer>();
+                foreach (GameObject root in roots)
+                foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
                 {
-                    Debug.LogError($"Enable Read/Write on the Model Importer before baking: {original.name}");
-                    continue;
+                    if (renderer == null) continue;
+                    if (!processed.Add(renderer) || renderer.GetComponent<ToonHullBinding>() != null) continue;
+                    // Never generate 3,600 book hulls when a shop root was selected by mistake.
+                    if (renderer.GetComponentInParent<BookItem>() != null) continue;
+                    if (IsLegacyOutline(renderer))
+                    {
+                        Undo.RecordObject(renderer, "Disable legacy hero outline");
+                        renderer.enabled = false;
+                        PrefabUtility.RecordPrefabInstancePropertyModifications(renderer);
+                        EditorUtility.SetDirty(renderer); retired++;
+                        continue;
+                    }
+                    Mesh source = GetMesh(renderer);
+                    if (source == null) continue;
+                    if (!copies.TryGetValue(source, out Mesh copy))
+                    {
+                        copy = Bake(source);
+                        if (copy == null) continue;
+                        AssetDatabase.CreateAsset(copy, AssetDatabase.GenerateUniqueAssetPath(Folder + "/HeroOutlineMesh.asset"));
+                        copies.Add(source, copy);
+                    }
+                    Transform old = renderer.transform.Find(HullName);
+                    if (old != null && old.GetComponent<ToonHullBinding>() != null) Undo.DestroyObjectImmediate(old.gameObject);
+                    var go = new GameObject(HullName);
+                    Undo.RegisterCreatedObjectUndo(go, "Create hero hull");
+                    go.transform.SetParent(renderer.transform, false);
+                    go.layer = renderer.gameObject.layer;
+                    Renderer hull;
+                    if (renderer is SkinnedMeshRenderer skin)
+                    {
+                        var s = go.AddComponent<SkinnedMeshRenderer>();
+                        s.sharedMesh = copy; s.bones = skin.bones; s.rootBone = skin.rootBone;
+                        s.localBounds = skin.localBounds; s.updateWhenOffscreen = skin.updateWhenOffscreen;
+                        hull = s;
+                    }
+                    else
+                    {
+                        go.AddComponent<MeshFilter>().sharedMesh = copy;
+                        hull = go.AddComponent<MeshRenderer>();
+                    }
+                    var slots = new Material[copy.subMeshCount];
+                    for (int i = 0; i < slots.Length; i++) slots[i] = material;
+                    hull.sharedMaterials = slots;
+                    hull.shadowCastingMode = ShadowCastingMode.Off;
+                    hull.receiveShadows = false;
+                    hull.lightProbeUsage = LightProbeUsage.Off;
+                    hull.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                    hull.enabled = renderer.enabled;
+                    go.AddComponent<ToonHullBinding>().source = renderer;
+                    EditorSceneManager.MarkSceneDirty(renderer.gameObject.scene);
+                    installed++;
                 }
-                Mesh copy = Object.Instantiate(original);
-                copy.name = original.name + "_ToonNormals";
-                Vector3[] vertices = copy.vertices;
-                if (copy.normals.Length != vertices.Length) copy.RecalculateNormals();
-                if (copy.tangents.Length != vertices.Length && copy.uv.Length == vertices.Length)
-                    copy.RecalculateTangents();
-                Vector3[] normals = copy.normals;
-                Vector4[] tangents = copy.tangents;
-                if (tangents.Length != vertices.Length)
-                {
-                    Debug.LogError($"Mesh needs UV0 and valid tangents: {original.name}");
-                    Object.DestroyImmediate(copy);
-                    continue;
-                }
-                var sums = new Dictionary<Vector3Int, Vector3>();
-                Vector3Int Key(Vector3 p) => new Vector3Int(
-                    Mathf.RoundToInt(p.x * 100000), Mathf.RoundToInt(p.y * 100000),
-                    Mathf.RoundToInt(p.z * 100000));
-                int[] triangles = copy.triangles;
-                for (int t = 0; t < triangles.Length; t += 3)
-                {
-                    int a = triangles[t], b = triangles[t + 1], c = triangles[t + 2];
-                    Vector3 weighted = Vector3.Cross(vertices[b] - vertices[a], vertices[c] - vertices[a]);
-                    Add(a, weighted); Add(b, weighted); Add(c, weighted);
-                }
-                void Add(int index, Vector3 value)
-                {
-                    Vector3Int key = Key(vertices[index]);
-                    sums.TryGetValue(key, out Vector3 old);
-                    sums[key] = old + value;
-                }
-                var colors = new Color[vertices.Length];
-                for (int i = 0; i < vertices.Length; i++)
-                {
-                    Vector3 n = normals[i].normalized;
-                    Vector3 t = ((Vector3)tangents[i]).normalized;
-                    Vector3 b = Vector3.Cross(n, t) * tangents[i].w;
-                    sums.TryGetValue(Key(vertices[i]), out Vector3 smooth);
-                    smooth = smooth.sqrMagnitude > 1e-12f ? smooth.normalized : n;
-                    Vector3 ts = new Vector3(Vector3.Dot(smooth, t), Vector3.Dot(smooth, b), Vector3.Dot(smooth, n));
-                    colors[i] = new Color(ts.x * .5f + .5f, ts.y * .5f + .5f, ts.z * .5f + .5f, 1);
-                }
-                copy.colors = colors;
-                // Extra hull geometry must remain inside conservative culling bounds.
-                Bounds bounds = copy.bounds;
-                bounds.Expand(1f);
-                copy.bounds = bounds;
-                string path = AssetDatabase.GenerateUniqueAssetPath(Folder + "/ToonMesh.asset");
-                AssetDatabase.CreateAsset(copy, path);
-                copies.Add(original, copy);
-                Debug.Log($"Baked {original.name} -> {path}. Source asset was preserved; clone color channel contains tangent-space normals.");
+                AssetDatabase.SaveAssets();
             }
-            foreach (Component component in renderers)
+            finally
             {
-                Mesh source = component is MeshFilter f ? f.sharedMesh : ((SkinnedMeshRenderer)component).sharedMesh;
-                if (!copies.TryGetValue(source, out Mesh copy)) continue;
-                Undo.RecordObject(component, "Assign Toon Normal Mesh");
-                if (component is MeshFilter filter) filter.sharedMesh = copy;
-                else
-                {
-                    var skin = (SkinnedMeshRenderer)component;
-                    skin.sharedMesh = copy;
-                    Bounds b = skin.localBounds; b.Expand(1f); skin.localBounds = b;
-                }
-                PrefabUtility.RecordPrefabInstancePropertyModifications(component);
-                EditorUtility.SetDirty(component);
+                foreach (var item in importers)
+                    if (AssetImporter.GetAtPath(item.Key) is ModelImporter importer && importer.isReadable != item.Value)
+                    { importer.isReadable = item.Value; importer.SaveAndReimport(); }
+                Undo.CollapseUndoOperations(group);
             }
-            AssetDatabase.SaveAssets();
+            Debug.Log($"Hero outlines: installed/rebuilt {installed} renderers; disabled {retired} legacy outline renderers. Source meshes/colors/UVs preserved; UV3 on hull copies holds tangent-space smoothed normals. Importer Read/Write flags restored. Undo restores scene objects; generated mesh assets remain.");
+        }
+        static bool IsLegacyOutline(Renderer renderer)
+        {
+            var materials = renderer.sharedMaterials;
+            if (materials.Length == 0) return false;
+            foreach (var material in materials)
+            {
+                if (material == null || material.shader == null) return false;
+                string name = material.shader.name;
+                if (name != "ToastRanger/Outline URP" && name != "Custom/OutlineOnly" && name != "ComicShop/ToonOutline") return false;
+            }
+            return true;
+        }
+        static Mesh GetMesh(Renderer r)
+        {
+            if (r is SkinnedMeshRenderer skin) return skin.sharedMesh;
+            if (r is MeshRenderer && r.TryGetComponent<MeshFilter>(out var filter)) return filter.sharedMesh;
+            return null;
+        }
+        static Mesh Bake(Mesh source)
+        {
+            if (!source.isReadable) { Debug.LogError($"Cannot read non-model mesh {source.name}; no outline generated.", source); return null; }
+            Mesh copy = Object.Instantiate(source);
+            copy.name = source.name + "_HullNormals";
+            Vector3[] v = copy.vertices;
+            if (copy.normals.Length != v.Length) copy.RecalculateNormals();
+            if (copy.tangents.Length != v.Length && copy.uv.Length == v.Length) copy.RecalculateTangents();
+            var n = copy.normals; var t = copy.tangents;
+            if (t.Length != v.Length)
+            {
+                t = new Vector4[v.Length];
+                for (int i = 0; i < v.Length; i++)
+                {
+                    Vector3 tangent = Vector3.Cross(Mathf.Abs(n[i].y) < 0.9f ? Vector3.up : Vector3.right, n[i]).normalized;
+                    t[i] = new Vector4(tangent.x, tangent.y, tangent.z, 1);
+                }
+                copy.tangents = t;
+            }
+            float epsilon = Mathf.Max(1e-6f, copy.bounds.size.magnitude * 1e-6f);
+            Vector3Int Key(int i) => new Vector3Int(Mathf.RoundToInt(v[i].x / epsilon), Mathf.RoundToInt(v[i].y / epsilon), Mathf.RoundToInt(v[i].z / epsilon));
+            var sums = new Dictionary<Vector3Int, Vector3>();
+            void Add(int i, Vector3 face) { var key = Key(i); sums.TryGetValue(key, out var sum); sums[key] = sum + face; }
+            for (int sub = 0; sub < copy.subMeshCount; sub++)
+            {
+                if (copy.GetTopology(sub) != MeshTopology.Triangles) continue;
+                var indices = copy.GetTriangles(sub);
+                for (int j = 0; j < indices.Length; j += 3)
+                {
+                    int a = indices[j], b = indices[j + 1], c = indices[j + 2];
+                    Vector3 face = Vector3.Cross(v[b] - v[a], v[c] - v[a]).normalized;
+                    Add(a, face * Vector3.Angle(v[b] - v[a], v[c] - v[a]));
+                    Add(b, face * Vector3.Angle(v[a] - v[b], v[c] - v[b]));
+                    Add(c, face * Vector3.Angle(v[a] - v[c], v[b] - v[c]));
+                }
+            }
+            var smooth = new List<Vector4>(v.Length);
+            for (int i = 0; i < v.Length; i++)
+            {
+                sums.TryGetValue(Key(i), out Vector3 normal);
+                if (normal.sqrMagnitude < 1e-12f) normal = n[i];
+                normal.Normalize();
+                Vector3 tangent = ((Vector3)t[i]).normalized;
+                Vector3 bitangent = Vector3.Cross(n[i].normalized, tangent) * t[i].w;
+                smooth.Add(new Vector4(Vector3.Dot(normal, tangent), Vector3.Dot(normal, bitangent), Vector3.Dot(normal, n[i].normalized), 1));
+            }
+            copy.SetUVs(2, smooth); // UV3/TEXCOORD2. Only the separate hull mesh is changed.
+            return copy;
         }
     }
 }

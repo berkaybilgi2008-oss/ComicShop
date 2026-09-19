@@ -107,8 +107,15 @@ public static class ShopV16Importer {
             var d=data.lights[i];var t=objects[d.node].transform;bool dir=d.type=="DirectionalLight";
             appearance.sources[i]=t;appearance.directional[i]=dir;appearance.colors[i]=C(d.color,0)*d.intensity;appearance.parameters[i]=new Vector4(d.distance,d.decay,d.shadow?1:0,0);
             if(dir)t.rotation=Quaternion.LookRotation((V(d.target)-t.position).normalized,Vector3.up);
-            // Only the shadow-casting sun uses a Unity Light. All source lights are evaluated by the V16 shader.
-            if(d.shadow&&dir){sun=t.gameObject.AddComponent<Light>();sun.type=LightType.Directional;sun.color=new Color(d.color[0],d.color[1],d.color[2]);sun.intensity=d.intensity;sun.shadows=LightShadows.Soft;sun.shadowBias=0.035f;sun.shadowNormalBias=0.022f;}
+            // Real URP lights replace the source renderer's virtual light arrays.
+            if (!dir || d.shadow)
+            {
+                var light = t.gameObject.AddComponent<Light>();
+                bool pendant = !dir && d.distance >= 10f;
+                bool neon = !dir && d.color[0] > d.color[1] * 2f;
+                ShopV16Appearance.ConfigureLight(light, dir, pendant, neon, dir || i == 3 || i == 6);
+                if (dir) sun = light;
+            }
         }
         var slots=new GameObject("Shelf Slots - 22");slots.transform.SetParent(root.transform,false);
         foreach(var s in data.slots)MakeSlot(slots.transform,s,"Shelf_"+s.id+"_"+s.bolge);
@@ -141,3 +148,4 @@ public static class ShopV16Importer {
     static void MakeSlot(Transform parent,Slot s,string name){var g=new GameObject(name);g.transform.SetParent(parent,false);g.transform.localPosition=new Vector3(s.x,s.y,-s.z);g.transform.localRotation=Quaternion.Euler(0,180-s.rotY*Mathf.Rad2Deg,0);}
 }
 }
+
