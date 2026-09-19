@@ -69,7 +69,8 @@ public class PlayerKnockdown : MonoBehaviour
 
     public void Hit(Vector3 velocity, bool head)
     {
-        if (IsDown) return;
+        // Temporary design choice: only a head hit can knock a player down.
+        if (!head || IsDown) return;
         Vector3 impulse = Vector3.ProjectOnPlane(velocity, Vector3.up).normalized * 4f;
         if (network != null && network.IsSpawned)
         {
