@@ -24,7 +24,7 @@ using UnityEngine;
 /// </summary>
 public class BookRotationTool : EditorWindow
 {
-    private string searchFolder = "Assets/Prefabs/VeridianBooks";
+    private string searchFolder = "Assets/Prefabs/Books";
     private Vector3 standardCorrection = new Vector3(270f, 0f, 180f);
     private GameObject referenceBook;
     private string pastedValues = "";
