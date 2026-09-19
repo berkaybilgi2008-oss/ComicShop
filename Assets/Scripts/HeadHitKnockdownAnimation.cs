@@ -33,7 +33,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 
     // Hand off to physics as soon as the cartoon fall has reached the back-first,
     // near-horizontal pose. Do not wait for the full settle animation.
-    const float RagdollTriggerTime = 0.58f;
+    const float RagdollTriggerTime = 0.47f;
 
     Animator animator;
     Transform hips;
@@ -273,23 +273,44 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 
     void EnableRagdoll()
     {
-        CaptureRagdollPose();
-        animator.enabled = false;
-        SetRagdollColliders(true);
-        SetRagdollBodiesKinematic(false);
-        ragdollActive = true;
-        active = true;
-
-        foreach (Rigidbody body in bodies.Values)
+        // IMPORTANT: freeze the exact pose we are looking at before physics starts.
+        // Without this, enabling CharacterJoints can solve the skeleton for one
+        // physics step and visibly snap the character upright.
+        foreach (var pair in bodies)
         {
+            if (!bones.TryGetValue(pair.Key, out Transform bone)) continue;
+            Rigidbody body = pair.Value;
+            body.isKinematic = true;
+            body.position = bone.position;
+            body.rotation = bone.rotation;
             body.velocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
         }
 
+        CaptureRagdollPose();
+        animator.enabled = false;
+        SetRagdollColliders(true);
+
+        // Keep every rigidbody at the captured world pose while physics takes over.
+        foreach (var pair in bodies)
+        {
+            if (!bones.TryGetValue(pair.Key, out Transform bone)) continue;
+            Rigidbody body = pair.Value;
+            body.position = bone.position;
+            body.rotation = bone.rotation;
+            body.isKinematic = false;
+            body.velocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+
+        ragdollActive = true;
+        active = true;
+
         if (bodies.TryGetValue("Hips", out Rigidbody hipBody))
         {
-            hipBody.AddForce(-transform.forward * 1.0f + Vector3.up * 0.7f, ForceMode.Impulse);
-            hipBody.AddTorque(transform.right * 0.35f, ForceMode.Impulse);
+            // Small natural continuation of the fall; do not rotate the body upright.
+            hipBody.AddForce(-transform.forward * 0.35f + Vector3.down * 0.15f, ForceMode.Impulse);
+            hipBody.AddTorque(transform.right * 0.12f, ForceMode.Impulse);
         }
     }
 
@@ -398,7 +419,10 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         if (hips != null && basePose.TryGetValue("Hips", out Pose hipsPose))
         {
             Vector3 p = hipsPose.position;
-            float drop = Mathf.SmoothStep(0f, 0.62f, Mathf.Clamp01(impact + settle));
+            // The body should visibly lose height while falling, not only rotate backward.
+            // Start lowering before horizontal and continue into the ragdoll handoff.
+            float dropProgress = Mathf.Clamp01(Mathf.InverseLerp(0.18f, RagdollTriggerTime, t));
+            float drop = Mathf.SmoothStep(0f, 0.48f, dropProgress);
             hips.localPosition = p + Vector3.down * drop;
         }
     }
