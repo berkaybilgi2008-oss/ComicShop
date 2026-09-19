@@ -11,7 +11,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     public bool connectHudToLocalPlayer = true;
     private PlayerInteraction interaction;
     private PlayerKnockdown knockdown;
-    private float nextPowerRequest;
+    private float nextPowerRequest;\n    private readonly NetworkVariable<ShopRoundState> round = new NetworkVariable<ShopRoundState>();\n    public void PublishRound() { if (IsServer && !round.Value.Equals(ShopRound.State)) round.Value = ShopRound.State; }\n    private void OnRoundChanged(ShopRoundState before, ShopRoundState after) { if (IsOwner) ShopRound.Apply(after); }\n    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]\n    public void PlayCueRpc(int cue, Vector3 position) { if (cue >= 0 && cue <= (int)ShopCue.Impact) ShopAudio.Play((ShopCue)cue, position); }\n    [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]\n    public void ActionRejectedRpc(string reason) { if (interaction != null) interaction.ShowFeedback(reason); }
     public bool IsDown => downState.Value.ReadyAt >= 0;
     public struct DownState : INetworkSerializable, System.IEquatable<DownState>
     {
@@ -31,7 +31,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     public void KnockDown(Vector3 impulse, bool head)
     {
         if (!IsServer || IsDown || float.IsNaN(impulse.sqrMagnitude) || float.IsInfinity(impulse.sqrMagnitude)) return;
-        downState.Value = new DownState { ReadyAt = NetworkManager.ServerTime.Time + (head ? 3d : 0.6d),
+        PlayCueRpc((int)ShopCue.Bonk, transform.position);\n        downState.Value = new DownState { ReadyAt = NetworkManager.ServerTime.Time + (head ? 3d : 0.6d),
             Head = head, Impulse = Vector3.ClampMagnitude(impulse, 8f) };
     }
     private void ApplyDownState(DownState before, DownState after)
@@ -39,7 +39,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
         knockdown.SetState(after.ReadyAt, after.Head);
         if (IsOwner && before.ReadyAt < 0 && after.ReadyAt >= 0) knockdown.Kick(after.Impulse);
     }
-    [Rpc(SendTo.Server, RequireOwnership = true)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     public void StandUpRpc()
     {
         if (IsDown && NetworkManager.ServerTime.Time >= downState.Value.ReadyAt)
@@ -100,7 +100,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        downState.OnValueChanged += ApplyDownState;
+        round.OnValueChanged += OnRoundChanged;\n        if (IsServer) PublishRound();\n        downState.OnValueChanged += ApplyDownState;
         bool owner = IsOwner;
         Debug.Log($"[Multiplayer] Player spawn: name={name}, LocalClientId={NetworkManager.LocalClientId}, OwnerClientId={OwnerClientId}, IsOwner={owner}, IsServer={IsServer}, IsClient={IsClient}");
         SetLocal(owner);
@@ -126,7 +126,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
-        downState.OnValueChanged -= ApplyDownState;
+        round.OnValueChanged -= OnRoundChanged;\n        downState.OnValueChanged -= ApplyDownState;
         knockdown.SetState(-1);
         // Books remain server-owned and must survive the departing player's destruction.
         if (IsServer) NetworkBook.ReleaseAllForPlayer(OwnerClientId);
