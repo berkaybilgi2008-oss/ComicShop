@@ -282,7 +282,7 @@ public class NetworkBook : NetworkBehaviour
         return Vector3.Distance(eye, closest) <= player.interactRange + 0.5f;
     }
 
-    [Rpc(SendTo.Server, RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     public void PickUpRpc(RpcParams rpc = default)
     {
         ulong sender = rpc.Receive.SenderClientId;
