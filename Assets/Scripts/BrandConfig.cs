@@ -1,59 +1,34 @@
 public static class BrandConfig
 {
-    // 22 marka: ilk 20 marka 15 kitap, son 2 marka 30 kitap.
-    // Toplam: 360 farkli kitap turu.
-    public static int[] booksPerBrand = BuildDefaultBrandSizes();
+    private static BrandCatalog Catalog => UnityEngine.Resources.Load<BrandCatalog>("BrandCatalog");
 
-    public static int BrandCount => booksPerBrand.Length;
+    public static int BrandCount => Catalog != null ? Catalog.BrandCount : 0;
+    public static int TotalBookTypeCount => Catalog != null ? Catalog.TotalBookCount : 0;
 
-    public static int TotalBookTypeCount
+    public static int GetBrandForBookID(int bookID)
+        => Catalog != null ? Catalog.GetBrandForBookID(bookID) : -1;
+
+    public static int GetBookRangeStart(int brandID)
+        => Catalog != null ? Catalog.GetBookRangeStart(brandID) : -1;
+
+    public static string GetBrandName(int brandID)
+        => Catalog != null ? Catalog.GetBrandName(brandID) : string.Empty;
+
+    // Eski script API uyumlulugu.
+    public static int[] booksPerBrand
     {
         get
         {
-            int total = 0;
-            foreach (int count in booksPerBrand)
-                total += count;
-            return total;
+            if (Catalog == null || Catalog.brands == null) return System.Array.Empty<int>();
+            var result = new int[Catalog.brands.Length];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = Catalog.brands[i] != null ? Catalog.brands[i].bookCount : 0;
+            return result;
         }
     }
 
-    public static int GetBrandForBookID(int bookID)
-    {
-        int cursor = 0;
-        for (int brand = 0; brand < booksPerBrand.Length; brand++)
-        {
-            if (bookID >= cursor && bookID < cursor + booksPerBrand[brand])
-                return brand;
-            cursor += booksPerBrand[brand];
-        }
-        return -1;
-    }
-
-    public static int GetBookRangeStart(int brandID)
-    {
-        if (brandID < 0 || brandID >= booksPerBrand.Length)
-            return -1;
-
-        int cursor = 0;
-        for (int brand = 0; brand < brandID; brand++)
-            cursor += booksPerBrand[brand];
-        return cursor;
-    }
-
-    // Eski scriptlerin derlenmesini koruyan gecici uyumluluk isimleri.
     public static int[] heroesPerBrand => booksPerBrand;
     public static int TotalHeroCount => TotalBookTypeCount;
     public static int GetBrandForHero(int heroID) => GetBrandForBookID(heroID);
     public static int GetHeroRangeStart(int brandID) => GetBookRangeStart(brandID);
-
-    private static int[] BuildDefaultBrandSizes()
-    {
-        int[] sizes = new int[22];
-        for (int i = 0; i < 20; i++)
-            sizes[i] = 15;
-
-        sizes[20] = 30;
-        sizes[21] = 30;
-        return sizes;
-    }
 }
