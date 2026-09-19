@@ -101,7 +101,7 @@ public class BookSpawner : MonoBehaviour
 
         for (int i = indices.Count - 1; i > 0; i--)
         {
-            int j = Random.Range(0, i + 1);
+            int j = UnityEngine.Random.Range(0, i + 1);
             (indices[i], indices[j]) = (indices[j], indices[i]);
         }
 
@@ -146,7 +146,7 @@ public class BookSpawner : MonoBehaviour
         bookItem.displayName = data.DisplayName;
         BookToonEffect.ApplyToBook(book);
 
-        Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
+        Vector3 heading = Quaternion.AngleAxis(UnityEngine.Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
         book.transform.rotation = bookItem.GetAlignedRotation(Vector3.up, heading);
         Rigidbody rb = book.GetComponent<Rigidbody>();
         if (rb != null && !rb.isKinematic)
@@ -177,19 +177,19 @@ public class BookSpawner : MonoBehaviour
         {
             float total = 0f;
             foreach (var zone in corridorAreas) total += ZoneWeight(zone);
-            float choice = Random.value * total;
+            float choice = UnityEngine.Random.value * total;
             foreach (var zone in corridorAreas) { float w = ZoneWeight(zone); if (w <= 0f) continue; choice -= w; if (choice <= 0f) return SampleArea(zone); }
             return SampleArea(corridorAreas[corridorAreas.Length - 1]);
         }
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f, areaSize.x*.5f), spawnHeight, Random.Range(-areaSize.y*.5f, areaSize.y*.5f)));
+        return area.TransformPoint(new Vector3(UnityEngine.Random.Range(-areaSize.x*.5f, areaSize.x*.5f), spawnHeight, UnityEngine.Random.Range(-areaSize.y*.5f, areaSize.y*.5f)));
     }
     Vector3 SampleArea(BoxCollider zone)
     {
         Vector3 scale = zone.transform.lossyScale;
         float hx = Mathf.Max(0.001f, zone.size.x*.5f - corridorEdgePadding/Mathf.Max(.0001f,Mathf.Abs(scale.x)));
         float hz = Mathf.Max(0.001f, zone.size.z*.5f - corridorEdgePadding/Mathf.Max(.0001f,Mathf.Abs(scale.z)));
-        return zone.transform.TransformPoint(zone.center + new Vector3(Random.Range(-hx,hx),0,Random.Range(-hz,hz))) + Vector3.up*spawnHeight;
+        return zone.transform.TransformPoint(zone.center + new Vector3(UnityEngine.Random.Range(-hx,hx),0,UnityEngine.Random.Range(-hz,hz))) + Vector3.up*spawnHeight;
     }
     public int DiscoverCorridors()
     {
