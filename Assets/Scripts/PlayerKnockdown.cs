@@ -116,7 +116,7 @@ public class PlayerKnockdown : MonoBehaviour
     void LateUpdate()
     {
         float blend = 1f - Mathf.Exp(-12f * Time.deltaTime);
-        if (visual != null)
+        if (visual != null && !(headHit && headHitAnimation != null && headHitAnimation.IsAnimating))
             visual.localRotation = Quaternion.Slerp(visual.localRotation,
                 IsDown ? Quaternion.Euler(0, 0, 80) * visualRotation : visualRotation, blend);
         if (Local && view != null)
