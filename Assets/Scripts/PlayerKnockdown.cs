@@ -18,6 +18,7 @@ public class PlayerKnockdown : MonoBehaviour
     private double readyAt;
     private bool headHit;
     private float verticalSpeed;
+    private HeadHitKnockdownAnimation headHitAnimation;
     private bool Local => network == null || !network.IsSpawned || network.IsOwner;
     private double Clock => network != null && network.IsSpawned
         ? network.NetworkManager.ServerTime.Time : Time.timeAsDouble;
@@ -27,6 +28,8 @@ public class PlayerKnockdown : MonoBehaviour
         network = GetComponent<NetworkPlayerSetup>();
         capsule = GetComponent<CharacterController>();
         movement = GetComponent<PlayerController>();
+        headHitAnimation = GetComponent<HeadHitKnockdownAnimation>();
+        if (headHitAnimation == null) headHitAnimation = gameObject.AddComponent<HeadHitKnockdownAnimation>();
         Camera camera = GetComponentInChildren<Camera>(true);
         view = camera != null ? camera.transform : null;
         if (view != null) viewPosition = view.localPosition;
@@ -81,6 +84,7 @@ public class PlayerKnockdown : MonoBehaviour
     {
         headHit = head;
         bool wasDown = IsDown;
+        if (headHitAnimation != null) headHitAnimation.SetState(until >= 0, head);
         readyAt = until;
         IsDown = until >= 0;
         if (IsDown && !wasDown)
