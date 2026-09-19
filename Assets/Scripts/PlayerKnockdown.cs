@@ -126,7 +126,8 @@ public class PlayerKnockdown : MonoBehaviour
             return;
         }
 
-        if (network == null || !network.IsSpawned) ShopAudio.Play(ShopCue.Bonk, transform.position);\n        SetState(Clock + (head ? 3d : 0.6d), head);
+        if (network == null || !network.IsSpawned) ShopAudio.Play(ShopCue.Bonk, transform.position);
+        SetState(Clock + (head ? 3d : 0.6d), head);
         Kick(impulse);
     }
 
