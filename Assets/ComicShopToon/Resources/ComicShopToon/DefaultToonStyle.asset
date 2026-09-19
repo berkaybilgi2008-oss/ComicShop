@@ -35,7 +35,7 @@ MonoBehaviour:
   HalftoneColor: {r: 0.14117648, g: 0.10980392, b: 0.20784314, a: 1}
   ShadowLift: 0.12
   BakedExposure: 2
-  DirectMax: 2
+  DirectMax: 4
   EmissionGain: 4
   OutlineColor: {r: 0.025, g: 0.018, b: 0.04, a: 1}
   OutlineWidth: 0.01
