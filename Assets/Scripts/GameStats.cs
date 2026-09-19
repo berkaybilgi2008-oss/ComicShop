@@ -58,7 +58,7 @@ public static class GameStats
         return placedPerBook != null && bookID >= 0 && placedPerBook.ContainsKey(bookID);
     }
 
-    public static void RegisterBookID(int bookID)
+    public static void Initialize(IEnumerable<int> bookIds, int copies)\n    {\n        var next = new Dictionary<int, int>();\n        foreach (int id in bookIds)\n        {\n            if (id < 0 || next.ContainsKey(id)) throw new System.ArgumentException("Book catalogue contains a negative or duplicate BookID: " + id);\n            next.Add(id, 0);\n        }\n        placedPerBook = next;\n        totalBookTypes = next.Count;\n        copiesPerBook = Mathf.Max(1, copies);\n        TotalPlaced = 0;\n        CompletedBookGroupCount = 0;\n    }\n\n    public static void RegisterBookID(int bookID)
     {
         if (placedPerBook != null && bookID >= 0 && !placedPerBook.ContainsKey(bookID))
             placedPerBook.Add(bookID, 0);
