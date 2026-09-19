@@ -1,10 +1,15 @@
 using Unity.Netcode;
-using System.Collections.Generic;\nusing System;
+using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    public Transform v16SpawnArea;\n\n    [Header("Corridor Spawn Areas")]\n    public BoxCollider[] corridorAreas;\n    [Min(0f)] public float corridorEdgePadding = 0.35f;
+    public Transform v16SpawnArea;
+
+    [Header("Corridor Spawn Areas")]
+    public BoxCollider[] corridorAreas;
+    [Min(0f)] public float corridorEdgePadding = 0.35f;
 
     [Header("Varsayilan Prefab ve Alan")]
     public GameObject bookPrefab;
@@ -29,6 +34,7 @@ public class BookSpawner : MonoBehaviour
     {
         LoadCatalogIfNeeded();
         if (FindFirstObjectByType<NetworkManager>() != null) return;
+        ValidateConfiguration(false);
         InitializeStats();
         SpawnBooks(BookTypeCount);
     }
@@ -48,6 +54,7 @@ public class BookSpawner : MonoBehaviour
     {
         sessionSpawned = false;
         LoadCatalogIfNeeded();
+        ValidateConfiguration(true);
         InitializeStats();
 
         for (int index = 0; index < BookTypeCount; index++)
@@ -71,6 +78,7 @@ public class BookSpawner : MonoBehaviour
         if (sessionSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
         sessionSpawned = true;
         LoadCatalogIfNeeded();
+        ValidateConfiguration(true);
         InitializeStats();
         SpawnBooks(BookTypeCount);
     }
@@ -97,13 +105,14 @@ public class BookSpawner : MonoBehaviour
             (indices[i], indices[j]) = (indices[j], indices[i]);
         }
 
-        foreach (int index in indices)
-            SpawnSingleBook(index);
+        Vector3[] positions = CreateSpawnPositions(indices.Count);
+        for (int i = 0; i < indices.Count; i++)
+            SpawnSingleBook(indices[i], positions[i]);
 
         Debug.Log($"BookSpawner: {indices.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
     }
 
-    void SpawnSingleBook(int index)
+    void SpawnSingleBook(int index, Vector3 pos)
     {
         BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
         if (data == null)
@@ -121,11 +130,6 @@ public class BookSpawner : MonoBehaviour
             Debug.LogError($"BookSpawner: BookID {bookID} icin spawn edilecek prefab yok.");
             return;
         }
-
-        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        float x = Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
-        float z = Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
-        Vector3 pos = area.TransformPoint(new Vector3(x, spawnHeight, z));
 
         GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
         BookItem bookItem = book.GetComponent<BookItem>();
@@ -158,4 +162,61 @@ public class BookSpawner : MonoBehaviour
             networkBook.NetworkObject.Spawn(true);
         }
     }
+    public Vector3[] CreateSpawnPositions(int count)
+    {
+        if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
+        int guaranteed = corridorAreas == null ? 0 : corridorAreas.Length;
+        if (count < guaranteed) throw new System.ArgumentException("At least one book per corridor is required.");
+        var positions = new Vector3[count];
+        for (int i = 0; i < count; i++) positions[i] = i < guaranteed ? SampleArea(corridorAreas[i]) : SampleSpawnPosition();
+        return positions;
+    }
+    public Vector3 SampleSpawnPosition()
+    {
+        if (corridorAreas != null && corridorAreas.Length > 0)
+        {
+            float total = 0f;
+            foreach (var zone in corridorAreas) total += ZoneWeight(zone);
+            float choice = Random.value * total;
+            foreach (var zone in corridorAreas) { float w = ZoneWeight(zone); if (w <= 0f) continue; choice -= w; if (choice <= 0f) return SampleArea(zone); }
+            return SampleArea(corridorAreas[corridorAreas.Length - 1]);
+        }
+        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
+        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f, areaSize.x*.5f), spawnHeight, Random.Range(-areaSize.y*.5f, areaSize.y*.5f)));
+    }
+    Vector3 SampleArea(BoxCollider zone)
+    {
+        Vector3 scale = zone.transform.lossyScale;
+        float hx = Mathf.Max(0.001f, zone.size.x*.5f - corridorEdgePadding/Mathf.Max(.0001f,Mathf.Abs(scale.x)));
+        float hz = Mathf.Max(0.001f, zone.size.z*.5f - corridorEdgePadding/Mathf.Max(.0001f,Mathf.Abs(scale.z)));
+        return zone.transform.TransformPoint(zone.center + new Vector3(Random.Range(-hx,hx),0,Random.Range(-hz,hz))) + Vector3.up*spawnHeight;
+    }
+    public int DiscoverCorridors()
+    {
+        var zones = new List<BoxCollider>(corridorAreas ?? Array.Empty<BoxCollider>());
+        foreach (var root in gameObject.scene.GetRootGameObjects()) if (root.name == "Book Spawn Corridors") foreach (var zone in root.GetComponentsInChildren<BoxCollider>(true)) if (!zones.Contains(zone)) zones.Add(zone);
+        corridorAreas = zones.ToArray(); return corridorAreas.Length;
+    }
+    public bool ValidateSpawnAreas(out string error)
+    {
+        if (corridorAreas != null && corridorAreas.Length > 0)
+        { foreach (var zone in corridorAreas) if (zone == null || !zone.gameObject.activeInHierarchy || ZoneWeight(zone) <= 0f) { error="Invalid corridor spawn area."; return false; } error=null; return true; }
+        bool ok = areaSize.x > 0f && areaSize.y > 0f && spawnHeight >= 0f;
+        error = ok ? null : "Legacy spawn area is invalid."; return ok;
+    }
+    void ValidateConfiguration(bool networked)
+    {
+        DiscoverCorridors();
+        if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
+        if (copiesPerBook < 1 || BookTypeCount < 1) throw new System.InvalidOperationException("Book catalogue/count is empty.");
+        var ids = new HashSet<int>();
+        foreach (var data in bookTypes)
+        {
+            if (data == null || !ids.Add(data.BookID)) throw new System.InvalidOperationException("Invalid or duplicate BookID in catalogue.");
+            var prefab = data.bookPrefab != null ? data.bookPrefab : bookPrefab;
+            if (prefab == null || prefab.GetComponent<BookItem>() == null || (networked && (prefab.GetComponent<NetworkObject>() == null || prefab.GetComponent<NetworkBook>() == null))) throw new System.InvalidOperationException("Invalid book prefab in catalogue.");
+        }
+    }
+    float ZoneWeight(BoxCollider zone) { if (!zone || !zone.gameObject.activeInHierarchy) return 0f; Vector3 s=zone.transform.lossyScale; return Mathf.Max(0f,zone.size.x*Mathf.Abs(s.x)-2*corridorEdgePadding)*Mathf.Max(0f,zone.size.z*Mathf.Abs(s.z)-2*corridorEdgePadding); }
+
 }
