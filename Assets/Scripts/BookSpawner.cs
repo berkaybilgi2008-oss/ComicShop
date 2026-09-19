@@ -1,10 +1,10 @@
 using Unity.Netcode;
-using System.Collections.Generic;
+using System.Collections.Generic;\nusing System;
 using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    public Transform v16SpawnArea;
+    public Transform v16SpawnArea;\n\n    [Header("Corridor Spawn Areas")]\n    public BoxCollider[] corridorAreas;\n    [Min(0f)] public float corridorEdgePadding = 0.35f;
 
     [Header("Varsayilan Prefab ve Alan")]
     public GameObject bookPrefab;
