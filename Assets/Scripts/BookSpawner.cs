@@ -24,7 +24,7 @@ public class BookSpawner : MonoBehaviour
     public int copiesPerBook = 10;
 
     [Header("Test")]
-    [Tooltip("BookData listesi bosken kullanilacak kitap turu sayisi. Hazir 15 kitap icin 15 birak.")]
+    [Tooltip("BookData listesi bosken kullanilacak test kitap turu sayisi. Normal oyunda Setup ALL Book Models tarafindan doldurulan bookTypes kullanilir.")]
     [Min(1)]
     public int testBookTypeCount = 15;
 
