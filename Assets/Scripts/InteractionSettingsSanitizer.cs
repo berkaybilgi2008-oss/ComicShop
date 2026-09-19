@@ -23,8 +23,7 @@ public static class InteractionSettingsSanitizer
     public static void Apply(PlayerInteraction interaction)
     {
         // Eski sahne serilestirmesi mouse yerine E/Q kaydetmis olabilir.
-        interaction.pickupKey = KeyCode.Mouse0;
-        interaction.dropKey = KeyCode.Mouse1;
+        ShopSettings.ApplyPlayer(interaction);
 
         // Elde kitaplar arasindaki dikey ilerleme 0.044 birim olsun.
         interaction.stackSpacing = 0.044f;

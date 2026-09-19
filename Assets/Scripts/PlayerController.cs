@@ -43,8 +43,8 @@ public class PlayerController : MonoBehaviour
 
     void HandleLook()
     {
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        float mouseX = Input.GetAxis("Mouse X") * ShopSettings.Current.sensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * ShopSettings.Current.sensitivity * (ShopSettings.Current.invertY ? -1 : 1);
 
         transform.Rotate(Vector3.up * mouseX);
 
@@ -60,16 +60,16 @@ public class PlayerController : MonoBehaviour
         if (isGrounded && velocity.y < 0)
             velocity.y = -2f;
 
-        float h = Input.GetAxis("Horizontal");
-        float v = Input.GetAxis("Vertical");
+        float h = (Input.GetKey(ShopSettings.Key(ShopAction.Right)) ? 1 : 0) - (Input.GetKey(ShopSettings.Key(ShopAction.Left)) ? 1 : 0);
+        float v = (Input.GetKey(ShopSettings.Key(ShopAction.Forward)) ? 1 : 0) - (Input.GetKey(ShopSettings.Key(ShopAction.Back)) ? 1 : 0);
 
-        bool isSprinting = Input.GetKey(sprintKey);
+        bool isSprinting = Input.GetKey(ShopSettings.Key(ShopAction.Sprint));
         float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
 
         Vector3 move = Vector3.ClampMagnitude(transform.right * h + transform.forward * v, 1f);
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        if (Input.GetKeyDown(ShopSettings.Key(ShopAction.Jump)) && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }

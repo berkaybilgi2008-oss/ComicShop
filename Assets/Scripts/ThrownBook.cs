@@ -128,6 +128,13 @@ public class ThrownBook : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        if (!hasHit && collision.relativeVelocity.sqrMagnitude > 4f)
+        {
+            var manager = Unity.Netcode.NetworkManager.Singleton;
+            if (manager == null || !manager.IsListening) ShopAudio.Play(ShopCue.Impact, transform.position);
+            else if (manager.IsServer && thrower != null && thrower.TryGetComponent<NetworkPlayerSetup>(out var player))
+                player.PlayCueRpc((int)ShopCue.Impact, transform.position);
+        }
         RegisterHit();
 
         // ILERIDE: buraya oyuncuya carpma / bayiltma kontrolu gelecek.
