@@ -25,7 +25,6 @@ public class BookSpawner : MonoBehaviour
     public int testBookTypeCount = 15;
 
     private bool sessionSpawned;
-    private bool networkSession;
 
     void Start()
     {
@@ -49,11 +48,10 @@ public class BookSpawner : MonoBehaviour
     public void PrepareSession(NetworkManager manager)
     {
         sessionSpawned = false;
-        networkSession = true;
         LoadCatalogIfNeeded();
         InitializeStats();
 
-        for (int index = 0; index < SessionBookTypeCount; index++)
+        for (int index = 0; index < BookTypeCount; index++)
         {
             BookData data = bookTypes[index];
             GameObject prefab = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
