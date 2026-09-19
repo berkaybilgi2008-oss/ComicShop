@@ -29,6 +29,11 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
     readonly Dictionary<string, Transform> bones = new Dictionary<string, Transform>();
     readonly Dictionary<string, Rigidbody> bodies = new Dictionary<string, Rigidbody>();
     readonly List<Collider> ragdollColliders = new List<Collider>();
+    readonly List<CharacterJoint> ragdollJoints = new List<CharacterJoint>();
+
+    // Hand off to physics as soon as the cartoon fall has reached the back-first,
+    // near-horizontal pose. Do not wait for the full settle animation.
+    const float RagdollTriggerTime = 0.58f;
 
     Animator animator;
     Transform hips;
@@ -70,7 +75,6 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
                 basePose[name] = new Pose(bone);
 
         bones.TryGetValue("Hips", out hips);
-        BuildRagdoll();
     }
 
     void BuildRagdoll()
@@ -125,6 +129,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 
             CharacterJoint joint = bone.GetComponent<CharacterJoint>();
             if (joint == null) joint = bone.gameObject.AddComponent<CharacterJoint>();
+            if (!ragdollJoints.Contains(joint)) ragdollJoints.Add(joint);
 
             joint.connectedBody = parentBody;
             joint.enablePreprocessing = false;
@@ -220,6 +225,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         if (animator == null || basePose.Count == 0) return;
 
         StopRagdoll();
+        BuildRagdoll();
         active = true;
         recovering = false;
         ragdollActive = false;
@@ -341,6 +347,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
                 recovering = false;
                 active = false;
                 RestoreBasePose();
+                DestroyRagdollComponents();
                 animator.enabled = true;
                 if (capsule != null) capsule.enabled = true;
             }
@@ -354,7 +361,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         float tFall = Mathf.Clamp01(timer / FallDuration);
         ApplyPose(tFall);
 
-        if (tFall >= 1f)
+        if (tFall >= RagdollTriggerTime)
             EnableRagdoll();
     }
 
@@ -427,9 +434,30 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         }
     }
 
+    void DestroyRagdollComponents()
+    {
+        foreach (CharacterJoint joint in ragdollJoints)
+            if (joint != null)
+                Destroy(joint);
+
+        foreach (Rigidbody body in bodies.Values)
+            if (body != null)
+                Destroy(body);
+
+        foreach (Collider collider in ragdollColliders)
+            if (collider != null)
+                Destroy(collider);
+
+        ragdollJoints.Clear();
+        bodies.Clear();
+        ragdollColliders.Clear();
+        ragdollPose.Clear();
+    }
+
     void OnDisable()
     {
         StopRagdoll();
+        DestroyRagdollComponents();
         if (animator != null) animator.enabled = true;
     }
 }
