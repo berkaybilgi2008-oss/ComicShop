@@ -242,6 +242,16 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         if (ragdollActive)
         {
             CaptureRagdollPose();
+
+            // Move the player root to the actual ragdoll landing position before
+            // the stand-up blend, so recovery happens where the body ended up.
+            if (hips != null)
+            {
+                Vector3 delta = hips.position - transform.position;
+                delta.y = 0f;
+                transform.position += delta;
+            }
+
             SetRagdollBodiesKinematic(true);
             SetRagdollColliders(false);
             ragdollActive = false;
