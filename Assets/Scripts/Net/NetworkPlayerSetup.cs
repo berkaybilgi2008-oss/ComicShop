@@ -101,9 +101,12 @@ public class NetworkPlayerSetup : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         downState.OnValueChanged += ApplyDownState;
-        SetLocal(IsOwner);
+        bool owner = IsOwner;
+        Debug.Log($"[Multiplayer] Player spawn: name={name}, LocalClientId={NetworkManager.LocalClientId}, OwnerClientId={OwnerClientId}, IsOwner={owner}, IsServer={IsServer}, IsClient={IsClient}");
+        SetLocal(owner);
         knockdown.SetState(downState.Value.ReadyAt, downState.Value.Head);
-        gameObject.name = IsOwner ? $"Player_LOCAL_{OwnerClientId}" : $"Player_{OwnerClientId}";
+        gameObject.name = owner ? $"Player_LOCAL_{OwnerClientId}" : $"Player_{OwnerClientId}";
+        Debug.Log($"[Multiplayer] Player local setup: name={gameObject.name}, PlayerController={GetComponent<PlayerController>()?.enabled}, PlayerInteraction={GetComponent<PlayerInteraction>()?.enabled}, CharacterController={GetComponent<CharacterController>()?.enabled}, Camera={playerCamera?.enabled}, AudioListener={audioListener?.enabled}");
         if (!IsOwner) return;
         LocalPlayer = this;
         if (interaction != null)
