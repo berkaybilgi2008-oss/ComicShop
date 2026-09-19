@@ -10,8 +10,8 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 {
-    const float FallDuration = 0.42f;
-    const float RecoverDuration = 0.20f;
+    const float FallDuration = 0.72f;
+    const float RecoverDuration = 0.26f;
 
     struct Pose
     {
@@ -139,56 +139,65 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
     {
         float t = Mathf.Clamp01(normalized);
 
-        // Four compact beats:
-        // 0-.08  : cartoon recoil
-        // .08-.20: strong backward lean
-        // .20-.31: feet kick up
-        // .31-.42: back hits floor and body settles
-        float recoil = EaseOut(Mathf.InverseLerp(0f, 0.08f, t));
-        float lean = EaseOut(Mathf.InverseLerp(0.05f, 0.20f, t));
-        float kick = EaseOut(Mathf.InverseLerp(0.15f, 0.31f, t));
-        float land = EaseOut(Mathf.InverseLerp(0.28f, 0.42f, t));
+        // A readable cartoon sequence:
+        // 0-.10  : head-hit recoil
+        // .10-.38 : slow backward tip
+        // .38-.55 : feet kick high
+        // .55-.72 : legs come down + back lands
+        float recoil = EaseOut(Mathf.InverseLerp(0f, 0.10f, t));
+        float lean = EaseOut(Mathf.InverseLerp(0.06f, 0.38f, t));
+        float kickUp = EaseOut(Mathf.InverseLerp(0.22f, 0.48f, t));
+        float kickDown = 1f - EaseInOut(Mathf.InverseLerp(0.48f, 0.72f, t));
+        float legKick = Mathf.Clamp01(kickUp * kickDown);
+        float land = EaseInOut(Mathf.InverseLerp(0.50f, 0.72f, t));
 
         if (reverse)
         {
-            // Stand-up animation only interpolates from the final pose back to neutral.
             recoil = 1f - recoil;
             lean = 1f - lean;
-            kick = 1f - kick;
+            legKick = 1f - legKick;
             land = 1f - land;
         }
 
-        // The positive X pitch is intentional: this rig's forward direction makes it
-        // fall backward rather than face-first.
-        Rotate("Hips", Quaternion.Euler(Mathf.Lerp(0f, 72f, lean), 0f, 0f));
-        Rotate("Spine", Quaternion.Euler(Mathf.Lerp(0f, 30f, lean), 0f, 0f));
-        Rotate("Chest", Quaternion.Euler(Mathf.Lerp(0f, 38f, lean), 0f, 0f));
-        Rotate("Neck", Quaternion.Euler(Mathf.Lerp(0f, -18f, lean), 0f, 0f));
-        Rotate("Head", Quaternion.Euler(Mathf.Lerp(0f, -12f, lean), 0f, 0f));
+        // Backward fall: hips/chest lean together so the character falls onto his back,
+        // rather than folding forward like a banana peel slip.
+        Rotate("Hips", Quaternion.Euler(Mathf.Lerp(0f, 58f, lean), 0f, 0f));
+        Rotate("Spine", Quaternion.Euler(Mathf.Lerp(0f, 22f, lean), 0f, 0f));
+        Rotate("Chest", Quaternion.Euler(Mathf.Lerp(0f, 30f, lean), 0f, 0f));
+        Rotate("Neck", Quaternion.Euler(Mathf.Lerp(0f, -12f, lean), 0f, 0f));
+        Rotate("Head", Quaternion.Euler(Mathf.Lerp(0f, -8f, lean), 0f, 0f));
 
-        // Arms open out for a readable comic-book "whoa!" reaction.
-        Rotate("LeftUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 18f, recoil), 0f, Mathf.Lerp(0f, -72f, recoil)));
-        Rotate("LeftForearm", Quaternion.Euler(Mathf.Lerp(0f, -8f, recoil), 0f, Mathf.Lerp(0f, -22f, recoil)));
-        Rotate("RightUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 18f, recoil), 0f, Mathf.Lerp(0f, 72f, recoil)));
-        Rotate("RightForearm", Quaternion.Euler(Mathf.Lerp(0f, -8f, recoil), 0f, Mathf.Lerp(0f, 22f, recoil)));
+        // Arms: broad cartoon "WHOA!" reaction, not a stiff ragdoll.
+        Rotate("LeftUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 12f, recoil), 0f, Mathf.Lerp(0f, -62f, recoil)));
+        Rotate("LeftForearm", Quaternion.Euler(Mathf.Lerp(0f, -6f, recoil), 0f, Mathf.Lerp(0f, -16f, recoil)));
+        Rotate("RightUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 12f, recoil), 0f, Mathf.Lerp(0f, 62f, recoil)));
+        Rotate("RightForearm", Quaternion.Euler(Mathf.Lerp(0f, -6f, recoil), 0f, Mathf.Lerp(0f, 16f, recoil)));
 
-        // Feet shoot upward briefly, then return down as the back lands.
-        float legKick = kick * (1f - 0.35f * land);
-        Rotate("LeftThigh", Quaternion.Euler(Mathf.Lerp(0f, -62f, lean) - 18f * legKick, 0f, 0f));
-        Rotate("RightThigh", Quaternion.Euler(Mathf.Lerp(0f, -62f, lean) - 18f * legKick, 0f, 0f));
-        Rotate("LeftShin", Quaternion.Euler(Mathf.Lerp(0f, 38f, legKick), 0f, 0f));
-        Rotate("RightShin", Quaternion.Euler(Mathf.Lerp(0f, 38f, legKick), 0f, 0f));
-        Rotate("LeftFoot", Quaternion.Euler(Mathf.Lerp(0f, -12f, kick) + Mathf.Lerp(0f, 8f, land), 0f, 0f));
-        Rotate("RightFoot", Quaternion.Euler(Mathf.Lerp(0f, -12f, kick) + Mathf.Lerp(0f, 8f, land), 0f, 0f));
+        // Feet point almost straight upward at the comic peak, then visibly fall back down
+        // before the back reaches the floor. This prevents the "feet frozen in the air" look.
+        float thighAngle = Mathf.Lerp(0f, -102f, legKick);
+        float shinAngle = Mathf.Lerp(0f, 30f, legKick);
+        float footAngle = Mathf.Lerp(0f, -16f, legKick);
+        Rotate("LeftThigh", Quaternion.Euler(thighAngle, 0f, 0f));
+        Rotate("RightThigh", Quaternion.Euler(thighAngle, 0f, 0f));
+        Rotate("LeftShin", Quaternion.Euler(shinAngle, 0f, 0f));
+        Rotate("RightShin", Quaternion.Euler(shinAngle, 0f, 0f));
+        Rotate("LeftFoot", Quaternion.Euler(footAngle, 0f, 0f));
+        Rotate("RightFoot", Quaternion.Euler(footAngle, 0f, 0f));
 
-        // Lower the hips during the final beat so the body actually settles onto the floor.
-        // This is restored from the cached rig pose when the animation finishes.
+        // Final landing: lower the hips and let the whole body settle onto its back.
         if (hips != null && basePose.TryGetValue("Hips", out Pose hipsPose))
         {
             Vector3 p = hipsPose.position;
-            float drop = Mathf.SmoothStep(0f, 0.78f, land);
+            float drop = Mathf.SmoothStep(0f, 0.58f, land);
             hips.localPosition = p + Vector3.down * drop;
         }
+    }
+
+    static float EaseInOut(float t)
+    {
+        t = Mathf.Clamp01(t);
+        return t * t * (3f - 2f * t);
     }
 
     static float EaseOut(float t)
