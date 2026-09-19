@@ -96,10 +96,13 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 
             Rigidbody body = bone.GetComponent<Rigidbody>();
             if (body == null) body = bone.gameObject.AddComponent<Rigidbody>();
-            body.mass = name == "Hips" ? 3.0f : name == "Chest" ? 2.0f : 0.7f;
+            body.mass = name == "Hips" ? 4.0f : name == "Chest" ? 2.5f : 0.85f;
             body.isKinematic = true;
             body.useGravity = true;
             body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.drag = 0.65f;
+            body.angularDrag = 3.5f;
+            body.maxAngularVelocity = 7f;
             bodies[name] = body;
 
             Collider collider = bone.GetComponent<Collider>();
@@ -135,19 +138,19 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             joint.enablePreprocessing = false;
 
             SoftJointLimit low = joint.lowTwistLimit;
-            low.limit = -65f;
+            low.limit = -45f;
             joint.lowTwistLimit = low;
 
             SoftJointLimit high = joint.highTwistLimit;
-            high.limit = 65f;
+            high.limit = 45f;
             joint.highTwistLimit = high;
 
             SoftJointLimit swing1 = joint.swing1Limit;
-            swing1.limit = 80f;
+            swing1.limit = 55f;
             joint.swing1Limit = swing1;
 
             SoftJointLimit swing2 = joint.swing2Limit;
-            swing2.limit = 80f;
+            swing2.limit = 55f;
             joint.swing2Limit = swing2;
 
             joint.enableCollision = false;
@@ -299,6 +302,10 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             body.position = bone.position;
             body.rotation = bone.rotation;
             body.isKinematic = false;
+            body.useGravity = true;
+            body.drag = 0.65f;
+            body.angularDrag = 3.5f;
+            body.maxAngularVelocity = 7f;
             body.velocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
         }
@@ -306,12 +313,8 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         ragdollActive = true;
         active = true;
 
-        if (bodies.TryGetValue("Hips", out Rigidbody hipBody))
-        {
-            // Small natural continuation of the fall; do not rotate the body upright.
-            hipBody.AddForce(-transform.forward * 0.35f + Vector3.down * 0.15f, ForceMode.Impulse);
-            hipBody.AddTorque(transform.right * 0.12f, ForceMode.Impulse);
-        }
+        // No artificial launch impulse: gravity and the current pose take over naturally.
+        // This prevents the ragdoll from shooting/flying away at the handoff.
     }
 
     void CaptureRagdollPose()
