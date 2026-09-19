@@ -24,6 +24,7 @@ public class ConnectionManager : MonoBehaviour
     [Range(1, 4)] public int maxPlayers = 4;
     public SessionState State { get; private set; }
     public bool IsRunning => State != SessionState.Idle || TransportBusy;
+    public string Status => status;
     public event Action<string> OnStatusChanged;
 
     private NetworkManager networkManager;
@@ -220,12 +221,13 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
-            networkManager.NetworkConfig.ProtocolVersion = 3;
+            networkManager.NetworkConfig.ProtocolVersion = 4;
             ShelfSlot.BuildNetworkRegistry();
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
                 spawner.PrepareSession(networkManager);
             foreach (var machine in FindObjectsByType<BookRecallMachine>(FindObjectsSortMode.None))
                 machine.ResetSession();
+            ShopRound.Reset();
 
             networkManager.NetworkConfig.ConnectionApproval = true;
             State = host ? SessionState.StartingHost : SessionState.Connecting;
@@ -294,8 +296,14 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleServerStarted()
     {
-        foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-            spawner.SpawnSession();
+        var spawners = FindObjectsByType<BookSpawner>(FindObjectsSortMode.None);
+        if (spawners.Length != 1)
+        {
+            StopWithStatus($"Sahnede tam 1 BookSpawner olmali; bulunan: {spawners.Length}.");
+            return;
+        }
+        foreach (var spawner in spawners) spawner.SpawnSession();
+        ShopRound.Begin();
     }
 
     private void HandleConnected(ulong id)
