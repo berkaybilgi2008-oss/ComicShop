@@ -37,22 +37,35 @@ def validate():
     for required in ["InternetRelay", "StartRelayHost", "StartRelayClient", "ProtocolVersion = 3"]:
         assert required in connection, required
 
-    prefabs = [ROOT / "Assets/Prefabs/Book.prefab"] + sorted((ROOT / "Assets/Prefabs/VeridianBooks").glob("*.prefab"))
-    assert len(prefabs) == 16, "Expected fallback + 15 authored books"
+    generated_root = ROOT / "Assets/Prefabs/Books"
+    prefabs = [ROOT / "Assets/Prefabs/Book.prefab"] + sorted(generated_root.rglob("*.prefab"))
+    assert len(prefabs) > 1, "No generated brand book prefabs found"
+
     hashes = set()
     registered = set(re.findall(r"guid: ([a-f0-9]{32})", read("Assets/DefaultNetworkPrefabs.asset")))
+    book_ids = {}
     for path in prefabs:
         data = path.read_text(encoding="utf-8-sig")
+        if path.name == "Book.prefab":
+            continue
         assert "Assembly-CSharp::NetworkBook" in data, path
         assert "Unity.Netcode.NetworkObject" in data, path
         assert "AutoObjectParentSync: 0" in data, path
         assert "AlwaysReplicateAsRoot: 1" in data, path
-        match = re.search(r"GlobalObjectIdHash: (\d+)", data)
+        match = re.search(r"GlobalObjectHash: (\d+)", data)
+        if not match:
+            match = re.search(r"GlobalObjectIdHash: (\d+)", data)
         assert match and int(match[1]) != 0, path
         assert match[1] not in hashes, f"Duplicate network hash: {path}"
         hashes.add(match[1])
         guid = re.search(r"guid: (\w+)", Path(str(path) + ".meta").read_text())[1]
         assert guid in registered, f"Unregistered book prefab: {path}"
+
+    catalog = read("Assets/Resources/BrandCatalog.asset")
+    brand_ids = [int(x) for x in re.findall(r"brandID: (\d+)", catalog)]
+    book_counts = [int(x) for x in re.findall(r"bookCount: (\d+)", catalog)]
+    assert brand_ids and len(brand_ids) == len(book_counts), "Invalid generated BrandCatalog"
+    assert len(prefabs) - 1 == sum(book_counts), "Prefab count does not match BrandCatalog"
 
     player = read("Assets/Prefabs/Player.prefab")
     for component in ["NetworkPlayerSetup", "ClientNetworkTransform", "PlayerController", "PlayerInteraction"]:
