@@ -19,12 +19,16 @@ public class GameHUD : MonoBehaviour
 
         sb.Clear();
         sb.Append(GameStats.CompletedBookGroupCount).Append("/").Append(GameStats.totalBookTypes)
-          .Append(" (kitap grubu)\n");
+          .Append(" (kitap grubu)
+");
         sb.Append(GameStats.TotalPlaced).Append("/").Append(GameStats.TotalBooks)
-          .Append(" (kitap)\n");
+          .Append(" (kitap)
+");
         sb.Append(playerInteraction.HeldBooksList.Count).Append("/").Append(playerInteraction.MaxHeldBooks)
-          .Append(" (elde)\n");
-        sb.Append("\n");
+          .Append(" (elde)
+");
+        sb.Append("
+");
 
         sb.Append("<size=70%>");
 
@@ -52,7 +56,8 @@ public class GameHUD : MonoBehaviour
 
         sb.Append("</size>");
         string hint = playerInteraction.InteractionHint;
-        if (!string.IsNullOrEmpty(hint)) sb.Append("\n").Append(hint);
+        if (!string.IsNullOrEmpty(hint)) sb.Append("
+").Append(hint);
         hudText.text = sb.ToString();
     }
 
@@ -69,6 +74,7 @@ public class GameHUD : MonoBehaviour
         if (active)
             sb.Append("</color>");
 
-        sb.Append("\n");
+        sb.Append("
+");
     }
 }
