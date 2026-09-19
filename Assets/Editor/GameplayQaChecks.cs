@@ -32,7 +32,10 @@ public static class GameplayQaChecks
     {
         var go=Cube(name,position); go.transform.localScale=Vector3.one*0.1f;
         go.AddComponent<Rigidbody>().isKinematic=true;
-        var book=go.AddComponent<BookItem>(); Invoke(book,"Awake"); return book;
+        var book=go.AddComponent<BookItem>(); Invoke(book,"Awake");
+        // Edit Mode does not advance the physics world after Transform changes.
+        Physics.SyncTransforms();
+        return book;
     }
     [MenuItem("ComicShop/Tests/Run Gameplay QA Checks (Edit Mode)")]
     public static void Run()
@@ -60,6 +63,16 @@ public static class GameplayQaChecks
             var slotGo=Cube("QA Shelf",new Vector3(0,0,10));
             var slot=slotGo.AddComponent<ShelfSlot>(); slot.capacity=10; slot.brandID=0;
             var book=Book("QA Book",new Vector3(0,0,8));
+            // Auto placement combines TransformPoint with BoxCollider.bounds.min.y.
+            // Flush pending fixture transforms before either is read; never disable
+            // the production distance guard to make a test pass.
+            Physics.SyncTransforms();
+            var slotBox=slotGo.GetComponent<BoxCollider>();
+            Check(Vector3.Distance(slotBox.bounds.center,slot.SlotCenter)<0.01f,
+                "fixture collider bounds synchronized with distant shelf transform");
+            Check(slot.TryGetPlacementPose(0,out Vector3 fixturePosition,out _) &&
+                Vector3.Distance(fixturePosition,slot.SlotCenter)<=slot.maxPointDistance,
+                "automatic fixture placement remains inside distance guard");
             Check(slot.PlaceBook(book),"initial shelf placement");
             Check(!slot.PlaceBook(book) && slot.FilledCount==1 && GameStats.TotalPlaced==1,"same book cannot count twice");
             slot.RemoveBook(book);
