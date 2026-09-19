@@ -223,10 +223,9 @@ public static class MultiplayerRegressionChecks
         foreach (var renderer in book.GetComponentsInChildren<MeshRenderer>())
         {
             foreach (var material in renderer.sharedMaterials)
-                Check(material != null && material.shader.name == "ComicShop/Book Cel", "Book cel material missing");
-            var properties = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(properties);
-            Check(properties.GetVector("_InkWidths").sqrMagnitude > 0, "Book contour bounds missing");
+                Check(material != null && material.shader.name == "ComicShop/ToonLit", "Global ToonLit material missing");
+            foreach (var material in renderer.sharedMaterials)
+                Check(material.FindPass("DepthNormals") >= 0 && material.FindPass("ShadowCaster") >= 0, "Toon depth/shadow passes missing");
         }
         book.GetComponent<Rigidbody>().isKinematic = true;
         book.transform.position = setup.playerCamera.transform.position + setup.playerCamera.transform.forward;

@@ -85,7 +85,7 @@ public class BookRecallMachine : MonoBehaviour
     public float lostBelowY = -5f;
     [Tooltip("Kayip kontrolunun kac saniyede bir yapilacagi.")]
     [Min(0.5f)] public float lostCheckInterval = 3f;
-    [Tooltip("Ayni kitap bu kadar kez kurtarildiktan sonra vazgecilir. Sonsuz " +
+    [Tooltip("Guvenli duruma donmeden bu kadar denemeden sonra beklenir. Sonsuz " +
              "dongu olusmasini engeller -- kitap surekli geri dusuyorsa sorun " +
              "pedin altinda zemin olmamasidir.")]
     [Min(1)] public int maxRecoveryAttempts = 3;
@@ -99,13 +99,16 @@ public class BookRecallMachine : MonoBehaviour
     [Tooltip("Kitap zeminin kac metre ustunde birakilsin.")]
     [Min(0f)] public float dropHeightAboveGround = 0.4f;
 
+    [Min(5f)] public float recoveryRetryDelay = 30f;
     private float lastRecallTime = -9999f;
     private float lastLostCheckTime;
     private Camera playerCamera;
 
     // Hangi kitap kac kez kurtarildi -- sonsuz donguyu kirmak icin.
-    private readonly System.Collections.Generic.Dictionary<BookItem, int> recoveryCounts
-        = new System.Collections.Generic.Dictionary<BookItem, int>();
+    private readonly System.Collections.Generic.Dictionary<BookItem, RecoveryBudget> recoveryCounts
+        = new System.Collections.Generic.Dictionary<BookItem, RecoveryBudget>();
+
+    private readonly System.Collections.Generic.List<BookItem> staleBooks = new System.Collections.Generic.List<BookItem>();
 
     // Hangi kitap ne zamandan beri kayip -- dondurma zamanlamasi icin.
     private readonly System.Collections.Generic.Dictionary<BookItem, float> lostSince
@@ -130,7 +133,7 @@ public class BookRecallMachine : MonoBehaviour
             ScanLostBooks();
         }
 
-        if (Cursor.lockState == CursorLockMode.Locked && Input.GetKeyDown(useKey) && IsPlayerLooking())
+        if (Cursor.lockState == CursorLockMode.Locked && Input.GetKeyDown(ShopSettings.Key(ShopAction.Recall)) && IsPlayerLooking())
         {
             if (recallMode == RecallMode.AllLostBooks)
                 TryRecallAllLost();
@@ -164,8 +167,7 @@ public class BookRecallMachine : MonoBehaviour
             if (!IsLost(book))
                 continue;
 
-            if (Teleport(book))
-                brought++;
+            if (Teleport(book)) { recoveryCounts.Remove(book); brought++; }
         }
 
         if (brought == 0)
@@ -367,15 +369,21 @@ public class BookRecallMachine : MonoBehaviour
         BookItem[] books = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
         int recovered = 0;
         int frozen = 0;
+        staleBooks.Clear();
+        foreach (var pair in recoveryCounts) if (pair.Key == null) staleBooks.Add(pair.Key);
+        foreach (var book in staleBooks) { recoveryCounts.Remove(book); lostSince.Remove(book); }
 
         foreach (BookItem book in books)
         {
-            if (book == null || book.IsHeld || book.currentSlot != null)
-                continue;
-
-            if (!IsLost(book))
+            if (book == null) continue;
+            if (book.IsHeld || book.currentSlot != null || !IsLost(book))
             {
                 lostSince.Remove(book);
+                if (recoveryCounts.TryGetValue(book, out var safeBudget))
+                {
+                    safeBudget.ObserveSafe();
+                    if (safeBudget.Attempts == 0 && safeBudget.RetryAt == 0) recoveryCounts.Remove(book);
+                }
                 continue;
             }
 
@@ -399,23 +407,12 @@ public class BookRecallMachine : MonoBehaviour
             if (!autoRecoverLostBooks)
                 continue;
 
-            recoveryCounts.TryGetValue(book, out int attempts);
-
-            if (attempts >= maxRecoveryAttempts)
-                continue;
-
-            recoveryCounts[book] = attempts + 1;
-
-            if (attempts + 1 == maxRecoveryAttempts)
-            {
-                Debug.LogError(
-                    $"Isinlama makinesi: '{book.DisplayName}' {maxRecoveryAttempts} kez " +
-                    $"kurtarildi ve her seferinde tekrar kayboldu. Bu kitap icin otomatik " +
-                    $"kurtarma durduruldu.");
-            }
-
-            if (Teleport(book))
-                recovered++;
+            if (!recoveryCounts.TryGetValue(book, out var budget))
+                recoveryCounts.Add(book, budget = new RecoveryBudget());
+            if (!budget.Attempt(Time.timeAsDouble, maxRecoveryAttempts, recoveryRetryDelay)) continue;
+            if (Teleport(book)) recovered++;
+            else if (budget.RetryAt > Time.timeAsDouble)
+                Debug.LogWarning($"[BOOK RECOVERY] {book.name}: no safe output. Retrying in {recoveryRetryDelay:0}s; manual recall remains available.", this);
         }
 
         if (recovered > 0)
@@ -428,37 +425,22 @@ public class BookRecallMachine : MonoBehaviour
     /// <summary>Kitabi cikisa tasir. Zemin bulunamazsa tasimaz ve false doner.</summary>
     private bool Teleport(BookItem book)
     {
-        // Ucus bileseni varsa kaldir, kitap normal fizige donsun.
-        ThrownBook thrown = book.GetComponent<ThrownBook>();
-        if (thrown != null)
-            Destroy(thrown);
-
-        Vector3 offset = new Vector3(
-            Random.Range(-outputSpread, outputSpread),
-            0f,
+        Vector3 target = OutputPosition + new Vector3(Random.Range(-outputSpread, outputSpread), 0,
             Random.Range(-outputSpread, outputSpread));
-
-        Vector3 target = OutputPosition + offset;
-
-        // Cikisin altinda saglam zemin var mi? Yoksa kitap dusup tekrar kaybolur
-        // ve kurtarma dongusu baslar.
-        if (requireGroundBelowOutput)
+        if (!TrySafeOutput(target, out target))
         {
-            Vector3 rayStart = target + Vector3.up * 0.5f;
-
-            if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit,
-                    groundSearchDistance + 0.5f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+            // Reuse the configured spawn footprint as a fallback; never alter its layout.
+            bool found = false;
+            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
             {
-                target = hit.point + Vector3.up * dropHeightAboveGround;
+                if (spawner.gameObject.scene != gameObject.scene || !spawner.ValidateSpawnAreas(out _)) continue;
+                for (int i = 0; i < 8 && !found; i++) found = TrySafeOutput(spawner.SampleSpawnPosition(), out target);
+                if (found) break;
             }
-            else
-            {
-                Debug.LogError(
-                    $"Isinlama makinesi ({name}): cikis noktasinin altinda zemin yok, " +
-                    $"kitap birakilmadi. Pedi zeminin uzerine tasi.");
-                return false;
-            }
+            if (!found) return false;
         }
+        ThrownBook thrown = book.GetComponent<ThrownBook>();
+        if (thrown != null) { thrown.enabled = false; Destroy(thrown); }
 
         book.SetHeld(false); // Clear stale frozen support/contact state before recovery.
         book.transform.SetParent(null, true);
@@ -485,6 +467,27 @@ public class BookRecallMachine : MonoBehaviour
     // ------------------------------------------------------------------
     // Etkilesim
     // ------------------------------------------------------------------
+
+    private bool TrySafeOutput(Vector3 candidate, out Vector3 target)
+    {
+        target = candidate;
+        if (requireGroundBelowOutput)
+        {
+            var hits = Physics.RaycastAll(candidate + Vector3.up * .5f, Vector3.down,
+                groundSearchDistance + .5f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            bool found = false;
+            foreach (var hit in hits)
+            {
+                if (hit.normal.y < .5f || hit.collider.GetComponentInParent<BookItem>() != null ||
+                    hit.collider.GetComponentInParent<PlayerController>() != null) continue;
+                target = hit.point + Vector3.up * Mathf.Max(.1f, dropHeightAboveGround);
+                found = true; break;
+            }
+            if (!found) return false;
+        }
+        return target.y >= lostBelowY && (playArea == null || playArea.bounds.Contains(target));
+    }
 
     public void ResetSession()
     {

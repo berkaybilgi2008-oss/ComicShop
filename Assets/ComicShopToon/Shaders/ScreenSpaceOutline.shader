@@ -50,7 +50,7 @@ Shader "Hidden/ComicShop/ScreenSpaceOutline"
                 float3 centerNormal=SampleSceneNormals(uv);
                 float dzx=0,dzy=0;
                 float3 nx=0,ny=0;
-                float selected=0;
+                float selected=SAMPLE_TEXTURE2D_X(_BlitTexture,sampler_PointClamp,uv).r;
                 float nearestDepth=centerDepth;
                 [unroll] for(int y=-1;y<=1;y++)
                 {
@@ -59,13 +59,18 @@ Shader "Hidden/ComicShop/ScreenSpaceOutline"
                         float2 p=clamp(uv+float2(x,y)*delta,texel*0.5,1-texel*0.5);
                         float raw=SampleSceneDepth(p);
                         float z=EyeDepth(raw);
-                        nearestDepth=min(nearestDepth,z);
+                        // The foreground surface owns a silhouette, including its opt-out flag.
+                        if(z < nearestDepth - 0.0001)
+                        {
+                            nearestDepth=z;
+                            selected=SAMPLE_TEXTURE2D_X(_BlitTexture,sampler_PointClamp,p).r;
+                        }
                         float3 n=IsBackground(raw) ? centerNormal : SampleSceneNormals(p);
                         float kx=x*(y==0 ? 2:1);
                         float ky=y*(x==0 ? 2:1);
                         dzx+=z*kx; dzy+=z*ky;
                         nx+=n*kx; ny+=n*ky;
-                        selected=max(selected,SAMPLE_TEXTURE2D_X(_BlitTexture,sampler_PointClamp,p).r);
+
                     }
                 }
                 // Relative depth difference: permitted meters grow with view distance.

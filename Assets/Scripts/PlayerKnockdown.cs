@@ -73,6 +73,7 @@ public class PlayerKnockdown : MonoBehaviour
             if (network.IsServer) network.KnockDown(impulse, head);
             return;
         }
+        ShopAudio.Play(ShopCue.Bonk, transform.position);
         SetState(Clock + (head ? 3d : 0.6d), head);
         Kick(impulse);
     }
@@ -102,7 +103,7 @@ public class PlayerKnockdown : MonoBehaviour
             capsule.Move((push + Vector3.up * verticalSpeed) * Time.deltaTime);
             push = Vector3.MoveTowards(push, Vector3.zero, 8f * Time.deltaTime);
         }
-        if (Clock >= readyAt && Cursor.lockState == CursorLockMode.Locked && Input.GetKeyDown(KeyCode.Space))
+        if (Clock >= readyAt && Cursor.lockState == CursorLockMode.Locked && Input.GetKeyDown(ShopSettings.Key(ShopAction.Jump)))
         {
             if (network != null && network.IsSpawned) network.StandUpRpc();
             else SetState(-1);
@@ -124,7 +125,7 @@ public class PlayerKnockdown : MonoBehaviour
         double remaining = readyAt - Clock;
         string label = headHit && remaining > 0
             ? "Baygınlık geçirdin — " + Mathf.CeilToInt((float)remaining) + " sn"
-            : remaining > 0 ? "Yere düştün" : "Kalkmak için SPACE";
+            : remaining > 0 ? "Yere düştün" : "Kalk: " + ShopSettings.Key(ShopAction.Jump);
         GUI.Box(new Rect(Screen.width / 2f - 180, Screen.height * 0.65f, 360, 45), label);
     }
 }

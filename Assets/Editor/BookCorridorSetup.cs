@@ -66,6 +66,23 @@ public static class BookCorridorSetup
         Selection.activeGameObject=spawner.gameObject; SceneView.RepaintAll();
         Debug.Log("[BOOK CORRIDORS] Two areas assigned from current RAF geometry. Select BookSpawner to see green bounds; inspect in top view and save with Ctrl+S. Existing books are unchanged; start a new session to respawn. Area boxes are disabled colliders and do not block players.");
     }
+    [MenuItem("Tools/ComicShop/Books/Register and Validate All Corridors (Undo)")]
+    public static void ValidateAll()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+        foreach (var spawner in UnityEngine.Object.FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
+        {
+            if (spawner.gameObject.scene != SceneManager.GetActiveScene()) continue;
+            Undo.RecordObject(spawner, "Register corridor areas");
+            int added = spawner.DiscoverCorridors();
+            EditorUtility.SetDirty(spawner);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(spawner);
+            EditorSceneManager.MarkSceneDirty(spawner.gameObject.scene);
+            if (!spawner.ValidateSpawnAreas(out string error)) Debug.LogError(error, spawner);
+            else Debug.Log($"[BOOK CORRIDORS] {spawner.corridorAreas.Length} valid areas; {added} registered. Each receives at least one book. Save scene before a new session.", spawner);
+        }
+    }
+
     static BoxCollider Create(Transform parent,string name,float minX,float maxX,float minZ,float maxZ,float floor)
     {
         var go=new GameObject(name); go.transform.SetParent(parent,false);

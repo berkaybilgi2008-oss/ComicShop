@@ -256,6 +256,12 @@ public class PlayerInteraction : MonoBehaviour
             lookedBook.SetHighlight(true);
     }
 
+    public void ShowFeedback(string message)
+    {
+        placementFeedback = message;
+        placementFeedbackUntil = Time.unscaledTime + 2.5f;
+        ShopAudio.Play(ShopCue.Reject, Vector3.zero, false);
+    }
     private string placementFeedback;
     private float placementFeedbackUntil;
     public string InteractionHint
@@ -545,6 +551,7 @@ public class PlayerInteraction : MonoBehaviour
         book.SetHighlight(false);
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
+        ShopAudio.Play(ShopCue.Pickup, book.transform.position);
         heldBooks.Add(book);
         activeHeldIndex = heldBooks.Count - 1;
         lookedSlot = null;
@@ -570,6 +577,7 @@ public class PlayerInteraction : MonoBehaviour
         book.SetHighlight(false);
         IgnorePlayerCollision(book, true);
         book.SetHeld(true);
+        ShopAudio.Play(ShopCue.Pickup, book.transform.position);
         heldBooks.Add(book);
         activeHeldIndex = heldBooks.Count - 1;
         lookedBook = null;
@@ -816,7 +824,7 @@ public class PlayerInteraction : MonoBehaviour
             placementFeedback = !lookedSlot.IsAvailable ? "Raf gözü dolu" :
                 book.brandID != lookedSlot.brandID ? "Yanlış yayıncı" :
                 "Bu kitap grubu farklı bir raf gözüne ayrılmış";
-            placementFeedbackUntil = Time.unscaledTime + 2f;
+            ShowFeedback(placementFeedback);
             return false;
         }
         NetworkBook networkBook = book.GetComponent<NetworkBook>();
@@ -887,6 +895,7 @@ public class PlayerInteraction : MonoBehaviour
 
         if (slot.PlaceBook(book))
         {
+            ShopAudio.Play(ShopCue.Place, book.transform.position);
             IgnorePlayerCollision(book, false);
             heldBooks.Remove(book);
 
@@ -1044,6 +1053,7 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         book.transform.SetParent(null, true);
+        ShopAudio.Play(ShopCue.Release, worldPosition);
         book.transform.SetPositionAndRotation(worldPosition, worldRotation);
         book.transform.localScale = book.OriginalScale;
 
