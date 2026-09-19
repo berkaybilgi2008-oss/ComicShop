@@ -289,6 +289,7 @@ public class ConnectionManager : MonoBehaviour
         Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
         response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
         response.Rotation = spawn.rotation;
+        Debug.Log($"[Multiplayer] Approval: client={request.ClientNetworkId}, approved={response.Approved}, createPlayer={response.CreatePlayerObject}, connected={networkManager.ConnectedClientsIds.Count}, spawn={response.Position}");
     }
 
     private void HandleServerStarted()
@@ -299,6 +300,7 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleConnected(ulong id)
     {
+        Debug.Log($"[Multiplayer] Connected: client={id}, local={networkManager.LocalClientId}, host={networkManager.IsHost}, server={networkManager.IsServer}, clientMode={networkManager.IsClient}, connectedCount={networkManager.ConnectedClientsIds.Count}");
         if (id == networkManager.LocalClientId)
         {
             State = SessionState.Connected;
@@ -312,6 +314,7 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleDisconnected(ulong id)
     {
+        Debug.LogWarning($"[Multiplayer] Disconnected: client={id}, local={networkManager.LocalClientId}, reason='{networkManager.DisconnectReason}', host={networkManager.IsHost}, server={networkManager.IsServer}, clientMode={networkManager.IsClient}");
         if (networkManager.IsServer && id != networkManager.LocalClientId)
         {
             NetworkBook.ReleaseAllForPlayer(id);
