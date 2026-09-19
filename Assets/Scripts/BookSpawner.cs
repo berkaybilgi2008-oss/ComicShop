@@ -19,11 +19,13 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int copiesPerBook = 10;
 
+    [Header("Multiplayer")]\n    [Tooltip("Networked sessions intentionally cap the catalogue to keep Relay startup payloads manageable. Offline mode still uses the full catalogue.")]\n    [Min(1)]\n    public int networkBookTypeLimit = 15;\n
     [Header("Test")]
     [Min(1)]
     public int testBookTypeCount = 15;
 
     private bool sessionSpawned;
+    private bool networkSession;
 
     void Start()
     {
@@ -47,10 +49,11 @@ public class BookSpawner : MonoBehaviour
     public void PrepareSession(NetworkManager manager)
     {
         sessionSpawned = false;
+        networkSession = true;
         LoadCatalogIfNeeded();
         InitializeStats();
 
-        for (int index = 0; index < BookTypeCount; index++)
+        for (int index = 0; index < SessionBookTypeCount; index++)
         {
             BookData data = bookTypes[index];
             GameObject prefab = data != null && data.bookPrefab != null ? data.bookPrefab : bookPrefab;
@@ -72,12 +75,14 @@ public class BookSpawner : MonoBehaviour
         sessionSpawned = true;
         LoadCatalogIfNeeded();
         InitializeStats();
-        SpawnBooks(BookTypeCount);
+        SpawnBooks(SessionBookTypeCount);
     }
+
+    private int SessionBookTypeCount => Mathf.Min(BookTypeCount, Mathf.Max(1, networkBookTypeLimit));
 
     private void InitializeStats()
     {
-        GameStats.Initialize(BookTypeCount, copiesPerBook);
+        GameStats.Initialize(networkSession ? SessionBookTypeCount : BookTypeCount, copiesPerBook);
         if (bookTypes == null) return;
         foreach (BookData data in bookTypes)
             if (data != null) GameStats.RegisterBookID(data.BookID);
