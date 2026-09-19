@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b7e55f1cfc417b4fb27d2ef514a4265, type: 3}
+  m_Name: BrandCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::BrandCatalog
+  brands:
+  - brandID: 0
+    brandName: AXIOM
+    bookCount: 5
+  - brandID: 1
+    brandName: "COLDW\u0130RE"
+    bookCount: 15
+  - brandID: 2
+    brandName: CROWNLESS
+    bookCount: 5
+  - brandID: 3
+    brandName: DARKFIELD
+    bookCount: 5
+  - brandID: 4
+    brandName: ECLIPSE
+    bookCount: 3
+  - brandID: 5
+    brandName: EMBERLINE
+    bookCount: 15
+  - brandID: 6
+    brandName: FAULTHOUSE
+    bookCount: 5
+  - brandID: 7
+    brandName: FORGEPULSE
+    bookCount: 11
+  - brandID: 8
+    brandName: GHOSTLINE
+    bookCount: 15
+  - brandID: 9
+    brandName: HARDMILE
+    bookCount: 9
+  - brandID: 10
+    brandName: MEDIOCRE
+    bookCount: 15
+  - brandID: 11
+    brandName: NIGHTSHIFT
+    bookCount: 5
+  - brandID: 12
+    brandName: ODDSTAR
+    bookCount: 5
+  - brandID: 13
+    brandName: PARLOR 9
+    bookCount: 1
+  - brandID: 14
+    brandName: SURGEHOUSE
+    bookCount: 15
+  - brandID: 15
+    brandName: VEILCROSS
+    bookCount: 6
+  - brandID: 16
+    brandName: VERIDIAN
+    bookCount: 15

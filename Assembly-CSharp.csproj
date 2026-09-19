@@ -63,10 +63,12 @@
     <Compile Include="Assets\Scripts\BookItem.cs" />
     <Compile Include="Assets\Scripts\GameStats.cs" />
     <Compile Include="Assets\Scripts\Net\SessionBackgroundCamera.cs" />
+    <Compile Include="Assets\Scripts\BrandCatalog.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Scripts\Polish\ShopSettings.cs" />
     <Compile Include="Assets\Scripts\ShelfSlotDuplicator.cs" />
     <Compile Include="Assets\Scripts\Net\ConnectionManager.cs" />
+    <Compile Include="Assets\Scripts\HeadHitKnockdownAnimation.cs" />
     <Compile Include="Assets\Scripts\HeldBookVisualSpacing.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Crosshair.cs" />

@@ -100,8 +100,8 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             body.isKinematic = true;
             body.useGravity = true;
             body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.drag = 0.65f;
-            body.angularDrag = 3.5f;
+            body.linearDamping = 0.65f;
+            body.angularDamping = 3.5f;
             body.maxAngularVelocity = 7f;
             bodies[name] = body;
 
@@ -286,7 +286,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             body.isKinematic = true;
             body.position = bone.position;
             body.rotation = bone.rotation;
-            body.velocity = Vector3.zero;
+            body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
         }
 
@@ -303,10 +303,10 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             body.rotation = bone.rotation;
             body.isKinematic = false;
             body.useGravity = true;
-            body.drag = 0.65f;
-            body.angularDrag = 3.5f;
+            body.linearDamping = 0.65f;
+            body.angularDamping = 3.5f;
             body.maxAngularVelocity = 7f;
-            body.velocity = Vector3.zero;
+            body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
         }
 
