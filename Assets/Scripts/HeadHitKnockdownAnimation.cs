@@ -149,7 +149,9 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
             joint.autoConfigureConnectedAnchor = true;
             joint.connectedAnchor = parentBody.transform.InverseTransformPoint(bone.position);
             joint.anchor = Vector3.zero;
-            joint.gameObject.GetComponent<CharacterJoint>().enabled = false;
+            // CharacterJoint is a Component, not a Behaviour, so it has no enabled property.
+            // The joint can stay active while its Rigidbody is kinematic; physics is enabled
+            // simply by switching the ragdoll bodies to non-kinematic.
         }
     }
 
