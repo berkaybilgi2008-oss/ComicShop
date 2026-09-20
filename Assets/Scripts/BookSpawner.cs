@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -27,13 +28,35 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int copiesPerBook = 10;
 
+    [Header("Spawn Ritmi")]
+    [Min(1)]
+    [Tooltip("Bir seferde spawnlanacak kitap sayisi. 5 veya 10 gibi degerler kullanabilirsin.")]
+    public int batchSpawnCount = 5;
+
+    [Min(0.01f)]
+    [Tooltip("Spawn partileri arasindaki sure (saniye).")]
+    public float batchSpawnInterval = 0.15f;
+
+    [Min(0.05f)]
+    [Tooltip("Spawn alanlarinin bosalan yerlerini kontrol etme araligi (saniye).")]
+    public float refillCheckInterval = 0.25f;
+
     [Header("Test")]
     [Tooltip("BookData listesi bosken kullanilacak test kitap turu sayisi. Normal oyunda Setup ALL Book Models tarafindan doldurulan bookTypes kullanilir.")]
     [Min(1)]
     public int testBookTypeCount = 15;
 
     private bool sessionSpawned;
+    private Coroutine spawnRoutine;
     private readonly List<GameObject> sessionBooks = new List<GameObject>();
+    private readonly List<SpawnAssignment> spawnAssignments = new List<SpawnAssignment>();
+    private readonly Queue<int> pendingBookIds = new Queue<int>();
+
+    private sealed class SpawnAssignment
+    {
+        public GameObject book;
+        public BookSpawnCircle circle;
+    }
 
     void Start()
     {
@@ -92,10 +115,8 @@ public class BookSpawner : MonoBehaviour
         List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
 
         for (int index = 0; index < bookTypeCount; index++)
-        {
             for (int copy = 0; copy < copiesPerBook; copy++)
                 ids.Add(index);
-        }
 
         for (int i = ids.Count - 1; i > 0; i--)
         {
@@ -104,31 +125,187 @@ public class BookSpawner : MonoBehaviour
         }
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
-        sessionBooks.Clear();
-        try
-        {
-            // One guaranteed book per assigned area, remaining books weighted by usable area.
-            var positions = CreateSpawnPositions(ids.Count);
-            for (int i = 0; i < ids.Count; i++) SpawnSingleBook(ids[i], positions[i]);
-        }
-        catch
-        {
-            foreach (var book in sessionBooks)
-            {
-                if (book == null) continue;
-                var network = book.GetComponent<NetworkObject>();
-                if (network != null && network.IsSpawned) network.Despawn(true);
-                else Destroy(book);
-            }
-            sessionBooks.Clear();
-            sessionSpawned = false;
-            throw;
-        }
 
-        Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
+        if (spawnRoutine != null)
+            StopCoroutine(spawnRoutine);
+
+        sessionBooks.Clear();
+        spawnAssignments.Clear();
+        pendingBookIds.Clear();
+
+        foreach (int id in ids)
+            pendingBookIds.Enqueue(id);
+
+        spawnRoutine = StartCoroutine(SpawnBooksOverTime());
     }
 
-    void SpawnSingleBook(int index, Vector3 pos)
+    private IEnumerator SpawnBooksOverTime()
+    {
+        bool hasCircles = HasCircularSpawnAreas();
+
+        if (!hasCircles)
+        {
+            // Legacy alanlar icin de kitaplari tek karede yigma; ayni batch sistemi kullanilir.
+            while (pendingBookIds.Count > 0)
+            {
+                int batch = Mathf.Min(Mathf.Max(1, batchSpawnCount), pendingBookIds.Count);
+                for (int i = 0; i < batch; i++)
+                    SpawnSingleBook(pendingBookIds.Dequeue(), SampleSpawnPosition(), null);
+
+                if (pendingBookIds.Count > 0)
+                    yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, batchSpawnInterval));
+            }
+
+            spawnRoutine = StartCoroutine(WatchSpawnAreas());
+            yield break;
+        }
+
+        // Once her daireyi kendi Max Books kapasitesine kadar doldur.
+        while (pendingBookIds.Count > 0 && GetTotalFreeSpawnCapacity() > 0)
+        {
+            bool spawnedAny = false;
+
+            foreach (var circle in GetActiveCircles())
+            {
+                if (pendingBookIds.Count == 0) break;
+
+                int free = GetFreeCapacity(circle);
+                int amount = Mathf.Min(
+                    Mathf.Max(1, batchSpawnCount),
+                    Mathf.Min(free, pendingBookIds.Count));
+
+                for (int i = 0; i < amount; i++)
+                {
+                    SpawnSingleBook(pendingBookIds.Dequeue(), circle.Sample(spawnHeight), circle);
+                    spawnedAny = true;
+                }
+
+                if (spawnedAny)
+                    yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, batchSpawnInterval));
+            }
+
+            if (!spawnedAny)
+                break;
+        }
+
+        // Bundan sonra bir dairede kitap eksilirse, o daireyi tekrar Max Books'a kadar
+        // batch batch doldur. Toplam kitap listesi bitince daha fazla spawn yapilmaz.
+        spawnRoutine = StartCoroutine(WatchSpawnAreas());
+    }
+
+    private IEnumerator WatchSpawnAreas()
+    {
+        WaitForSecondsRealtime wait = new WaitForSecondsRealtime(Mathf.Max(0.05f, refillCheckInterval));
+
+        while (true)
+        {
+            if (pendingBookIds.Count > 0 && HasCircularSpawnAreas())
+            {
+                foreach (var circle in GetActiveCircles())
+                {
+                    int free = GetFreeCapacity(circle);
+                    if (free <= 0) continue;
+
+                    int amount = Mathf.Min(
+                        Mathf.Max(1, batchSpawnCount),
+                        Mathf.Min(free, pendingBookIds.Count));
+
+                    for (int i = 0; i < amount; i++)
+                        SpawnSingleBook(pendingBookIds.Dequeue(), circle.Sample(spawnHeight), circle);
+
+                    if (pendingBookIds.Count == 0) break;
+                }
+            }
+
+            CleanupSpawnAssignments();
+            yield return wait;
+        }
+    }
+
+    private IEnumerable<BookSpawnCircle> GetActiveCircles()
+    {
+        if (spawnCircles == null) yield break;
+
+        foreach (var circle in spawnCircles)
+            if (circle != null && circle.isActiveAndEnabled)
+                yield return circle;
+    }
+
+    private int GetTotalFreeSpawnCapacity()
+    {
+        int total = 0;
+        foreach (var circle in GetActiveCircles())
+            total += GetFreeCapacity(circle);
+        return total;
+    }
+
+    private int GetFreeCapacity(BookSpawnCircle circle)
+    {
+        return Mathf.Max(0, circle.maxBooks - GetOccupiedBookCount(circle));
+    }
+
+    private int GetOccupiedBookCount(BookSpawnCircle circle)
+    {
+        int count = 0;
+
+        for (int i = spawnAssignments.Count - 1; i >= 0; i--)
+        {
+            SpawnAssignment assignment = spawnAssignments[i];
+            if (assignment == null || assignment.book == null)
+            {
+                spawnAssignments.RemoveAt(i);
+                continue;
+            }
+
+            if (assignment.circle != circle)
+                continue;
+
+            if (IsStillOccupyingSpawnArea(assignment))
+                count++;
+        }
+
+        return count;
+    }
+
+    private bool IsStillOccupyingSpawnArea(SpawnAssignment assignment)
+    {
+        GameObject book = assignment.book;
+        BookSpawnCircle circle = assignment.circle;
+        if (book == null || circle == null || !book.activeInHierarchy) return false;
+
+        NetworkBook networkBook = book.GetComponent<NetworkBook>();
+        if (networkBook != null && networkBook.IsSpawned)
+        {
+            if (networkBook.Holder != NetworkBook.NoHolder || networkBook.SlotKey != 0)
+                return false;
+        }
+        else
+        {
+            BookItem item = book.GetComponent<BookItem>();
+            if (item != null && (item.IsHeld || item.currentSlot != null))
+                return false;
+        }
+
+        Vector3 flat = book.transform.position - circle.transform.position;
+        flat.y = 0f;
+        float worldRadius = circle.radius * Mathf.Abs(circle.transform.lossyScale.x);
+
+        // Kitap dairenin icinden ciktiysa o spawn noktasi bos kabul edilir.
+        return flat.sqrMagnitude <= worldRadius * worldRadius;
+    }
+
+    private void CleanupSpawnAssignments()
+    {
+        for (int i = spawnAssignments.Count - 1; i >= 0; i--)
+        {
+            if (spawnAssignments[i] == null ||
+                spawnAssignments[i].book == null ||
+                !spawnAssignments[i].book.activeInHierarchy)
+                spawnAssignments.RemoveAt(i);
+        }
+    }
+
+    void SpawnSingleBook(int index, Vector3 pos, BookSpawnCircle sourceCircle)
     {
         BookData data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
 
@@ -140,6 +317,7 @@ public class BookSpawner : MonoBehaviour
         // Once kitabi olustur, sonra rastgele dunya rotasyonunu native/base rotasyonun ustune uygula.
         GameObject book = Instantiate(prefabToSpawn, pos, Quaternion.identity);
         sessionBooks.Add(book);
+        spawnAssignments.Add(new SpawnAssignment { book = book, circle = sourceCircle });
         BookItem bookItem = book.GetComponent<BookItem>();
 
         bookItem.bookID = bookID;
@@ -190,14 +368,10 @@ public class BookSpawner : MonoBehaviour
             var positions = new Vector3[count];
             int positionIndex = 0;
 
-            // Her daire kendi kapasitesi dolana kadar kitap alir.
-            // Daire dolunca siradaki daireye gecilir.
-            foreach (var circle in spawnCircles)
+            foreach (var circle in GetActiveCircles())
             {
-                if (circle == null || !circle.isActiveAndEnabled) continue;
-
-                int booksForCircle = Mathf.Min(circle.maxBooks, count - positionIndex);
-                for (int i = 0; i < booksForCircle; i++)
+                int amount = Mathf.Min(circle.maxBooks, count - positionIndex);
+                for (int i = 0; i < amount; i++)
                     positions[positionIndex++] = circle.Sample(spawnHeight);
 
                 if (positionIndex >= count) break;
