@@ -422,8 +422,37 @@ public class PlayerInteraction : MonoBehaviour
         if (index < 0)
             yield break;
 
+        // The held stack is displayed bottom -> top by GetDisplayOrder(), with the
+        // active book always on top. When the top book is thrown, the book that was
+        // directly underneath it must become active. This keeps the visible stack
+        // order unchanged instead of jumping to an unrelated item.
+        List<int> displayOrderBeforeThrow = GetDisplayOrder();
+        int fallbackHeldIndex = -1;
+        int displayIndex = displayOrderBeforeThrow.IndexOf(index);
+        if (displayIndex > 0)
+        {
+            int nextVisibleHeldIndex = displayOrderBeforeThrow[displayIndex - 1];
+            if (nextVisibleHeldIndex >= 0 && nextVisibleHeldIndex < heldBooks.Count)
+                fallbackHeldIndex = nextVisibleHeldIndex;
+        }
+
         heldBooks.RemoveAt(index);
-        activeHeldIndex = GetNextIndexAfterThrown(index);
+
+        if (heldBooks.Count == 0)
+        {
+            activeHeldIndex = -1;
+        }
+        else
+        {
+            // Convert the pre-removal list index to the new list index.
+            BookItem nextBook = fallbackHeldIndex >= 0
+                ? GetBookFromPreRemovalIndex(displayOrderBeforeThrow, displayIndex - 1)
+                : null;
+            int newIndex = nextBook != null ? heldBooks.IndexOf(nextBook) : -1;
+            activeHeldIndex = newIndex >= 0
+                ? newIndex
+                : Mathf.Clamp(index, 0, heldBooks.Count - 1);
+        }
 
         Transform cam = playerCamera.transform;
 
@@ -740,6 +769,18 @@ public class PlayerInteraction : MonoBehaviour
     {
         normalizedTime = Mathf.Clamp01(normalizedTime);
         return bookMoveCurve != null ? bookMoveCurve.Evaluate(normalizedTime) : normalizedTime;
+    }
+
+    BookItem GetBookFromPreRemovalIndex(List<int> displayOrderBeforeThrow, int displayIndex)
+    {
+        if (displayOrderBeforeThrow == null || displayIndex < 0 || displayIndex >= displayOrderBeforeThrow.Count)
+            return null;
+
+        int heldIndex = displayOrderBeforeThrow[displayIndex];
+        if (heldIndex < 0 || heldIndex >= heldBooks.Count)
+            return null;
+
+        return heldBooks[heldIndex];
     }
 
     int GetNextIndexAfterThrown(int removedIndex)
