@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -31,6 +32,7 @@ public class ConnectionManager : MonoBehaviour
     private string status = "Bagli degil";
     private float attemptStarted;
     private int onlineOperation;
+    private Coroutine serverStartup;
     private readonly IOnlineSessionTransport relayTransport = new UnityRelaySessionTransport();
     private bool TransportBusy => networkManager != null &&
         (networkManager.IsListening || networkManager.IsClient || networkManager.IsServer ||
@@ -301,15 +303,30 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleServerStarted()
     {
+        // Let NGO finish creating the host's local player and its camera before the
+        // large (up to 3,600 objects) shop spawn starts. Starting that work inside
+        // OnServerStarted kept the fallback clear camera on screen during the stall.
+        if (serverStartup == null) serverStartup = StartCoroutine(BeginServerRound());
+    }
+
+    private IEnumerator BeginServerRound()
+    {
+        yield return null;
+
         try
         {
-            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None)) spawner.SpawnSession();
+            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
+                spawner.SpawnSession();
             ShopRound.Begin();
         }
         catch (Exception error)
         {
             Debug.LogException(error);
             StopWithStatus("Kitaplar oluşturulamadı: " + error.Message);
+        }
+        finally
+        {
+            serverStartup = null;
         }
     }
 
