@@ -31,11 +31,11 @@ public class BookSpawner : MonoBehaviour
     [Header("Spawn Ritmi")]
     [Min(1)]
     [Tooltip("Bir seferde spawnlanacak kitap sayisi. 5 veya 10 gibi degerler kullanabilirsin.")]
-    public int batchSpawnCount = 5;
+    public int batchSpawnCount = 10;
 
     [Min(0.01f)]
     [Tooltip("Spawn partileri arasindaki sure (saniye).")]
-    public float batchSpawnInterval = 0.15f;
+    public float batchSpawnInterval = 0.05f;
 
     [Min(0.05f)]
     [Tooltip("Spawn alanlarinin bosalan yerlerini kontrol etme araligi (saniye).")]
