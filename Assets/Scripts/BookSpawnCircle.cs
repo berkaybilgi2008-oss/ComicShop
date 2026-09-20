@@ -13,6 +13,10 @@ public sealed class BookSpawnCircle : MonoBehaviour
     [Tooltip("Dairenin yaricapi. X/Z duzleminde kullanilir.")]
     public float radius = 1f;
 
+    [Min(1)]
+    [Tooltip("Bu spawn alaninin alabilecegi maksimum kitap sayisi. Dolunca siradaki spawn alanina gecilir.")]
+    public int maxBooks = 10;
+
     [Min(0.5f)]
     [Tooltip("Merkez yogunlugu. 1 = merkez bias yok; buyudukce merkezde spawn olasiligi artar.")]
     public float centerBias = 2.5f;
@@ -54,6 +58,7 @@ public sealed class BookSpawnCircle : MonoBehaviour
     private void OnValidate()
     {
         radius = Mathf.Max(0.01f, radius);
+        maxBooks = Mathf.Max(1, maxBooks);
         centerBias = Mathf.Max(0.5f, centerBias);
         localHeight = Mathf.Max(0f, localHeight);
     }
