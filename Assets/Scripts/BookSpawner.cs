@@ -360,7 +360,7 @@ public class BookSpawner : MonoBehaviour
         DiscoverCorridors();
         if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
         if (copiesPerBook < 1 || BookTypeCount < 1) throw new System.InvalidOperationException("Book catalogue/count is empty.");
-        if (corridorAreas != null && corridorAreas.Length > BookTypeCount * copiesPerBook)
+        if (!HasCircularSpawnAreas() && corridorAreas != null && corridorAreas.Length > BookTypeCount * copiesPerBook)
             throw new System.InvalidOperationException("There must be at least one book per corridor.");
         var ids = new HashSet<int>();
         for (int i = 0; i < BookTypeCount; i++)
@@ -409,6 +409,76 @@ public class BookSpawner : MonoBehaviour
         }
         Gizmos.matrix = old;
     }
+
+
+
+#if UNITY_EDITOR
+    [ContextMenu("Create Spawn Circle")]
+    private void CreateSpawnCircle()
+    {
+        GameObject go = new GameObject("SpawnCircle");
+        UnityEditor.Undo.RegisterCreatedObjectUndo(go, "Create book spawn circle");
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localRotation = Quaternion.identity;
+
+        BookSpawnCircle circle = go.AddComponent<BookSpawnCircle>();
+        circle.radius = 2f;
+        circle.centerBias = 3f;
+
+        AddCircleReference(circle);
+        UnityEditor.Selection.activeGameObject = go;
+        UnityEditor.EditorGUIUtility.PingObject(go);
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+
+    [ContextMenu("Create 5 Spawn Circles")]
+    private void CreateFiveSpawnCircles()
+    {
+        Vector3[] offsets =
+        {
+            new Vector3(-4f, 0f, -3f),
+            new Vector3( 4f, 0f, -3f),
+            new Vector3(-4f, 0f,  3f),
+            new Vector3( 4f, 0f,  3f),
+            new Vector3( 0f, 0f,  0f)
+        };
+
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            GameObject go = new GameObject($"SpawnCircle_{i + 1:00}");
+            UnityEditor.Undo.RegisterCreatedObjectUndo(go, "Create book spawn circles");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = offsets[i];
+            go.transform.localRotation = Quaternion.identity;
+
+            BookSpawnCircle circle = go.AddComponent<BookSpawnCircle>();
+            circle.radius = 2f;
+            circle.centerBias = 3f;
+            AddCircleReference(circle);
+        }
+
+        UnityEditor.EditorUtility.SetDirty(this);
+        if (spawnCircles != null && spawnCircles.Length > 0)
+            UnityEditor.Selection.activeGameObject = spawnCircles[spawnCircles.Length - 1].gameObject;
+    }
+
+    private void AddCircleReference(BookSpawnCircle circle)
+    {
+        var list = new List<BookSpawnCircle>();
+        if (spawnCircles != null)
+        {
+            foreach (BookSpawnCircle existing in spawnCircles)
+                if (existing != null && !list.Contains(existing))
+                    list.Add(existing);
+        }
+
+        if (!list.Contains(circle))
+            list.Add(circle);
+
+        spawnCircles = list.ToArray();
+    }
+#endif
 
     int GetBrandID(int bookID)
     {
