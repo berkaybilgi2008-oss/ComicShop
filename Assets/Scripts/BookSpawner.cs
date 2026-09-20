@@ -5,8 +5,12 @@ using UnityEngine;
 public class BookSpawner : MonoBehaviour
 {
     public Transform v16SpawnArea; // Legacy single-area fallback
-    [Header("Corridor Spawn Areas")]
-    [Tooltip("When assigned, books spawn only in these boxes. Box colliders may stay disabled.")]
+    [Header("Dairesel Spawn Alanlari")]
+    [Tooltip("Sahneye yerlestirdigin BookSpawnCircle objelerini buraya ekle. Daireler atanirsa kitaplar sadece bu alanlarda spawn olur.")]
+    public BookSpawnCircle[] spawnCircles;
+
+    [Header("Eski Koridor Alanlari")]
+    [Tooltip("Dairesel alanlar bos birakilirsa eski BoxCollider sistemi kullanilir.")]
     public BoxCollider[] corridorAreas;
     [Min(0f)] public float corridorEdgePadding = 0.35f;
 
@@ -167,15 +171,49 @@ public class BookSpawner : MonoBehaviour
     public Vector3[] CreateSpawnPositions(int count)
     {
         if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
-        int guaranteed = corridorAreas == null ? 0 : corridorAreas.Length;
-        if (count < guaranteed || count < 0) throw new System.ArgumentException("At least one book per corridor is required.");
+        int guaranteed = GetSpawnZoneCount();
+        if (count < guaranteed || count < 0) throw new System.ArgumentException("At least one book per spawn area is required.");
         var positions = new Vector3[count];
-        for (int i = 0; i < count; i++) positions[i] = i < guaranteed ? SampleArea(corridorAreas[i]) : SampleSpawnPosition();
+
+        for (int i = 0; i < count; i++)
+        {
+            // Ilk turda her daire en az bir kitap alir; kalanlar agirlikli secilir.
+            if (i < guaranteed)
+                positions[i] = SampleGuaranteedSpawnArea(i);
+            else
+                positions[i] = SampleSpawnPosition();
+        }
+
         return positions;
     }
 
     public Vector3 SampleSpawnPosition()
     {
+        if (HasCircularSpawnAreas())
+        {
+            float total = 0f;
+            foreach (var circle in spawnCircles)
+                if (circle != null && circle.isActiveAndEnabled) total += circle.Weight;
+
+            if (total <= 0f)
+                throw new System.InvalidOperationException("BookSpawner: dairesel spawn alanlarinin toplam agirligi sifir.");
+
+            float choice = Random.value * total;
+
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null || !circle.isActiveAndEnabled) continue;
+
+                choice -= circle.Weight;
+                if (choice <= 0f)
+                    return circle.Sample(spawnHeight);
+            }
+
+            for (int i = spawnCircles.Length - 1; i >= 0; i--)
+                if (spawnCircles[i] != null && spawnCircles[i].isActiveAndEnabled)
+                    return spawnCircles[i].Sample(spawnHeight);
+        }
+
         if (corridorAreas != null && corridorAreas.Length > 0)
         {
             float total = 0;
@@ -192,8 +230,47 @@ public class BookSpawner : MonoBehaviour
             }
             return SampleArea(selected);
         }
+
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
         return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f,areaSize.x*.5f),spawnHeight,Random.Range(-areaSize.y*.5f,areaSize.y*.5f)));
+    }
+
+    private int GetSpawnZoneCount()
+    {
+        if (HasCircularSpawnAreas())
+        {
+            int count = 0;
+            foreach (var circle in spawnCircles)
+                if (circle != null && circle.isActiveAndEnabled) count++;
+            return count;
+        }
+
+        return corridorAreas == null ? 0 : corridorAreas.Length;
+    }
+
+    private bool HasCircularSpawnAreas()
+    {
+        if (spawnCircles == null || spawnCircles.Length == 0) return false;
+
+        foreach (var circle in spawnCircles)
+            if (circle != null && circle.isActiveAndEnabled) return true;
+
+        return false;
+    }
+
+    private Vector3 SampleGuaranteedSpawnArea(int index)
+    {
+        if (HasCircularSpawnAreas())
+        {
+            int seen = 0;
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null || !circle.isActiveAndEnabled) continue;
+                if (seen++ == index) return circle.Sample(spawnHeight);
+            }
+        }
+
+        return SampleArea(corridorAreas[index]);
     }
     Vector3 SampleArea(BoxCollider selected)
     {
@@ -207,6 +284,8 @@ public class BookSpawner : MonoBehaviour
     // Only the named scene group is discovered, never arbitrary gameplay colliders.
     public int DiscoverCorridors()
     {
+        // Circular areas are intentionally manual: you place them in the scene
+        // and drag them into Spawn Circles in the Inspector.
         var zones = new List<BoxCollider>(corridorAreas ?? System.Array.Empty<BoxCollider>());
         int added = 0;
         foreach (var root in gameObject.scene.GetRootGameObjects())
@@ -228,6 +307,28 @@ public class BookSpawner : MonoBehaviour
     {
         if (!Finite(spawnHeight) || spawnHeight < 0 || !Finite(corridorEdgePadding) || corridorEdgePadding < 0)
         { error = "Spawn Height / Edge Padding must be finite and non-negative."; return false; }
+        if (HasCircularSpawnAreas())
+        {
+            var seen = new HashSet<BookSpawnCircle>();
+            for (int i = 0; i < spawnCircles.Length; i++)
+            {
+                var circle = spawnCircles[i];
+                string reason = circle == null ? "missing reference" :
+                    !circle.gameObject.activeInHierarchy ? "inactive GameObject" :
+                    !seen.Add(circle) ? "duplicate area" :
+                    circle.radius <= 0f || !Finite(circle.radius) ? "invalid radius" :
+                    circle.Weight <= 0f || !Finite(circle.Weight) ? "invalid scale/radius" : null;
+
+                if (reason == null) continue;
+
+                error = $"Circular Spawn Area [{i}] '{(circle != null ? circle.name : "Missing")}': {reason}. No books spawned.";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
         if (corridorAreas != null && corridorAreas.Length > 0)
         {
             var seen = new HashSet<BoxCollider>();
@@ -286,6 +387,17 @@ public class BookSpawner : MonoBehaviour
     }
     void OnDrawGizmosSelected()
     {
+        if (spawnCircles != null && spawnCircles.Length > 0)
+        {
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null) continue;
+                float radius = circle.radius * Mathf.Abs(circle.transform.lossyScale.x);
+                Gizmos.color = new Color(0.15f, 0.8f, 1f, 0.25f);
+                Gizmos.DrawWireSphere(circle.transform.position, radius);
+            }
+        }
+
         if (corridorAreas == null) return;
         var old = Gizmos.matrix;
         foreach (var zone in corridorAreas)
