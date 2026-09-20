@@ -7,7 +7,7 @@ public class BookItem : MonoBehaviour
     [Min(0)] public int bookID;
     [Min(0)] public int brandID;
 
-    public string DisplayName => $"Book {bookID + 1}";
+    public string DisplayName => GetComponent<BookDisplayName>()?.Name is string customName && !string.IsNullOrWhiteSpace(customName) ? customName : $"Book {bookID + 1}";
 
     [Header("Kenar (Outline) Highlight Ayarlari")]
     public Material outlineMaterial;
