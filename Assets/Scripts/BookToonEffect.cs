@@ -61,41 +61,29 @@ public class BookToonEffect : MonoBehaviour
         Material cel = template != null ? new Material(template) : new Material(shader);
         cel.name = source.name + "_GlobalToon";
         cel.enableInstancing = true;
-        // Book-specific art direction: crisp two-step shadows, restrained halftone,
-        // subtle rim/specular accents and a readable comic outline.
+        // Books use a self-lit, texture-first comic look. Do not depend on scene
+        // light/shadow response: the cover texture remains visually stable while moving.
         cel.SetFloat("_UseLocalStyle", 1f);
         cel.EnableKeyword("_TOON_LOCAL_STYLE");
+
         cel.SetFloat("_OverrideShadowSteps", 1f);
-        cel.SetFloat("_LocalShadowSteps", 2f);
+        cel.SetFloat("_LocalShadowSteps", 1f);
         cel.SetFloat("_OverrideRampSmoothness", 1f);
-        cel.SetFloat("_LocalRampSmoothness", 0.012f);
+        cel.SetFloat("_LocalRampSmoothness", 1f);
         cel.SetFloat("_OverrideBakedInfluence", 1f);
-        cel.SetFloat("_LocalBakedInfluence", 0.12f);
+        cel.SetFloat("_LocalBakedInfluence", 0f);
+
         cel.SetFloat("_OverrideSpecEnabled", 1f);
-        cel.SetFloat("_LocalSpecEnabled", 1f);
-        cel.SetFloat("_OverrideSpecThreshold", 1f);
-        cel.SetFloat("_LocalSpecThreshold", 0.93f);
-        cel.SetFloat("_OverrideSpecStrength", 1f);
-        cel.SetFloat("_LocalSpecStrength", 0.16f);
+        cel.SetFloat("_LocalSpecEnabled", 0f);
         cel.SetFloat("_OverrideRimEnabled", 1f);
-        cel.SetFloat("_LocalRimEnabled", 1f);
-        cel.SetFloat("_OverrideRimThreshold", 1f);
-        cel.SetFloat("_LocalRimThreshold", 0.72f);
-        cel.SetFloat("_OverrideRimStrength", 1f);
-        cel.SetFloat("_LocalRimStrength", 0.12f);
+        cel.SetFloat("_LocalRimEnabled", 0f);
+
         cel.SetFloat("_OverrideHalftoneEnabled", 1f);
-        cel.SetFloat("_LocalHalftoneEnabled", 1f);
-        cel.SetFloat("_OverrideHalftoneScale", 1f);
-        cel.SetFloat("_LocalHalftoneScale", 12f);
-        cel.SetFloat("_OverrideHalftoneStrength", 1f);
-        cel.SetFloat("_LocalHalftoneStrength", 0.22f);
-        cel.SetFloat("_OverrideHalftoneAngle", 1f);
-        cel.SetFloat("_LocalHalftoneAngle", 45f);
-        cel.SetFloat("_OverrideHalftoneRadius", 1f);
-        cel.SetFloat("_LocalHalftoneRadius", 0.22f);
+        cel.SetFloat("_LocalHalftoneEnabled", 0f);
+
         cel.SetFloat("_OutlineEnabled", 1f);
-        cel.SetFloat("_HalftoneEnabled", 1f);
-        cel.EnableKeyword("_TOON_HALFTONE");
+        cel.SetFloat("_HalftoneEnabled", 0f);
+        cel.DisableKeyword("_TOON_HALFTONE");
         string map = source.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
         if (source.HasProperty(map))
         {
