@@ -19,7 +19,7 @@ public sealed class BookSpawnCircle : MonoBehaviour
 
     [Min(0.5f)]
     [Tooltip("Merkez yogunlugu. 1 = merkez bias yok; buyudukce merkezde spawn olasiligi artar.")]
-    public float centerBias = 2.5f;
+    public float centerBias = 1.6f;
 
     [Tooltip("Kitabin spawn yuksekligi. BookSpawner'in global Spawn Height degeri bunun ustune eklenir.")]
     public bool useSpawnerHeight = true;
