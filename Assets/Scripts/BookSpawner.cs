@@ -35,7 +35,7 @@ public class BookSpawner : MonoBehaviour
 
     [Min(0.01f)]
     [Tooltip("Spawn partileri arasindaki sure (saniye).")]
-    public float batchSpawnInterval = 0.05f;
+    public float batchSpawnInterval = 0.001f;
 
     [Min(0.05f)]
     [Tooltip("Spawn alanlarinin bosalan yerlerini kontrol etme araligi (saniye).")]
