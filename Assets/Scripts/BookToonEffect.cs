@@ -61,8 +61,8 @@ public class BookToonEffect : MonoBehaviour
         Material cel = template != null ? new Material(template) : new Material(shader);
         cel.name = source.name + "_GlobalToon";
         cel.enableInstancing = true;
-        // Books use a self-lit, texture-first comic look. Do not depend on scene
-        // light/shadow response: the cover texture remains visually stable while moving.
+        // Pastel comic treatment: stable, texture-first, and independent of scene lighting.
+        // The toon shader is used only as a visual filter; no scene-light response is added.
         cel.SetFloat("_UseLocalStyle", 1f);
         cel.EnableKeyword("_TOON_LOCAL_STYLE");
 
@@ -80,6 +80,13 @@ public class BookToonEffect : MonoBehaviour
 
         cel.SetFloat("_OverrideHalftoneEnabled", 1f);
         cel.SetFloat("_LocalHalftoneEnabled", 0f);
+
+        // Slight pastel lift keeps saturated covers softer without washing out artwork.
+        Color pastel = baseColor;
+        pastel.r = Mathf.Lerp(pastel.r, 1f, 0.10f);
+        pastel.g = Mathf.Lerp(pastel.g, 1f, 0.10f);
+        pastel.b = Mathf.Lerp(pastel.b, 1f, 0.10f);
+        cel.SetColor("_BaseColor", pastel);
 
         cel.SetFloat("_OutlineEnabled", 1f);
         cel.SetFloat("_HalftoneEnabled", 0f);
