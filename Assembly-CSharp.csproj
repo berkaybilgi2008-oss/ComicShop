@@ -103,9 +103,11 @@
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
     <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastBookCarry.cs" />
+    <Compile Include="Assets\Scripts\BookDisplayName.cs" />
     <Compile Include="Assets\Scripts\CharacterBookCarryBridge.cs" />
     <Compile Include="Assets\Scripts\BrandConfig.cs" />
     <Compile Include="Assets\Scripts\BookEdgeLines.cs" />
+    <Compile Include="Assets\Scripts\BookSpawnCircle.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

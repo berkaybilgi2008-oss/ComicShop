@@ -75,6 +75,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ff6e5555cb8ee7940947f8c695dace65, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5426953673482997196}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ff6e5555cb8ee7940947f8c695dace65, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5763048165161902140}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: ff6e5555cb8ee7940947f8c695dace65, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7863378666443779918}
   m_SourcePrefab: {fileID: 100100000, guid: ff6e5555cb8ee7940947f8c695dace65, type: 3}
 --- !u!23 &8031206155040364631 stripped
 MeshRenderer:
@@ -199,3 +205,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkBook
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &5763048165161902140
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8391454061482948994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e3b1b5f2f8c4a5f9d2c7e6b1a0f4c31, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BookDisplayName
+  bookName: Book_056_lode1
+--- !u!114 &7863378666443779918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8391454061482948994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db5dcff438a8ca34fa9a01c5f213bc8b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BookToonEffect
