@@ -77,6 +77,11 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float minThrowSpin = 10f;
     [Min(0f)] public float maxThrowSpin = 34f;
 
+    // Serialized prefab speed values cannot silently revert the approved full-charge speed.
+    public float ChargedThrowSpeed(float charge) =>
+        Mathf.Lerp(Mathf.Clamp01(minThrowSpeed / Mathf.Max(0.001f, maxThrowSpeed)),
+            1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
+
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
@@ -204,11 +209,11 @@ public class PlayerInteraction : MonoBehaviour
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         RaycastHit[] hits = lookHits;
-        int hitCount = Physics.RaycastNonAlloc(ray, hits, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        int hitCount = Physics.RaycastNonAlloc(ray, hits, interactRange, Physics.AllLayers, QueryTriggerInteraction.Collide);
         if (hitCount == hits.Length)
         {
             // NonAlloc hits are unordered; a full buffer may omit the nearest wall.
-            hits = Physics.RaycastAll(ray, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            hits = Physics.RaycastAll(ray, interactRange, Physics.AllLayers, QueryTriggerInteraction.Collide);
             hitCount = hits.Length;
         }
         System.Array.Sort(hits, 0, hitCount, LookHitOrder);
@@ -223,6 +228,8 @@ public class PlayerInteraction : MonoBehaviour
         for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
         {
             RaycastHit hit = hits[hitIndex];
+            // ComicFix15 trigger filter
+            if (hit.collider.isTrigger && !hit.collider.GetComponentInParent<ShelfSlot>()) continue;
             if (hit.collider.transform.IsChildOf(transform)) continue;
             var blockingBook = hit.collider.GetComponentInParent<BookItem>();
             if (blockingBook != null && blockingBook.IsHeld) continue;
@@ -397,11 +404,12 @@ public class PlayerInteraction : MonoBehaviour
 
         float elapsed = 0f;
 
+        float snapDuration = Mathf.Max(0.02f, throwArcDuration * 0.6f);
         // Bas arkasindan one dogru tek temiz yay; sona dogru hizlanir (bilek sokumu).
-        while (elapsed < throwArcDuration)
+        while (elapsed < snapDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / throwArcDuration);
+            float t = Mathf.Clamp01(elapsed / snapDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
             ThrowReleaseProgress = t * t * t;
             float angle = ThrowSwingAngle(finalCharge, ThrowReleaseProgress);
@@ -422,10 +430,12 @@ public class PlayerInteraction : MonoBehaviour
         activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(index, 0, heldBooks.Count - 1);
 
         Transform cam = playerCamera.transform;
+        var throwView = GetComponentInChildren<FirstPersonThrowView>();
+        if (throwView != null) throwView.BeginFlightHandoff(book);
 
         ThrowBook(
             book,
-            cam.forward * (Mathf.Lerp(minThrowSpeed, maxThrowSpeed, finalCharge) * releaseSnap),
+            cam.forward * ChargedThrowSpeed(finalCharge),
             cam.right,
             Mathf.Lerp(minThrowSpin, maxThrowSpin, finalCharge),
             true);
@@ -1082,8 +1092,12 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
 
             // Sarjli atista kitap diger kitaplara CARPAR ama onlari SAVURMAZ.
-            if (charged && book.GetComponent<ThrownBook>() == null)
-                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
+            if (charged)
+            {
+                var flight = book.GetComponent<ThrownBook>();
+                if (flight == null) flight = book.gameObject.AddComponent<ThrownBook>();
+                flight.Configure(spinAxis, transform);
+            }
         }
 
         pendingCollisionRestores.Add(new CollisionRestore { book = book, deadline = Time.unscaledTime + 2f, readyAt = -1f });

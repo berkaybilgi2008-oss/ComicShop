@@ -297,7 +297,11 @@ public class ConnectionManager : MonoBehaviour
         response.Pending = false;
         response.Reason = response.Approved ? "" : "Oda dolu.";
         Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
-        response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
+        if (response.Approved)
+        {
+            if (ComicSafeSpawn.TryFind(spawn, networkManager.NetworkConfig.PlayerPrefab, out var safePosition)) response.Position = safePosition;
+            else { response.Approved = false; response.CreatePlayerObject = false; response.Reason = "Baslangic yakininda guvenli bos alan bulunamadi."; }
+        }
         response.Rotation = spawn.rotation;
     }
 
