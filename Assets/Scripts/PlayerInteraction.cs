@@ -189,7 +189,7 @@ public class PlayerInteraction : MonoBehaviour
         float wheel = Input.mouseScrollDelta.y;
         if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
         {
-            lastWheelDirection = wheel < 0f ? 1 : -1;
+            lastWheelDirection = wheel > 0f ? 1 : -1;
             ChangeActiveHeldBook(lastWheelDirection);
         }
     }
