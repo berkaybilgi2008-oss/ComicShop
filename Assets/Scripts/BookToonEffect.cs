@@ -81,13 +81,6 @@ public class BookToonEffect : MonoBehaviour
         cel.SetFloat("_OverrideHalftoneEnabled", 1f);
         cel.SetFloat("_LocalHalftoneEnabled", 0f);
 
-        // Slight pastel lift keeps saturated covers softer without washing out artwork.
-        Color pastel = baseColor;
-        pastel.r = Mathf.Lerp(pastel.r, 1f, 0.10f);
-        pastel.g = Mathf.Lerp(pastel.g, 1f, 0.10f);
-        pastel.b = Mathf.Lerp(pastel.b, 1f, 0.10f);
-        cel.SetColor("_BaseColor", pastel);
-
         cel.SetFloat("_OutlineEnabled", 1f);
         cel.SetFloat("_HalftoneEnabled", 0f);
         cel.DisableKeyword("_TOON_HALFTONE");
@@ -98,8 +91,15 @@ public class BookToonEffect : MonoBehaviour
             cel.SetTextureScale("_BaseMap", source.GetTextureScale(map));
             cel.SetTextureOffset("_BaseMap", source.GetTextureOffset(map));
         }
-        if (source.HasProperty("_BaseColor")) cel.SetColor("_BaseColor", source.GetColor("_BaseColor"));
-        else if (source.HasProperty("_Color")) cel.SetColor("_BaseColor", source.GetColor("_Color"));
+        Color baseColor = source.HasProperty("_BaseColor")
+            ? source.GetColor("_BaseColor")
+            : (source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
+
+        // Soft pastel lift: preserve the original cover art while gently reducing
+        // harsh saturation. This is material-only; no extra scene-light response.
+        Color pastel = Color.Lerp(baseColor, Color.white, 0.10f);
+        cel.SetColor("_BaseColor", pastel);
+
         Materials[source] = cel;
         return cel;
     }
