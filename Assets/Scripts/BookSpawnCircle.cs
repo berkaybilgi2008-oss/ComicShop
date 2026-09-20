@@ -43,7 +43,7 @@ public sealed class BookSpawnCircle : MonoBehaviour
         // Uniform alan dagilimi icin sqrt gerekir.
         // centerBias > 1 yaptikca yaricap merkeze dogru sikisir.
         float exponent = Mathf.Max(0.5f, centerBias);
-        float normalizedRadius = Mathf.Pow(Random.value, exponent);
+        float normalizedRadius = Mathf.Lerp(1f, Random.value, 1f / exponent);
 
         float angle = Random.Range(0f, Mathf.PI * 2f);
         Vector2 offset = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * safeRadius * normalizedRadius;
