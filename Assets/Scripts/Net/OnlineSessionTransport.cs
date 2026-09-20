@@ -22,7 +22,9 @@ public interface IOnlineSessionTransport
 
 public sealed class UnityRelaySessionTransport : IOnlineSessionTransport
 {
-    // UDP is the most compatible desktop transport for Relay. DTLS can be blocked by\n    // some firewalls/NAT setups even when Relay itself is reachable.\n    private const string ConnectionType = "udp";
+    // UDP is the most compatible desktop transport for Relay.
+    // DTLS can be blocked by some firewalls/NAT setups even when Relay is reachable.
+    private const string ConnectionType = "udp";
     private int generation;
     private static Task signInTask;
 
