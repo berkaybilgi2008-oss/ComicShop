@@ -1,10 +1,13 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// IMGUI draws the room menu even without a player camera. Clear the display
-// first so an empty session cannot retain desktop, cursor or overlay pixels.
+// Keeps a deterministic image behind the connection menu when no player exists.
+// It immediately yields to the owner's gameplay camera, so it can never paint
+// over the room after a host/client connection succeeds.
 public sealed class SessionBackgroundCamera : MonoBehaviour
 {
+    private Camera backgroundCamera;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Install()
     {
@@ -25,17 +28,24 @@ public sealed class SessionBackgroundCamera : MonoBehaviour
 
     private void Awake()
     {
-        var camera = gameObject.AddComponent<Camera>();
-        camera.depth = -1000;
-        camera.clearFlags = CameraClearFlags.SolidColor;
-        camera.backgroundColor = new Color(0.045f, 0.055f, 0.075f, 1f);
-        camera.cullingMask = 0;
-        camera.targetTexture = null;
-        camera.rect = new Rect(0, 0, 1, 1);
-        camera.allowHDR = false;
-        camera.allowMSAA = false;
-        camera.useOcclusionCulling = false;
+        backgroundCamera = gameObject.AddComponent<Camera>();
+        backgroundCamera.depth = -1000;
+        backgroundCamera.clearFlags = CameraClearFlags.SolidColor;
+        backgroundCamera.backgroundColor = new Color(0.045f, 0.055f, 0.075f, 1f);
+        backgroundCamera.cullingMask = 0;
+        backgroundCamera.targetTexture = null;
+        backgroundCamera.rect = new Rect(0, 0, 1, 1);
+        backgroundCamera.allowHDR = false;
+        backgroundCamera.allowMSAA = false;
+        backgroundCamera.useOcclusionCulling = false;
         // No MainCamera tag or AudioListener: the local player owns those.
-        // Keep this first clear pass through connecting, playing and shutdown.
+    }
+
+    private void LateUpdate()
+    {
+        var localPlayer = NetworkPlayerSetup.LocalPlayer;
+        bool localGameplayCameraIsReady = localPlayer != null &&
+            localPlayer.playerCamera != null && localPlayer.playerCamera.enabled;
+        backgroundCamera.enabled = !localGameplayCameraIsReady;
     }
 }
