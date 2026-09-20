@@ -171,20 +171,55 @@ public class BookSpawner : MonoBehaviour
     public Vector3[] CreateSpawnPositions(int count)
     {
         if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
-        int guaranteed = GetSpawnZoneCount();
-        if (count < guaranteed || count < 0) throw new System.ArgumentException("At least one book per spawn area is required.");
-        var positions = new Vector3[count];
+        if (count < 0) throw new System.ArgumentException("Spawn count cannot be negative.");
 
-        for (int i = 0; i < count; i++)
+        if (HasCircularSpawnAreas())
         {
-            // Ilk turda her daire en az bir kitap alir; kalanlar agirlikli secilir.
-            if (i < guaranteed)
-                positions[i] = SampleGuaranteedSpawnArea(i);
-            else
-                positions[i] = SampleSpawnPosition();
+            int capacity = 0;
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null || !circle.isActiveAndEnabled) continue;
+                capacity += circle.maxBooks;
+            }
+
+            if (count > capacity)
+                throw new System.InvalidOperationException(
+                    $"BookSpawner: {count} kitap icin spawn alanlarinin kapasitesi {capacity}. " +
+                    "Spawn Circle'lardaki Max Books degerlerini arttir veya daha fazla alan ekle.");
+
+            var positions = new Vector3[count];
+            int positionIndex = 0;
+
+            // Her daire kendi kapasitesi dolana kadar kitap alir.
+            // Daire dolunca siradaki daireye gecilir.
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null || !circle.isActiveAndEnabled) continue;
+
+                int booksForCircle = Mathf.Min(circle.maxBooks, count - positionIndex);
+                for (int i = 0; i < booksForCircle; i++)
+                    positions[positionIndex++] = circle.Sample(spawnHeight);
+
+                if (positionIndex >= count) break;
+            }
+
+            return positions;
         }
 
-        return positions;
+        int guaranteed = GetSpawnZoneCount();
+        if (count < guaranteed)
+            throw new System.ArgumentException("At least one book per spawn area is required.");
+
+        var legacyPositions = new Vector3[count];
+        for (int i = 0; i < count; i++)
+        {
+            if (i < guaranteed)
+                legacyPositions[i] = SampleGuaranteedSpawnArea(i);
+            else
+                legacyPositions[i] = SampleSpawnPosition();
+        }
+
+        return legacyPositions;
     }
 
     public Vector3 SampleSpawnPosition()
