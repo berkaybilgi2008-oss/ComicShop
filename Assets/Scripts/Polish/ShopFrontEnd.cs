@@ -7,11 +7,14 @@ using UnityEngine.UI;
 
 // Scene-local UI bootstrap. No scene rewrite, light setup or per-object installation.
 [DefaultExecutionOrder(900)]
-public sealed class ShopFrontEnd : MonoBehaviour
+public sealed partial class ShopFrontEnd : MonoBehaviour
 {
     public static bool IsActive { get; private set; }
-    enum Page { Session, Settings, Results, Leave, Display }
+    enum Page { Title, Session, Settings, Results, Leave, Display, Credits }
     Page page;
+    Page settingsReturn = Page.Title;
+    RectTransform titleArt, titleButtons;
+    AudioSource menuMusic;
     int tab;
     bool menuOpen, oldDebug, oldHudEnabled, connectedBefore, dismissedResults;
     ConnectionManager connection;
@@ -33,9 +36,9 @@ public sealed class ShopFrontEnd : MonoBehaviour
     FullScreenMode priorMode;
     float displayDeadline;
     int proposedWidth, proposedHeight, proposedMode;
-    static readonly Color Ink = new Color(.12f, .10f, .16f, 1);
-    static readonly Color Paper = new Color(.96f, .91f, .78f, 1);
-    static readonly Color Accent = new Color(.96f, .59f, .25f, 1);
+    static readonly Color Ink = new Color(.055f, .035f, .065f, 1);
+    static readonly Color Paper = new Color(1f, .85f, .57f, 1);
+    static readonly Color Accent = new Color(1f, .59f, .035f, 1);
     static readonly Color Muted = new Color(.42f, .39f, .38f, 1);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -56,7 +59,8 @@ public sealed class ShopFrontEnd : MonoBehaviour
         if (connection != null) { oldDebug = connection.showDebugUI; connection.showDebugUI = false; }
         oldHud = FindFirstObjectByType<GameHUD>();
         if (oldHud != null) { oldHudEnabled = oldHud.enabled; oldHud.enabled = false; if (oldHud.hudText != null) oldHud.hudText.text = ""; }
-        font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        font = Resources.Load<Font>("ComicShopMenu/ComicNeue-Bold");
+        if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         var root = new GameObject("ComicShop Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         root.transform.SetParent(transform, false);
         canvas = root.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 110;
@@ -68,6 +72,7 @@ public sealed class ShopFrontEnd : MonoBehaviour
             events.transform.SetParent(transform, false);
         }
         overlay = Panel(root.transform, "Menu shade", new Color(.04f, .03f, .06f, .83f)); Stretch(overlay);
+        CreateTitleArt(overlay);
         card = Panel(overlay, "ComicShop menu", Paper); card.anchorMin = card.anchorMax = new Vector2(.5f, .5f);
         card.pivot = new Vector2(.5f, .5f); card.sizeDelta = new Vector2(1080, 760); card.anchoredPosition = Vector2.zero;
         hud = Panel(root.transform, "Gameplay HUD", Color.clear); Stretch(hud); hud.GetComponent<Image>().raycastTarget = false;
@@ -87,6 +92,12 @@ public sealed class ShopFrontEnd : MonoBehaviour
             Screen.SetResolution(ShopSettings.Current.width, ShopSettings.Current.height,
                 ShopSettings.Current.windowMode == 0 ? FullScreenMode.Windowed : FullScreenMode.FullScreenWindow);
         menuOpen = connection != null;
+        page = menuOpen ? Page.Title : Page.Session;
+        menuMusic = gameObject.AddComponent<AudioSource>();
+        menuMusic.playOnAwake = false; menuMusic.loop = true; menuMusic.spatialBlend = 0;
+        menuMusic.clip = Resources.Load<AudioClip>("ComicShopMenu/Sunday_Morning_Vinyl");
+        menuMusic.volume = 0;
+        if (menuMusic.clip != null) menuMusic.Play();
         Build();
     }
     bool Connected => connection != null ? connection.State == ConnectionManager.SessionState.Connected : ShopRound.State.Active;
@@ -114,9 +125,14 @@ public sealed class ShopFrontEnd : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (page == Page.Display) RevertDisplay();
-            else if (page == Page.Settings) { ShopSettings.Save(); page = Page.Session; Build(); }
-            else if (page == Page.Leave) { page = Page.Session; Build(); }
-            else if (Connected) { menuOpen = !menuOpen; page = Page.Session; Build(); }
+            else if (page == Page.Settings) { if (Connected) Resume(); else BackFromSettings(); }
+            else if (page == Page.Leave || page == Page.Credits) { page = Connected ? Page.Session : Page.Title; Build(); }
+            else if (Connected)
+            {
+                if (menuOpen) Resume();
+                else { menuOpen = true; page = Page.Session; ConnectionManager.SetCursor(false); Build(); }
+            }
+            else if (page == Page.Session && (connection == null || !connection.IsRunning)) { page = Page.Title; Build(); }
         }
         if (page == Page.Display && displayDeadline > 0)
         {
@@ -124,8 +140,8 @@ public sealed class ShopFrontEnd : MonoBehaviour
             else if (statusText != null) statusText.text = $"{Mathf.CeilToInt(displayDeadline - Time.unscaledTime)} saniye içinde onaylanmazsa eski görüntü geri gelir.";
         }
         bool connected = Connected;
-        if (connected && !connectedBefore) { menuOpen = false; dismissedResults = false; page = Page.Session; Build(); }
-        if (!connected && connectedBefore) { menuOpen = true; dismissedResults = false; page = Page.Session; Build(); }
+        if (connected && !connectedBefore) { dismissedResults = false; Resume(); }
+        if (!connected && connectedBefore) { menuOpen = true; dismissedResults = false; page = Page.Title; Build(); }
         connectedBefore = connected;
         if (connection != null && connection.State != lastState)
         { lastState = connection.State; if (page == Page.Session) Build(); }
@@ -149,6 +165,13 @@ public sealed class ShopFrontEnd : MonoBehaviour
         bool visible = menuOpen || !connected;
         overlay.gameObject.SetActive(visible); hud.gameObject.SetActive(connected && !visible);
         if (visible && Cursor.lockState == CursorLockMode.Locked) ConnectionManager.SetCursor(false);
+        if (menuMusic != null)
+        {
+            float target = connected ? 0f : ShopSettings.Current.master * ShopSettings.Current.music;
+            menuMusic.volume = Mathf.MoveTowards(menuMusic.volume, target, Time.unscaledDeltaTime * .7f);
+            if (menuMusic.volume <= 0 && connected && menuMusic.isPlaying) menuMusic.Pause();
+            else if (!connected && !menuMusic.isPlaying && menuMusic.clip != null) menuMusic.UnPause();
+        }
         UpdateSteps(connected && !visible);
     }
     void UpdateSteps(bool gameplay)
@@ -187,7 +210,17 @@ public sealed class ShopFrontEnd : MonoBehaviour
     void Build()
     {
         foreach (Transform child in card) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
+        PrepareComicFrame();
         statusText = null;
+        bool title = page == Page.Title;
+        titleArt.gameObject.SetActive(!Connected);
+        titleButtons.gameObject.SetActive(title);
+        card.gameObject.SetActive(!title);
+        overlay.GetComponent<Image>().color = title ? Color.black : new Color(.02f, .01f, .03f, .88f);
+        if (title) return;
+        var border = card.GetComponent<Outline>();
+        if (border == null) border = card.gameObject.AddComponent<Outline>();
+        border.effectColor = Ink; border.effectDistance = new Vector2(7, -7);
         var rail = Panel(card, "Ink sidebar", Ink); Rect(rail, 0, 0, 300, 760);
         Label(rail, "COMIC\nSHOP", 28, 35, 248, 120, 48, Paper);
         Label(rail, "TIDY UP TOGETHER", 30, 175, 250, 26, 16, Accent);
@@ -198,17 +231,20 @@ public sealed class ShopFrontEnd : MonoBehaviour
         content.SetParent(card, false); Rect(content, 336, 30, 708, 700);
         switch (page)
         {
+            case Page.Credits: BuildCredits(); break;
             case Page.Settings: BuildSettings(); break;
             case Page.Results: BuildResults(); break;
             case Page.Leave: BuildLeave(); break;
             case Page.Display: BuildDisplayConfirmation(); break;
             default: BuildSession(); break;
         }
+        ApplyComicTheme();
     }
     void Title(string eyebrow, string title, string subtitle)
     {
         Label(content, eyebrow, 0, 0, 708, 28, 16, Muted);
-        Label(content, title, 0, 35, 708, 60, 36, Ink);
+        var heading = Label(content, title, 0, 35, 708, 60, 40, Ink);
+        heading.fontStyle = FontStyle.BoldAndItalic;
         Label(content, subtitle, 0, 103, 708, 62, 19, Muted);
     }
     void BuildSession()
@@ -249,46 +285,11 @@ public sealed class ShopFrontEnd : MonoBehaviour
         menuOpen = false; dismissedResults |= ShopRound.State.Completed; page = Page.Session;
         ShopSettings.Save(); ConnectionManager.SetCursor(true); Build();
     }
-    void OpenSettings() { page = Page.Settings; tab = 0; Build(); }
+    void OpenSettings() { settingsReturn = page; page = Page.Settings; tab = 0; Build(); }
+    void BackFromSettings() { waitingKey = null; ShopSettings.Save(); page = settingsReturn; Build(); }
     void BuildSettings()
     {
-        Title("KENDİ RİTMİNİ BUL", "Ayarlar", "Değişiklikler kişisel; diğer oyuncuların ayarlarını etkilemez.");
-        string[] tabs = { "SES & KONFOR", "GÖRÜNTÜ", "KONTROLLER" };
-        for (int i = 0; i < tabs.Length; i++) { int choice = i; Button(content, tabs[i], i * 240, 174, 228, 44, () => { tab = choice; waitingKey = null; Build(); }, tab == i); }
-        var p = ShopSettings.Current;
-        if (tab == 0)
-        {
-            Slider(content, "Ana ses", 242, 0, 1, p.master, value => p.master = value);
-            Slider(content, "Kitaplar, adımlar & arayüz", 320, 0, 1, p.effects, value => p.effects = value);
-            Slider(content, "Dükkân ortamı", 398, 0, 1, p.ambience, value => p.ambience = value);
-            Button(content, "Etkileşim ipuçları: " + (p.hints ? "AÇIK" : "KAPALI"), 0, 485, 708, 46, () => { p.hints = !p.hints; ShopSettings.Apply(); Build(); });
-            Button(content, "Sesi dene", 0, 548, 708, 42, () => ShopAudio.Play(ShopCue.Place, Vector3.zero, false));
-        }
-        else if (tab == 1)
-        {
-            Slider(content, "Görüş alanı (FOV)", 233, 55, 105, p.fov, value => { p.fov = value; p.fovChosen = true; });
-            Button(content, "VSync: " + (p.vsync ? "AÇIK" : "KAPALI"), 0, 314, 340, 45, () => { p.vsync = !p.vsync; ShopSettings.Apply(); Build(); });
-            Button(content, "FPS sınırı: " + p.fps, 368, 314, 340, 45, () => { p.fps = p.fps < 60 ? 60 : p.fps < 120 ? 120 : p.fps < 144 ? 144 : p.fps < 240 ? 240 : 30; ShopSettings.Apply(); Build(); });
-            Label(content, "VSync açıkken ekranın yenileme hızı kullanılır.", 0, 367, 708, 30, 16, Muted);
-            Button(content, $"Çözünürlük: {Screen.width} × {Screen.height}  →", 0, 414, 708, 46, CycleResolution);
-            Button(content, "Ekran: " + (Screen.fullScreenMode == FullScreenMode.Windowed ? "PENCERELİ" : "KENARLIKSIZ") + "  →", 0, 480, 708, 46,
-                () => PreviewDisplay(Screen.width, Screen.height, Screen.fullScreenMode == FullScreenMode.Windowed ? 1 : 0));
-            Label(content, Application.isEditor ? "Ekran modu/çözünürlük Windows buildde denenir; Editor Game View değiştirilmez." : "Görüntü değişiklikleri 15 saniyelik geri alma korumasıyla uygulanır.", 0, 548, 708, 52, 17, Muted);
-        }
-        else
-        {
-            Slider(content, "Fare hassasiyeti", 231, .1f, 10f, p.sensitivity, value => p.sensitivity = value);
-            Button(content, "Dikey bakışı ters çevir: " + (p.invertY ? "AÇIK" : "KAPALI"), 0, 308, 708, 38, () => { p.invertY = !p.invertY; ShopSettings.Apply(); Build(); });
-            for (int i = 0; i < 10; i++)
-            {
-                var action = (ShopAction)i;
-                Button(content, ShopSettings.Label(action) + "  •  " + ShopSettings.Key(action), (i % 2) * 360, 361 + (i / 2) * 44, 348, 37,
-                    () => { waitingKey = action; listenAfterFrame = Time.frameCount + 1; if (statusText != null) statusText.text = ShopSettings.Label(action) + ": yeni tuşa bas. Esc iptal."; });
-            }
-        }
-        statusText = Label(content, "", 0, 590, 708, 37, 17, Ink);
-        Button(content, "VARSAYILANLAR", 0, 644, 340, 48, () => { ShopSettings.ResetDefaults(); Build(); });
-        Button(content, "KAYDET & GERİ", 368, 644, 340, 48, () => { waitingKey = null; ShopSettings.Save(); page = Page.Session; Build(); }, true);
+        BuildComicSettings();
     }
     void BuildResults()
     {
@@ -310,7 +311,14 @@ public sealed class ShopFrontEnd : MonoBehaviour
         {
             ShopSettings.Save();
             if (Connected && connection != null) { connection.Disconnect(); page = Page.Session; Build(); }
-            else Application.Quit();
+            else
+            {
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
+            }
         });
     }
     void CycleResolution()
@@ -363,6 +371,41 @@ public sealed class ShopFrontEnd : MonoBehaviour
         if (connection != null) connection.showDebugUI = oldDebug;
         if (oldHud != null) oldHud.enabled = oldHudEnabled;
     }
+    void CreateTitleArt(Transform parent)
+    {
+        titleArt = new GameObject("Comic cover", typeof(RectTransform)).GetComponent<RectTransform>();
+        titleArt.SetParent(parent, false); Stretch(titleArt);
+        var fit = titleArt.gameObject.AddComponent<AspectRatioFitter>();
+        fit.aspectRatio = 1672f / 941f; fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+        var art = titleArt.gameObject.AddComponent<RawImage>();
+        art.texture = Resources.Load<Texture2D>("ComicShopMenu/menu_background"); art.raycastTarget = false;
+        titleButtons = new GameObject("Title buttons", typeof(RectTransform)).GetComponent<RectTransform>();
+        titleButtons.SetParent(titleArt, false); Stretch(titleButtons);
+        CoverButton("btn_play", 1158, 450, 497, 142, () => { page = Page.Session; Build(); });
+        CoverButton("btn_settings", 1166, 586, 412, 98, OpenSettings);
+        CoverButton("btn_credits", 1166, 686, 412, 96, () => { page = Page.Credits; Build(); });
+        CoverButton("btn_quit", 1166, 782, 412, 98, () => { page = Page.Leave; Build(); });
+    }
+    void CoverButton(string asset, float x, float y, float w, float h, Action action)
+    {
+        var go = new GameObject(asset, typeof(RectTransform), typeof(RawImage), typeof(Button));
+        go.transform.SetParent(titleButtons, false);
+        var rt = (RectTransform)go.transform;
+        rt.anchorMin = new Vector2(x / 1672f, 1f - (y + h) / 941f);
+        rt.anchorMax = new Vector2((x + w) / 1672f, 1f - y / 941f);
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        var image = go.GetComponent<RawImage>(); image.texture = Resources.Load<Texture2D>("ComicShopMenu/" + asset);
+        var button = go.GetComponent<Button>(); button.targetGraphic = image; button.transition = Selectable.Transition.None;
+        button.onClick.AddListener(() => { ShopAudio.Play(ShopCue.Click, Vector3.zero, false); action(); });
+        go.AddComponent<ComicShopMenuFeedback>();
+    }
+    void BuildCredits()
+    {
+        Title("COMIC SHOP", "Tidy Up Together", "Birlikte toparla. Her kitaba rafında yer aç.");
+        Label(content, "COMIC SHOP: TIDY UP TOGETHER\n\nMENÜ MÜZİĞİ\nSunday Morning Vinyl", 0, 245, 708, 240, 28, Ink);
+        Button(content, "ANA MENÜ", 0, 555, 708, 56, () => { page = Page.Title; Build(); }, true);
+    }
+
     RectTransform Panel(Transform parent, string name, Color color)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(Image)); go.transform.SetParent(parent, false);
@@ -386,7 +429,9 @@ public sealed class ShopFrontEnd : MonoBehaviour
     {
         var panel = Panel(parent, text, primary ? Accent : Ink); Rect(panel, x, y, w, h);
         var button = panel.gameObject.AddComponent<Button>(); button.targetGraphic = panel.GetComponent<Image>();
-        var colors = button.colors; colors.highlightedColor = new Color(.85f, .85f, .85f); colors.pressedColor = new Color(.65f, .65f, .65f); button.colors = colors;
+        button.transition = Selectable.Transition.None;
+        panel.gameObject.AddComponent<ComicShopMenuFeedback>();
+        var edge = panel.gameObject.AddComponent<Outline>(); edge.effectColor = primary ? Ink : Accent; edge.effectDistance = new Vector2(2, -2);
         Label(panel, text, 12, 0, w - 24, h, h < 44 ? 16 : 19, primary ? Ink : Paper, TextAnchor.MiddleCenter);
         button.onClick.AddListener(() => { ShopAudio.Play(ShopCue.Click, Vector3.zero, false); action(); });
     }
