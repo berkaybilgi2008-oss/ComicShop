@@ -485,7 +485,7 @@ public class PlayerInteraction : MonoBehaviour
 
         // Kitabin BOYU kolun dogrultusunda -- yay boyunca kolla beraber doner.
         rotation = book != null
-            ? book.GetAlignedRotation(coverNormal, armDirection)
+            ? book.GetAlignedRotation(-coverNormal, armDirection)
             : Quaternion.identity;
     }
 
