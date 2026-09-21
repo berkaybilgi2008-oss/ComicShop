@@ -345,8 +345,13 @@ public class NetworkBook : NetworkBehaviour
     {
         var player = GetPlayer(rpc.Receive.SenderClientId);
         var slot = ShelfSlot.FindNetworkSlot(slotKey);
-        if (player == null || Holder != rpc.Receive.SenderClientId || slot == null ||
-            player.GetComponent<NetworkPlayerSetup>().IsDown) return;
+        if (player == null) return;
+        if (slot == null) { Reject(player, "Raf kimliği eşleşmedi. İki oyuncu da aynı sürümü kullanmalı."); return; }
+        if (Holder != rpc.Receive.SenderClientId) { Reject(player, "Kitabı alma işlemi henüz tamamlanmadı."); return; }
+        if (player.GetComponent<NetworkPlayerSetup>().IsDown) return;
+        if (!slot.Matches(item))
+        { Reject(player, !slot.IsAvailable ? "Raf gözü dolu." : item.brandID != slot.brandID
+            ? "Bu raf: " + BrandConfig.GetBrandName(slot.brandID) : "Bu kitap grubu başka bir raf gözüne ayrılmış."); return; }
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         if (!slot.CanInteract(player.transform, eye, player.interactRange + 0.5f))
         { Reject(player, "Rafa yaklaş; arada engel var."); return; }

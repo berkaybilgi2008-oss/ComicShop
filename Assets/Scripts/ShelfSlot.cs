@@ -125,6 +125,54 @@ public class ShelfSlot : MonoBehaviour
             slot.NetworkKey = key;
             networkSlots.Add(key, slot);
         }
+        RepairUniformPublisherLayout();
+    }
+
+    private static void RepairUniformPublisherLayout()
+    {
+        var spawner = FindFirstObjectByType<BookSpawner>();
+        if (spawner == null || spawner.bookTypes == null || networkSlots.Count == 0) return;
+        var slots = new List<ShelfSlot>(networkSlots.Values);
+        int originalBrand = slots[0].brandID;
+        foreach (var slot in slots)
+            if (slot.brandID != originalBrand || slot.FilledCount > 0) return;
+        var demand = new SortedDictionary<int, int>();
+        foreach (var data in spawner.bookTypes)
+        {
+            if (data == null) continue;
+            demand.TryGetValue(data.BrandID, out int count);
+            demand[data.BrandID] = count + 1;
+        }
+        if (demand.Count < 2) return;
+        // This fallback applies only to a scene whose entire publisher layout was lost.
+        // Keep an intentionally authored multi-publisher layout unchanged.
+        slots.Sort((a, b) => string.CompareOrdinal(LayoutPath(a.transform), LayoutPath(b.transform)));
+        var assignments = new List<int>();
+        int cursor = 0;
+        foreach (var pair in demand)
+            for (int type = 0; type < pair.Value; type++)
+            {
+                int remaining = Mathf.Max(1, spawner.copiesPerBook);
+                while (remaining > 0)
+                {
+                    if (cursor >= slots.Count)
+                    { Debug.LogError("[Raf] Katalog icin yeterli raf gozu yok; yayinci dagilimi uygulanmadi."); return; }
+                    assignments.Add(pair.Key);
+                    remaining -= Mathf.Max(1, slots[cursor++].capacity);
+                }
+            }
+        // Extra shelf space follows the same publisher proportions.
+        var extra = new List<int>(assignments);
+        while (assignments.Count < slots.Count) assignments.Add(extra[(assignments.Count - cursor) % extra.Count]);
+        for (int i = 0; i < slots.Count; i++) slots[i].brandID = assignments[i];
+        Debug.Log($"[Raf] Tek yayinciya sifirlanmis {slots.Count} raf gozu, katalogdaki {demand.Count} yayinciya ayrildi.");
+    }
+
+    private static string LayoutPath(Transform t)
+    {
+        var parts = new Stack<string>();
+        while (t != null) { parts.Push(t.GetSiblingIndex().ToString("D6") + ":" + t.name); t = t.parent; }
+        return string.Join("/", parts);
     }
 
     public static ShelfSlot FindNetworkSlot(ulong key)

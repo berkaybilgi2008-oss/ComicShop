@@ -181,6 +181,8 @@ public class PlayerInteraction : MonoBehaviour
 
         // One inventory action per input frame. Pickup/placement coroutines
         // start immediately; a second button must not release that same book.
+        if (pickupKey == dropKey && Input.GetKeyDown(dropKey) && ActiveHeldBook != null && lookedSlot != null)
+        { TryPlaceActiveBook(); return; }
         if (Input.GetKeyDown(pickupKey))
         {
             HandlePickupPress();
@@ -284,10 +286,10 @@ public class PlayerInteraction : MonoBehaviour
             if (lookedSlot != null && ActiveHeldBook != null)
             {
                 if (!lookedSlot.IsAvailable) return "Raf gözü dolu";
-                if (ActiveHeldBook.brandID != lookedSlot.brandID) return "Yanlış yayıncı";
+                if (ActiveHeldBook.brandID != lookedSlot.brandID) return "Bu raf: " + BrandConfig.GetBrandName(lookedSlot.brandID);
                 if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
                     return "Bu raf gözü başka bir kitap grubuna ayrılmış";
-                return dropKey + ": Rafa yerleştir";
+                return dropKey + ": Rafa yerleştir · " + BrandConfig.GetBrandName(lookedSlot.brandID);
             }
             if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
                 return heldBooks.Count >= maxHeldBooks ? "Ellerin dolu" : pickupKey + ": Kitabı al";

@@ -41,6 +41,14 @@ public class BookSpawner : MonoBehaviour
 
     private readonly HashSet<BookItem> spawnedTowerBooks = new HashSet<BookItem>();
 
+    private double frameBudgetStarted;
+    private bool YieldForFrameBudget()
+    {
+        double now = Time.realtimeSinceStartupAsDouble;
+        if (now - frameBudgetStarted < 0.008) return false;
+        frameBudgetStarted = now;
+        return true;
+    }
     private bool sessionSpawned;
     private readonly List<GameObject> sessionBooks = new List<GameObject>();
 
@@ -79,12 +87,13 @@ public class BookSpawner : MonoBehaviour
     {
         if (sessionSpawned) yield break;
         SpawnError = null;
+        ShelfSlot.BuildNetworkRegistry();
         ShopLoadingScreen.Show();
         var routine = SpawnBooks(BookTypeCount);
         try
         {
-            yield return null;
-            yield return null;
+            yield return null; // Paint the opening card once; no minimum display time.
+            frameBudgetStarted = Time.realtimeSinceStartupAsDouble;
             while (true)
             {
                 bool more = false;
@@ -92,6 +101,7 @@ public class BookSpawner : MonoBehaviour
                 catch (System.Exception error) { SpawnError = error; }
                 if (SpawnError != null || !more) break;
                 yield return routine.Current;
+                frameBudgetStarted = Time.realtimeSinceStartupAsDouble;
             }
             sessionSpawned = SpawnError == null;
         }
@@ -151,7 +161,7 @@ public class BookSpawner : MonoBehaviour
             for (int i = 0; i < ids.Count; i++)
             {
                 SpawnSingleBook(ids[i], positions[i]);
-                if (i % 12 == 0) { ShopLoadingScreen.Progress((float)i / ids.Count * 0.45f); yield return null; }
+                if (YieldForFrameBudget()) { ShopLoadingScreen.Progress((float)i / ids.Count * 0.45f); yield return null; }
             }
             var books = new List<BookItem>(sessionBooks.Count);
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
@@ -173,7 +183,8 @@ public class BookSpawner : MonoBehaviour
                     networkBook.Initialize(book.bookID, book.brandID);
                     networkBook.NetworkObject.Spawn(true);
                 }
-                if (++published % 12 == 0)
+                published++;
+                if (YieldForFrameBudget())
                 { ShopLoadingScreen.Progress(0.85f + 0.15f * published / books.Count); yield return null; }
             }
         }
@@ -294,7 +305,7 @@ public class BookSpawner : MonoBehaviour
         int cursor = 0;
         for (int tower = 0; tower < requested; tower++)
         {
-            yield return null;
+            if (YieldForFrameBudget()) yield return null;
             int count = sizes[tower];
             int first = cursor;
             cursor += count;
@@ -389,7 +400,6 @@ public class BookSpawner : MonoBehaviour
         }
         Physics.SyncTransforms();
         if (reservations.Count < requested) Debug.LogWarning($"BookSpawner: {requested} kuleden {reservations.Count} tanesi sigdi; kalan kitaplar daginik.");
-        yield return null;
     }
 
     private IEnumerator SeparateInitialBooks(List<BookItem> books)
@@ -408,7 +418,8 @@ public class BookSpawner : MonoBehaviour
         int unresolved = 0, processed = 0;
         foreach (var book in books)
         {
-            if (++processed % 12 == 0)
+            processed++;
+            if (YieldForFrameBudget())
             { ShopLoadingScreen.Progress(0.55f + 0.3f * processed / books.Count); yield return null; }
             if (spawnedTowerBooks.Contains(book)) continue;
             Bounds original = BookBounds(book);
