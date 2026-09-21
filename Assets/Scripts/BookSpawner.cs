@@ -36,6 +36,8 @@ public class BookSpawner : MonoBehaviour
     [Tooltip("Her kitap icin kule yonunden rastgele sapma (derece).")]
     [Range(0f, 180f)] public float towerYawJitter = 8f;
 
+    [Range(0f, 1f)] public float extraTallTowerBookFraction = 0.1f;
+
     private readonly HashSet<BookItem> spawnedTowerBooks = new HashSet<BookItem>();
 
     private bool sessionSpawned;
@@ -244,6 +246,10 @@ public class BookSpawner : MonoBehaviour
         var sizes = new List<int>();
         for (int i = 0; i < (budget / 2) / small; i++) sizes.Add(small);
         for (int i = 0; i < (budget - budget / 2) / large; i++) sizes.Add(large);
+        int tallBudget = Mathf.Min(books.Count - budget,
+            Mathf.RoundToInt(books.Count * Mathf.Clamp01(extraTallTowerBookFraction)));
+        for (int i = 0; i < (tallBudget / 2) / (small + 10); i++) sizes.Add(small + 10);
+        for (int i = 0; i < (tallBudget - tallBudget / 2) / (large + 10); i++) sizes.Add(large + 10);
         for (int i = sizes.Count - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
@@ -265,8 +271,8 @@ public class BookSpawner : MonoBehaviour
             for (int i = first; i < first + count; i++)
             {
                 var book = books[i];
-                Vector3 heading = Quaternion.Euler(0f, yaw + Random.Range(-towerYawJitter, towerYawJitter), 0f) * Vector3.forward;
-                book.transform.rotation = book.GetAlignedRotation(Random.value < 0.5f ? Vector3.up : Vector3.down, heading);
+                Vector3 heading = Quaternion.Euler(0f, yaw + Random.Range(-Mathf.Min(1f, towerYawJitter), Mathf.Min(1f, towerYawJitter)), 0f) * Vector3.forward;
+                book.transform.rotation = book.GetAlignedRotation(Vector3.up, heading);
             }
             Physics.SyncTransforms();
             for (int i = first; i < first + count; i++)
@@ -277,7 +283,11 @@ public class BookSpawner : MonoBehaviour
             }
             if (radius <= 0f || height <= 0f) continue;
             radius += 0.02f;
+            // Broad books form the base, narrower books the top.
+            books.Sort(first, count, Comparer<BookItem>.Create((a, b) =>
+                (BookBounds(b).size.x * BookBounds(b).size.z).CompareTo(BookBounds(a).size.x * BookBounds(a).size.z)));
             bool found = false;
+            Collider floorSupport = null;
             Vector3 basePoint = default;
             for (int attempt = 0; attempt < 128; attempt++)
             {
@@ -299,7 +309,7 @@ public class BookSpawner : MonoBehaviour
                     new Vector3(radius, height * 0.5f, radius), Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore))
                     if (col.GetComponentInParent<BookItem>() == null) { clear = false; break; }
                 if (!clear) continue;
-                basePoint = candidate; found = true; break;
+                basePoint = candidate; floorSupport = floor.collider; found = true; break;
             }
             if (!found) continue;
             float top = basePoint.y + 0.002f;
@@ -311,9 +321,21 @@ public class BookSpawner : MonoBehaviour
                 top += b.size.y + 0.001f;
                 stacked.Add(book);
             }
-            // Leave the grounded stack physical. Existing contact-based settling
-            // freezes it only after real support contacts; never suspend books in air.
-            for (int i = first; i < first + count; i++) spawnedTowerBooks.Add(books[i]);
+            Physics.SyncTransforms();
+            Collider support = floorSupport;
+            for (int i = first; i < first + count; i++)
+            {
+                var book = books[i];
+                spawnedTowerBooks.Add(book);
+                book.InitializeSpawnSupport(support);
+                support = book.GetComponentInChildren<Collider>();
+                var rigidbody = book.GetComponent<Rigidbody>();
+                if (rigidbody != null)
+                {
+                    rigidbody.solverIterations = 16;
+                    rigidbody.solverVelocityIterations = 8;
+                }
+            }
             reservations.Add(new Vector4(basePoint.x, basePoint.y, basePoint.z, radius));
         }
         // Keep scattered books from starting inside/above the newly built towers.
@@ -343,8 +365,14 @@ public class BookSpawner : MonoBehaviour
         Physics.SyncTransforms();
         var placed = new List<Bounds>(books.Count);
         // Towers stay where they were authored; reserve their physical volume first.
+        var towerBounds = new List<Bounds>();
         foreach (var book in books)
-            if (spawnedTowerBooks.Contains(book)) placed.Add(BookBounds(book));
+            if (spawnedTowerBooks.Contains(book))
+            {
+                Bounds bounds = BookBounds(book);
+                placed.Add(bounds);
+                towerBounds.Add(bounds);
+            }
         int unresolved = 0;
         foreach (var book in books)
         {
@@ -358,8 +386,19 @@ public class BookSpawner : MonoBehaviour
                 Vector3 candidate = SampleSpawnPosition();
                 if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
                 Bounds test = new Bounds(new Vector3(candidate.x, floor.point.y + original.extents.y + 0.003f, candidate.z), original.size);
-                // Raise above already placed books, instead of spawning intersecting
-                // rigidbodies that explode apart on the first physics step.
+                bool towerOverlap = false;
+                foreach (var tower in towerBounds)
+                {
+                    if (Mathf.Abs(test.center.x - tower.center.x) < test.extents.x + tower.extents.x + 0.06f &&
+                        Mathf.Abs(test.center.z - tower.center.z) < test.extents.z + tower.extents.z + 0.06f)
+                    { towerOverlap = true; break; }
+                }
+                if (towerOverlap) continue;
+                bool occupied = false;
+                foreach (var other in placed)
+                    if (test.Intersects(other)) { occupied = true; break; }
+                if (occupied && attempt < 96) continue;
+                // Dense areas may use shallow layers, never a new accidental tower.
                 bool raised;
                 do
                 {
@@ -371,6 +410,7 @@ public class BookSpawner : MonoBehaviour
                         raised = true;
                     }
                 } while (raised);
+                if (test.min.y - floor.point.y > 0.25f) continue;
                 bool blocked = false;
                 foreach (var col in Physics.OverlapBox(test.center, test.extents, Quaternion.identity,
                     Physics.AllLayers, QueryTriggerInteraction.Ignore))
@@ -404,16 +444,30 @@ public class BookSpawner : MonoBehaviour
             float total = 0;
             foreach (var zone in corridorAreas) total += ZoneWeight(zone);
             if (total <= 0) throw new System.InvalidOperationException("BookSpawner: corridor areas have no usable space. Fix their Size/Scale; legacy area was not used.");
-            float choice = Random.value * total;
-            BoxCollider selected = null;
-            foreach (var zone in corridorAreas)
+            for (int attempt = 0; attempt < 256; attempt++)
             {
-                float weight = ZoneWeight(zone);
-                if (weight <= 0) continue;
-                selected = zone; choice -= weight;
-                if (choice <= 0) break;
+                float choice = Random.value * total;
+                BoxCollider selected = null;
+                foreach (var zone in corridorAreas)
+                {
+                    float weight = ZoneWeight(zone);
+                    if (weight <= 0) continue;
+                    selected = zone; choice -= weight;
+                    if (choice <= 0) break;
+                }
+                Vector3 point = SampleArea(selected);
+                int coverage = 0;
+                foreach (var zone in corridorAreas)
+                {
+                    if (ZoneWeight(zone) <= 0f) continue;
+                    Vector3 p = zone.transform.InverseTransformPoint(point) - zone.center;
+                    Vector3 scale = zone.transform.lossyScale;
+                    if (Mathf.Abs(p.x) <= zone.size.x * 0.5f - corridorEdgePadding / Mathf.Abs(scale.x) &&
+                        Mathf.Abs(p.z) <= zone.size.z * 0.5f - corridorEdgePadding / Mathf.Abs(scale.z)) coverage++;
+                }
+                if (Random.value < 1f / Mathf.Max(1, coverage)) return point;
             }
-            return SampleArea(selected);
+            throw new System.InvalidOperationException("Could not sample corridor union.");
         }
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
         return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f,areaSize.x*.5f),spawnHeight,Random.Range(-areaSize.y*.5f,areaSize.y*.5f)));

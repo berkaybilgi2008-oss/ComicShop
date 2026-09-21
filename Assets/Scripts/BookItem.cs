@@ -66,6 +66,30 @@ public class BookItem : MonoBehaviour
     }
     private readonly List<RestSupport> restSupports = new List<RestSupport>(8);
 
+    // Called only after the spawner has placed a stack bottom-up on a verified floor.
+    // Reuse the ordinary support invalidation: removing a lower book wakes every book above it.
+    public bool InitializeSpawnSupport(Collider support)
+    {
+        if (body == null || support == null || IsHeld || currentSlot != null) return false;
+        var own = GetComponentInChildren<Collider>();
+        if (own == null || support.isTrigger || !support.enabled) return false;
+        Bounds bounds = own.bounds;
+        Vector3 bottom = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+        if (Vector3.Distance(support.ClosestPoint(bottom), bottom) > 0.015f) return false;
+        var below = support.GetComponentInParent<BookItem>();
+        if (below != null && !below.frozenAtRest) return false;
+        if (support.attachedRigidbody != null && !support.attachedRigidbody.isKinematic) return false;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        restSupports.Clear();
+        restSupports.Add(new RestSupport { collider = support, position = support.transform.position,
+            rotation = support.transform.rotation, scale = support.transform.lossyScale });
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        return true;
+    }
+
     private bool CaptureRestSupports()
     {
         restSupports.Clear();

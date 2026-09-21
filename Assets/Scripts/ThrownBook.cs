@@ -49,6 +49,7 @@ public class ThrownBook : MonoBehaviour
     private bool hasHit;
     public bool HasImpacted => hasHit;
     private Transform thrower;
+    private Vector3 incomingVelocity;
     private Vector3 previousPosition;
     private readonly RaycastHit[] obstructionHits = new RaycastHit[32];
 
@@ -83,6 +84,7 @@ public class ThrownBook : MonoBehaviour
             spinAxis = axis.normalized;
         if (body != null)
         {
+            incomingVelocity = body.linearVelocity;
             // Capture the charge-dependent spin before the short alignment bridge.
             flightSpin = Vector3.Dot(body.angularVelocity, spinAxis);
             body.maxAngularVelocity = Mathf.Max(originalMaxAngularVelocity, Mathf.Abs(flightSpin));
@@ -94,7 +96,11 @@ public class ThrownBook : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (body != null && !hasHit && !body.isKinematic) CheckPlayerHit();
+        if (body != null && !hasHit && !body.isKinematic)
+        {
+            incomingVelocity = body.linearVelocity;
+            CheckPlayerHit();
+        }
         if (body == null || body.isKinematic || hasHit || !lockSpinAxis)
             return;
 
@@ -147,17 +153,22 @@ public class ThrownBook : MonoBehaviour
         // for hits, and a non-alloc physics sweep to reject hits through walls.
         int count = Physics.SphereCastNonAlloc(ray, 0.06f, obstructionHits, closest,
             Physics.AllLayers, QueryTriggerInteraction.Ignore);
-        if (count == obstructionHits.Length) return;
+        // Dense piles can fill the small reusable buffer; do not silently drop a valid hit.
+        RaycastHit[] hits = obstructionHits;
+        if (count == obstructionHits.Length)
+        {
+            hits = Physics.SphereCastAll(ray, 0.06f, closest, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            count = hits.Length;
+        }
         for (int i = 0; i < count; i++)
         {
-            Transform hit = obstructionHits[i].collider.transform;
+            Transform hit = hits[i].collider.transform;
             if (hit.IsChildOf(transform) || hit.IsChildOf(target.transform) ||
                 (thrower != null && hit.IsChildOf(thrower))) continue;
             return;
         }
         Vector3 point = ray.GetPoint(closest);
-        Bounds hitBounds = target.HitBounds;
-        bool head = point.y >= hitBounds.max.y - hitBounds.size.y * 0.22f;
+        bool head = target.IsHeadPoint(point);
         target.Hit(body.linearVelocity, head);
         RegisterHit(); // One knockdown per throw; floor-bounced books do not hit again.
         body.linearVelocity *= 0.25f;
@@ -171,6 +182,16 @@ public class ThrownBook : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        var authority = Unity.Netcode.NetworkManager.Singleton;
+        if (authority != null && authority.IsListening && !authority.IsServer) return;
+        var target = collision.collider.GetComponentInParent<PlayerKnockdown>();
+        if (!hasHit && target != null && target.transform != thrower && !target.IsDown && incomingVelocity.sqrMagnitude > 4f)
+        {
+            Vector3 point = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;
+            target.Hit(incomingVelocity, target.IsHeadPoint(point));
+        }
+        // Ignore residual contacts with the thrower's own rig.
+        if (thrower != null && collision.collider.transform.IsChildOf(thrower)) return;
         if (!hasHit && collision.relativeVelocity.sqrMagnitude > 4f)
         {
             var manager = Unity.Netcode.NetworkManager.Singleton;
@@ -180,9 +201,6 @@ public class ThrownBook : MonoBehaviour
         }
         RegisterHit();
 
-        // ILERIDE: buraya oyuncuya carpma / bayiltma kontrolu gelecek.
-        // PlayerController hit = collision.collider.GetComponentInParent<PlayerController>();
-        // if (hit != null) { ... }
     }
 
     /// <summary>Ilk temas: artik normal bir kitap gibi davransin.</summary>

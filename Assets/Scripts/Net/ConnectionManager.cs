@@ -225,7 +225,7 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
-            networkManager.NetworkConfig.ProtocolVersion = 4;
+            networkManager.NetworkConfig.ProtocolVersion = 5;
             ShopRound.Reset();
             ShelfSlot.ResetNetworkSession();
             ShelfSlot.BuildNetworkRegistry();

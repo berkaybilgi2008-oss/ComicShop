@@ -444,6 +444,7 @@ public class PlayerInteraction : MonoBehaviour
                 fallbackHeldIndex = nextVisibleHeldIndex;
         }
 
+        BookItem nextVisibleBook = fallbackHeldIndex >= 0 ? heldBooks[fallbackHeldIndex] : null;
         heldBooks.RemoveAt(index);
 
         if (heldBooks.Count == 0)
@@ -453,9 +454,7 @@ public class PlayerInteraction : MonoBehaviour
         else
         {
             // Convert the pre-removal list index to the new list index.
-            BookItem nextBook = fallbackHeldIndex >= 0
-                ? GetBookFromPreRemovalIndex(displayOrderBeforeThrow, displayIndex - 1)
-                : null;
+            BookItem nextBook = nextVisibleBook;
             int newIndex = nextBook != null ? heldBooks.IndexOf(nextBook) : -1;
             activeHeldIndex = newIndex >= 0
                 ? newIndex
@@ -1156,12 +1155,34 @@ public class PlayerInteraction : MonoBehaviour
         return origin + direction * allowed;
     }
 
+    Vector3 AimChargedThrow(BookItem book, Vector3 origin, float speed)
+    {
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        float distance = 100f;
+        foreach (var hit in Physics.RaycastAll(ray, distance, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<BookItem>() == book) continue;
+            var held = hit.collider.GetComponentInParent<BookItem>();
+            if (held != null && held.IsHeld) continue;
+            distance = Mathf.Min(distance, hit.distance);
+        }
+        foreach (var player in PlayerKnockdown.Players)
+            if (player != null && player.transform != transform && !player.IsDown &&
+                player.HitBounds.IntersectRay(ray, out float hitDistance))
+                distance = Mathf.Min(distance, hitDistance);
+        Vector3 delta = ray.GetPoint(Mathf.Max(0.2f, distance)) - origin;
+        if (Vector3.Dot(delta, ray.direction) <= 0.05f) return ray.direction * speed;
+        return delta.normalized * speed;
+    }
+
     void ThrowBook(BookItem book, Vector3 velocity, Vector3 spinAxis, float spin, bool charged)
     {
         if (book == null)
             return;
 
         Vector3 worldPosition = ConstrainBookToRoom(book, book.transform.position);
+        if (charged && playerCamera != null)
+            velocity = AimChargedThrow(book, worldPosition, velocity.magnitude);
         Quaternion worldRotation = book.transform.rotation;
         NetworkBook networkBook = book.GetComponent<NetworkBook>();
         if (networkBook != null && networkBook.IsSpawned)

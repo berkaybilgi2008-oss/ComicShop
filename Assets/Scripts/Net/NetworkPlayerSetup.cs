@@ -26,6 +26,30 @@ public class NetworkPlayerSetup : NetworkBehaviour
         if (interaction != null) interaction.ShowFeedback(reason);
     }
 
+    private float nextThrowPoseAccepted;
+    private static bool ValidRotation(Quaternion q)
+    {
+        float norm = Quaternion.Dot(q, q);
+        return !float.IsNaN(norm) && !float.IsInfinity(norm) && norm > 0.5f && norm < 1.5f;
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    public void SubmitThrowPoseRpc(Quaternion upper, Quaternion lower, Quaternion wrist, bool left, bool active)
+    {
+        if (IsDown || !ValidRotation(upper) || !ValidRotation(lower) || !ValidRotation(wrist)) return;
+        if (active && Time.unscaledTime < nextThrowPoseAccepted) return;
+        nextThrowPoseAccepted = Time.unscaledTime + 1f / 60f;
+        ShowThrowPoseRpc(upper.normalized, lower.normalized, wrist.normalized, left, active);
+    }
+
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    private void ShowThrowPoseRpc(Quaternion upper, Quaternion lower, Quaternion wrist, bool left, bool active)
+    {
+        if (IsOwner) return;
+        var rig = GetComponentInChildren<ToastBookCarry>();
+        if (rig != null) rig.ReceiveThrowPose(upper, lower, wrist, left, active);
+    }
+
     public bool IsDown => downState.Value.ReadyAt >= 0;
     public struct DownState : INetworkSerializable, System.IEquatable<DownState>
     {

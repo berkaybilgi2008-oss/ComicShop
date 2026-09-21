@@ -38,6 +38,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
     Animator animator;
     Transform hips;
     CharacterController capsule;
+    bool capsuleWasEnabled;
     bool active;
     bool recovering;
     bool ragdollActive;
@@ -235,7 +236,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         timer = 0f;
         recoverTimer = 0f;
 
-        if (capsule != null) capsule.enabled = false;
+        if (capsule != null) capsuleWasEnabled = capsule.enabled;
         animator.enabled = false;
         SetRagdollBodiesKinematic(true);
         RestoreBasePose();
@@ -256,7 +257,8 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
 
             // Move the player root to the actual ragdoll landing position before
             // the stand-up blend, so recovery happens where the body ended up.
-            if (hips != null)
+            var network = GetComponent<NetworkPlayerSetup>();
+            if (hips != null && (network == null || !network.IsSpawned || network.IsOwner))
             {
                 Vector3 delta = hips.position - transform.position;
                 delta.y = 0f;
@@ -338,6 +340,13 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         foreach (Collider collider in ragdollColliders)
             if (collider != null)
                 collider.enabled = value;
+        if (!value) return;
+        for (int i = 0; i < ragdollColliders.Count; i++)
+        {
+            if (capsule != null) Physics.IgnoreCollision(ragdollColliders[i], capsule, true);
+            for (int j = i + 1; j < ragdollColliders.Count; j++)
+                Physics.IgnoreCollision(ragdollColliders[i], ragdollColliders[j], true);
+        }
     }
 
     void StopRagdoll()
@@ -373,7 +382,7 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
                 RestoreBasePose();
                 DestroyRagdollComponents();
                 animator.enabled = true;
-                if (capsule != null) capsule.enabled = true;
+                if (capsule != null) capsule.enabled = capsuleWasEnabled;
             }
 
             return;
@@ -409,8 +418,8 @@ public sealed class HeadHitKnockdownAnimation : MonoBehaviour
         Rotate("RightUpperArm", Quaternion.Euler(Mathf.Lerp(0f, 20f, hit), 0f, Mathf.Lerp(0f, 78f, hit)));
         Rotate("RightForearm", Quaternion.Euler(Mathf.Lerp(0f, -12f, hit), 0f, Mathf.Lerp(0f, 20f, hit)));
 
-        float thigh = Mathf.Lerp(0f, -96f, feetUp);
-        float shin = Mathf.Lerp(0f, 42f, feetUp);
+        float thigh = Mathf.Lerp(0f, -128f, feetUp);
+        float shin = Mathf.Lerp(0f, 24f, feetUp);
         float foot = Mathf.Lerp(0f, -18f, feetUp);
         Rotate("LeftThigh", Quaternion.Euler(thigh, 0f, 0f));
         Rotate("RightThigh", Quaternion.Euler(thigh, 0f, 0f));
