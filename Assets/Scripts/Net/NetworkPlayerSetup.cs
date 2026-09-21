@@ -20,6 +20,12 @@ public class NetworkPlayerSetup : NetworkBehaviour
     {
         if (cue >= 0 && cue <= (int)ShopCue.Impact) ShopAudio.Play((ShopCue)cue, position);
     }
+
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    public void PlayComicBamRpc(Vector3 position)
+    {
+        ComicEffectController.PlayBam(position);
+    }
     [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
     public void ActionRejectedRpc(string reason)
     {
@@ -46,6 +52,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     {
         if (!IsServer || IsDown || float.IsNaN(impulse.sqrMagnitude) || float.IsInfinity(impulse.sqrMagnitude)) return;
         PlayCueRpc((int)ShopCue.Bonk, transform.position);
+        PlayComicBamRpc(transform.position + Vector3.up * 1.2f);
 
         // A knocked-down player cannot keep inventory attached to the hand.
         // Release is authoritative on the server so every client sees the same books fall.
@@ -57,6 +64,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     private void ApplyDownState(DownState before, DownState after)
     {
         knockdown.SetState(after.ReadyAt, after.Head);
+        ComicEffectController.SetDizzyStars(gameObject, after.ReadyAt >= 0 && after.Head);
         if (IsOwner && before.ReadyAt < 0 && after.ReadyAt >= 0) knockdown.Kick(after.Impulse);
     }
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
