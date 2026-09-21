@@ -84,7 +84,6 @@ public class PlayerKnockdown : MonoBehaviour
     public void SetState(double until, bool head = false)
     {
         headHit = head;
-        ComicEffectController.SetDizzyStars(gameObject, until >= 0 && head);
         bool wasDown = IsDown;
         if (headHitAnimation != null) headHitAnimation.SetState(until >= 0, head);
         readyAt = until;
