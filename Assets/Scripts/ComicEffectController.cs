@@ -227,9 +227,9 @@ public static class ComicEffectController
             }
 
             if (head != null)
-                transform.position = head.position + Vector3.up * 0.35f;
+                transform.position = head.position + Vector3.up * 0.48f;
             else
-                transform.position = target.position + Vector3.up * 1.9f;
+                transform.position = target.position + Vector3.up * 2.05f;
 
             angle += 170f * Time.deltaTime;
 
@@ -241,7 +241,7 @@ public static class ComicEffectController
             for (int i = 0; i < stars.Count; i++)
             {
                 float a = (angle + i * 120f) * Mathf.Deg2Rad;
-                float radius = 0.48f + Mathf.Sin(Time.time * 3f + i) * 0.06f;
+                float radius = 0.58f + Mathf.Sin(Time.time * 4f + i) * 0.07f;
 
                 stars[i].localPosition = new Vector3(
                     Mathf.Cos(a) * radius,
