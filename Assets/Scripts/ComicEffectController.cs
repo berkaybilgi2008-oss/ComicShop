@@ -8,7 +8,7 @@ using UnityEngine;
 public static class ComicEffectController
 {
     private const float BamLifetime = 0.65f;
-    private static readonly Dictionary<int, GameObject> dizzyEffects = new Dictionary<int, GameObject>();
+    private static readonly Dictionary<GameObject, GameObject> dizzyEffects = new Dictionary<GameObject, GameObject>();
 
     public static void PlayBam(Vector3 worldPosition)
     {
@@ -21,23 +21,21 @@ public static class ComicEffectController
     {
         if (target == null) return;
 
-        int id = target.GetInstanceID();
-
         if (!enabled)
         {
-            if (dizzyEffects.TryGetValue(id, out GameObject old) && old != null)
+            if (dizzyEffects.TryGetValue(target, out GameObject old) && old != null)
                 Object.Destroy(old);
-            dizzyEffects.Remove(id);
+            dizzyEffects.Remove(target);
             return;
         }
 
-        if (dizzyEffects.TryGetValue(id, out GameObject existing) && existing != null)
+        if (dizzyEffects.TryGetValue(target, out GameObject existing) && existing != null)
             return;
 
         GameObject root = new GameObject("ComicEffect_DizzyStars");
         root.transform.SetParent(target.transform, false);
         root.AddComponent<ComicDizzyStars>();
-        dizzyEffects[id] = root;
+        dizzyEffects[target] = root;
     }
 
     private sealed class ComicBamEffect : MonoBehaviour
