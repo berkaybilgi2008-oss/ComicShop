@@ -20,6 +20,11 @@ public class NetworkPlayerSetup : NetworkBehaviour
     {
         if (cue >= 0 && cue <= (int)ShopCue.Impact) ShopAudio.Play((ShopCue)cue, position);
     }
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    public void PlayComicBamRpc(Vector3 position)
+    {
+        ComicEffectController.PlayBam(position);
+    }
     [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
     public void ActionRejectedRpc(string reason)
     {
