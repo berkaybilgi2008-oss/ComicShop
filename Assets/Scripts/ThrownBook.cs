@@ -116,14 +116,6 @@ public class ThrownBook : MonoBehaviour
         Bounds hitBounds = target.HitBounds;
         bool head = point.y >= hitBounds.max.y - hitBounds.size.y * 0.22f;
         target.Hit(body.linearVelocity, head);
-        if (head)
-        {
-            var targetNetwork = target.GetComponent<NetworkPlayerSetup>();
-            if (manager != null && manager.IsListening && manager.IsServer && targetNetwork != null)
-                targetNetwork.PlayComicBamRpc(point);
-            else if (manager == null || !manager.IsListening)
-                ComicEffectController.PlayBam(point);
-        }
         RegisterHit(); // One knockdown per throw; floor-bounced books do not hit again.
         body.linearVelocity *= 0.25f;
     }
