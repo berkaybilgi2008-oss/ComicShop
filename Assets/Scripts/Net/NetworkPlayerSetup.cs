@@ -52,7 +52,6 @@ public class NetworkPlayerSetup : NetworkBehaviour
     {
         if (!IsServer || IsDown || float.IsNaN(impulse.sqrMagnitude) || float.IsInfinity(impulse.sqrMagnitude)) return;
         PlayCueRpc((int)ShopCue.Bonk, transform.position);
-        PlayComicBamRpc(transform.position + Vector3.up * 1.2f);
 
         // A knocked-down player cannot keep inventory attached to the hand.
         // Release is authoritative on the server so every client sees the same books fall.
@@ -64,7 +63,6 @@ public class NetworkPlayerSetup : NetworkBehaviour
     private void ApplyDownState(DownState before, DownState after)
     {
         knockdown.SetState(after.ReadyAt, after.Head);
-        ComicEffectController.SetDizzyStars(gameObject, after.ReadyAt >= 0 && after.Head);
         if (IsOwner && before.ReadyAt < 0 && after.ReadyAt >= 0) knockdown.Kick(after.Impulse);
     }
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
