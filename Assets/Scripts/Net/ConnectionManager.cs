@@ -225,7 +225,7 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
-            networkManager.NetworkConfig.ProtocolVersion = 4;
+            networkManager.NetworkConfig.ProtocolVersion = 5;
             ShopRound.Reset();
             ShelfSlot.ResetNetworkSession();
             ShelfSlot.BuildNetworkRegistry();
@@ -292,12 +292,27 @@ public class ConnectionManager : MonoBehaviour
         NetworkManager.ConnectionApprovalResponse response)
     {
         maxPlayers = Mathf.Clamp(maxPlayers, 1, 4);
-        response.Approved = networkManager.ConnectedClientsIds.Count < maxPlayers;
+        // NGO always accepts its own host. Rejecting it while clearing
+        // CreatePlayerObject leaves a connected host with no player/camera.
+        bool hostConnection = request.ClientNetworkId == Unity.Netcode.NetworkManager.ServerClientId;
+        response.Approved = hostConnection || networkManager.ConnectedClientsIds.Count < maxPlayers;
         response.CreatePlayerObject = response.Approved;
         response.Pending = false;
         response.Reason = response.Approved ? "" : "Oda dolu.";
         Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
-        response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
+        if (response.Approved)
+        {
+            if (ComicSafeSpawn.TryFind(spawn, networkManager.NetworkConfig.PlayerPrefab, out var safePosition)) response.Position = safePosition;
+            else if (hostConnection)
+            {
+                // Preserve the scene's configured host spawn when the optional
+                // safe-position probe cannot find a candidate. Remote clients
+                // still require a free position so they cannot overlap the host.
+                response.Position = spawn.position;
+                Debug.LogWarning("[ComicShop] Guvenli nokta taramasi sonuc vermedi; host sahnedeki PlayerSpawnPoint konumunda olusturuluyor.");
+            }
+            else { response.Approved = false; response.CreatePlayerObject = false; response.Reason = "Baslangic yakininda guvenli bos alan bulunamadi."; }
+        }
         response.Rotation = spawn.rotation;
     }
 

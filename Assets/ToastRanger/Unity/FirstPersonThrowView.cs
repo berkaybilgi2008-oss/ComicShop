@@ -20,6 +20,11 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     float enteredAt;
     Vector3 entryPosition, entryScale;
     Quaternion entryRotation;
+    const float flightHandoffDuration = 0.065f;
+    bool flightHandoff;
+    float releasedAt;
+    Vector3 releaseOffset, releaseScale;
+    Quaternion releaseViewRotation;
     readonly Dictionary<Transform, Transform> bones = new Dictionary<Transform, Transform>();
     readonly List<Mesh> meshes = new List<Mesh>();
     readonly List<Renderer> visuals = new List<Renderer>();
@@ -80,6 +85,22 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     void LateUpdate()
     {
         RestoreRendering();
+        if (flightHandoff)
+        {
+            var flight = activeBook ? activeBook.GetComponent<ThrownBook>() : null;
+            if (IsLocal() && IsFirstPersonCamera(inventory.playerCamera) && activeBook &&
+                activeBook.gameObject.activeInHierarchy && !inventory.IsThrowPoseActive &&
+                (flight == null || !flight.HasImpacted) &&
+                inventory.ActiveHeldBook != activeBook && activeBook.currentSlot == null &&
+                Time.time - releasedAt < flightHandoffDuration)
+            {
+                PoseFlight();
+                return;
+            }
+            flightHandoff = false;
+            ready = false;
+            activeBook = null;
+        }
         if (!IsLocal() || !IsFirstPersonCamera(inventory.playerCamera) || !inventory.IsThrowPoseActive || !inventory.ActiveHeldBook)
         {
             ready = false;
@@ -115,6 +136,32 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         visualRoot.transform.localScale = rig.transform.lossyScale;
         PoseView(book);
         ready = true;
+    }
+
+    // Called at the actual release, before physics/networking detaches the book.
+    // Only the owner's mesh bridges the two poses; the one real projectile keeps
+    // its world-hand origin, collisions, velocity and landing point on every peer.
+    public void BeginFlightHandoff(BookItem book)
+    {
+        if (!ready || activeBook != book || !bookRoot || !IsLocal() ||
+            !IsFirstPersonCamera(inventory.playerCamera)) return;
+        releaseOffset = bookRoot.transform.position - book.transform.position;
+        releaseViewRotation = bookRoot.transform.rotation;
+        releaseScale = bookRoot.transform.lossyScale;
+        releasedAt = Time.time;
+        flightHandoff = true;
+    }
+
+    void PoseFlight()
+    {
+        float t = Mathf.Clamp01((Time.time - releasedAt) / flightHandoffDuration);
+        float blend = 1f - Mathf.Pow(1f - t, 3f);
+        Transform world = activeBook.transform;
+        // A brief release flourish, then exactly the real projectile pose.
+        // Absolute rotation avoids compounding the handoff with its launch alignment.
+        bookRoot.transform.SetPositionAndRotation(world.position + releaseOffset * (1f - blend),
+            Quaternion.Slerp(releaseViewRotation, world.rotation, blend));
+        bookRoot.transform.localScale = Vector3.Lerp(releaseScale, world.lossyScale, blend);
     }
 
     Transform CopyBone(Transform source)
@@ -272,12 +319,12 @@ public sealed class FirstPersonThrowView : MonoBehaviour
             Quaternion.AngleAxis(release * 35f, view.right) * view.up);
         rotation = Quaternion.AngleAxis(90f, view.up) * rotation;
         rotation = Quaternion.AngleAxis(-7f, view.right) * rotation;
+        book.GetAxisFrame(out _, out Vector3 bookLengthAxis, out _, out _);
+        rotation = Quaternion.AngleAxis(180f, rotation * bookLengthAxis) * rotation;
         Vector3 scale = book.OriginalScale * (inventory.chargeScaleMultiplier * 0.65f);
         float enter = Mathf.SmoothStep(0f, 1f, (Time.time - enteredAt) / Mathf.Max(0.01f, inventory.chargeEnterDuration));
         rotation = Quaternion.Slerp(entryRotation, rotation, enter);
         scale = Vector3.Lerp(entryScale, scale, enter);
-        rotation = Quaternion.Slerp(rotation, book.transform.rotation, release);
-        scale = Vector3.Lerp(scale, book.transform.lossyScale, release);
         book.GetAxisFrame(out Vector3 cover, out Vector3 along, out Vector3 wide, out Vector3 half);
         half *= scale.magnitude / Mathf.Max(0.0001f, book.OriginalScale.magnitude);
         cover = rotation * cover; along = rotation * along; wide = rotation * wide;
@@ -287,8 +334,6 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         Vector3 gripOffset = Vector3.Scale(new Vector3(0f, -0.06f, 0.025f), c.lossyScale);
         Vector3 entryWrist = entryPosition - bookOffset - grip * gripOffset;
         wrist = Vector3.Lerp(entryWrist, wrist, enter);
-        Vector3 releaseWrist = book.transform.position - bookOffset - grip * gripOffset;
-        wrist = Vector3.Lerp(wrist, releaseWrist, release);
         elbow = wrist - lower * l2;
         // Move the complete presentation skeleton, preserving every bind offset.
         visualRoot.transform.position += elbow - upper * l1 - a.position;
@@ -303,11 +348,15 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     void Begin(Camera camera)
     {
         RestoreRendering();
-        if (!ready || !IsFirstPersonCamera(camera) ||
-            !inventory.IsThrowPoseActive || activeBook != inventory.ActiveHeldBook) return;
+        if (!ready || !activeBook || !IsFirstPersonCamera(camera)) return;
+        if (!flightHandoff &&
+            (!inventory.IsThrowPoseActive || activeBook != inventory.ActiveHeldBook)) return;
+        // NetworkBook updates at order 300, after this component's LateUpdate.
+        // Sample its final pose here so the handoff ends on the rendered projectile.
+        if (flightHandoff) PoseFlight();
         renderingCamera = camera;
         renderingApplied = true;
-        foreach (var skin in skins)
+        if (!flightHandoff) foreach (var skin in skins)
         {
             if (!skin.source) continue;
             skin.saved = skin.source.sharedMesh; skin.source.sharedMesh = skin.bodyOnly;
@@ -317,14 +366,18 @@ public sealed class FirstPersonThrowView : MonoBehaviour
             if (!renderer) continue;
             hidden[renderer] = renderer.forceRenderingOff; renderer.forceRenderingOff = true;
         }
-        foreach (var renderer in visuals) if (renderer) renderer.enabled = true;
+        if (!flightHandoff) foreach (var renderer in visuals) if (renderer) renderer.enabled = true;
         foreach (var renderer in bookVisuals) if (renderer) renderer.enabled = true;
     }
     void End(Camera camera) { if (camera == renderingCamera) RestoreRendering(); }
     void RestoreRendering()
     {
         if (renderingApplied)
-            foreach (var skin in skins) if (skin.source && skin.saved) skin.source.sharedMesh = skin.saved;
+            foreach (var skin in skins)
+            {
+                if (skin.source && skin.saved) skin.source.sharedMesh = skin.saved;
+                skin.saved = null;
+            }
         foreach (var pair in hidden) if (pair.Key) pair.Key.forceRenderingOff = pair.Value;
         hidden.Clear(); renderingCamera = null; renderingApplied = false;
         foreach (var renderer in visuals) if (renderer) renderer.enabled = false;
@@ -332,7 +385,7 @@ public sealed class FirstPersonThrowView : MonoBehaviour
     }
     void Clear()
     {
-        RestoreRendering(); ready = false; activeBook = null;
+        RestoreRendering(); ready = false; activeBook = null; flightHandoff = false;
         if (visualRoot) Destroy(visualRoot); if (bookRoot) Destroy(bookRoot);
         foreach (var mesh in meshes) if (mesh) Destroy(mesh);
         meshes.Clear(); bones.Clear(); skins.Clear(); visuals.Clear(); bookVisuals.Clear();

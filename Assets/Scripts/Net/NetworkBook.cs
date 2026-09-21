@@ -38,6 +38,9 @@ public class NetworkBook : NetworkBehaviour
         public Quaternion Rotation;
         public bool Kinematic, Throwing, LeftHand;
         public float PlacementDuration;
+        public bool Flight;
+        public Vector3 Velocity, Spin;
+        public double SampleTime;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -53,12 +56,17 @@ public class NetworkBook : NetworkBehaviour
             serializer.SerializeValue(ref Throwing);
             serializer.SerializeValue(ref LeftHand);
             serializer.SerializeValue(ref PlacementDuration);
+            serializer.SerializeValue(ref Flight);
+            serializer.SerializeValue(ref Velocity);
+            serializer.SerializeValue(ref Spin);
+            serializer.SerializeValue(ref SampleTime);
         }
         public bool Equals(BookState other) => BookId == other.BookId && BrandId == other.BrandId &&
             Holder == other.Holder && Slot == other.Slot && SlotIndex == other.SlotIndex &&
             Position.Equals(other.Position) && Rotation.Equals(other.Rotation) &&
             Scale.Equals(other.Scale) && Kinematic == other.Kinematic && Throwing == other.Throwing &&
-            LeftHand == other.LeftHand && PlacementDuration.Equals(other.PlacementDuration);
+            LeftHand == other.LeftHand && PlacementDuration.Equals(other.PlacementDuration) &&
+            Flight == other.Flight && Velocity == other.Velocity && Spin == other.Spin && SampleTime == other.SampleTime;
     }
 
     private readonly NetworkVariable<BookState> state = new NetworkVariable<BookState>(
@@ -231,18 +239,29 @@ public class NetworkBook : NetworkBehaviour
         {
             var target = state.Value;
             float blend = target.Slot != 0 ? 1f : 1f - Mathf.Exp(-25f * Time.unscaledDeltaTime);
-            transform.position = Vector3.Lerp(transform.position, target.Position, blend);
-            transform.rotation = Quaternion.Slerp(transform.rotation, target.Rotation, blend);
+            if (target.Flight && target.Holder == NoHolder && !target.Kinematic)
+            {
+                float dt = Mathf.Clamp((float)(NetworkManager.ServerTime.Time - target.SampleTime), 0f, 0.1f);
+                transform.position = target.Position + target.Velocity * dt + Physics.gravity * (0.5f * dt * dt);
+                transform.rotation = target.Spin.sqrMagnitude > 0.0001f
+                    ? Quaternion.AngleAxis(target.Spin.magnitude * dt * Mathf.Rad2Deg, target.Spin.normalized) * target.Rotation
+                    : target.Rotation;
+            }
+            else
+            {
+                transform.position = Vector3.Lerp(transform.position, target.Position, blend);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target.Rotation, blend);
+            }
             transform.localScale = Vector3.Lerp(transform.localScale, target.Scale, blend);
         }
         if (IsServer && Time.unscaledTime >= nextSync)
         {
-            nextSync = Time.unscaledTime + 1f / 15f;
+            nextSync = Time.unscaledTime + 1f / (state.Value.Throwing || state.Value.Flight ? 30f : 15f);
             PublishPose();
         }
         if (HeldByLocal && !IsServer && Time.unscaledTime >= nextHeldPose)
         {
-            nextHeldPose = Time.unscaledTime + 1f / 15f;
+            nextHeldPose = Time.unscaledTime + 1f / 30f;
             HeldPoseRpc(transform.position, transform.rotation, transform.lossyScale,
                 boundPlayer != null && boundPlayer.IsThrowPoseActive && boundPlayer.ActiveHeldBook == item,
                 boundPlayer == null || boundPlayer.throwHand == PlayerInteraction.ThrowHand.Left);
@@ -256,6 +275,14 @@ public class NetworkBook : NetworkBehaviour
         value.Rotation = transform.rotation;
         value.Scale = transform.lossyScale;
         value.Kinematic = body != null && body.isKinematic;
+        var flight = GetComponent<ThrownBook>();
+        value.Flight = body != null && !body.isKinematic && value.Holder == NoHolder && flight != null && !flight.HasImpacted;
+        if (value.Flight)
+        {
+            value.Velocity = body.linearVelocity;
+            value.Spin = body.angularVelocity;
+            value.SampleTime = NetworkManager.ServerTime.Time;
+        }
         if (HeldByLocal && boundPlayer != null)
         {
             value.Throwing = boundPlayer.IsThrowPoseActive && boundPlayer.ActiveHeldBook == item;
@@ -369,11 +396,12 @@ public class NetworkBook : NetworkBehaviour
         // Validate on the host too; a client hand pose can be beyond a wall.
         position = player.ConstrainBookToRoom(item, position);
         transform.SetPositionAndRotation(position, rotation);
-        float maxSpeed = Mathf.Max(player.maxThrowSpeed * player.releaseSnap,
-            player.dropForwardForce + player.dropUpwardForce);
+        bool chargedRelease = charged && player.throwAbilityUnlocked;
+        float maxSpeed = chargedRelease ? player.ChargedThrowSpeed(1f)
+            : player.dropForwardForce + player.dropUpwardForce;
         player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Release, position);
         Release(Vector3.ClampMagnitude(velocity, maxSpeed), spinAxis,
-            Mathf.Clamp(spin, -player.maxThrowSpin, player.maxThrowSpin), charged && player.throwAbilityUnlocked);
+            Mathf.Clamp(spin, -player.maxThrowSpin, player.maxThrowSpin), chargedRelease);
     }
 
     private void Release(Vector3 velocity, Vector3 axis, float spin, bool charged)
@@ -390,6 +418,10 @@ public class NetworkBook : NetworkBehaviour
         value.Rotation = transform.rotation;
         value.Scale = item.OriginalScale;
         value.Kinematic = false;
+        value.Flight = charged;
+        value.Velocity = velocity;
+        value.Spin = charged ? axis.normalized * spin : Vector3.zero;
+        value.SampleTime = NetworkManager.ServerTime.Time;
         value.PlacementDuration = 0f;
         state.Value = value;
         item.SetHeld(false);

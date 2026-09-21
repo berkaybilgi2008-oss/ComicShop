@@ -67,11 +67,15 @@ public class PlayerKnockdown : MonoBehaviour
         }
     }
 
+    public bool IsHeadPoint(Vector3 point)
+    {
+        return point.y >= HitBounds.max.y - HitBounds.size.y * 0.25f;
+    }
+
     public void Hit(Vector3 velocity, bool head)
     {
-        // Temporary design choice: only a head hit can knock a player down.
-        if (!head || IsDown) return;
-        Vector3 impulse = Vector3.ProjectOnPlane(velocity, Vector3.up).normalized * 4f;
+        if (IsDown) return;
+        Vector3 impulse = Vector3.ProjectOnPlane(velocity, Vector3.up).normalized * (head ? 7f : 4f);
         if (network != null && network.IsSpawned)
         {
             if (network.IsServer) network.KnockDown(impulse, head);
@@ -90,7 +94,12 @@ public class PlayerKnockdown : MonoBehaviour
         IsDown = until >= 0;
         if (IsDown && !wasDown)
         {
-            verticalSpeed = 1.5f;
+            verticalSpeed = head ? 3.5f : 1.5f;
+            if (head)
+            {
+                float age = Mathf.Max(0f, (float)(Clock - (until - 3d)));
+                if (age < 2f) ComicImpactEffect.Play(HitBounds.center + Vector3.up * HitBounds.extents.y, age);
+            }
             var interaction = GetComponent<PlayerInteraction>();
             if (Local && interaction != null) interaction.CancelForKnockdown();
         }

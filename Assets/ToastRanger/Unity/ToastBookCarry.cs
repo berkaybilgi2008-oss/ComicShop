@@ -39,6 +39,9 @@ public sealed class ToastBookCarry : MonoBehaviour
     public float VisualRelease { get; private set; }
     private int throwPoseFrame = -1;
     private Vector3 framedElbow;
+    float nextPoseSend, remotePoseUntil;
+    bool wasSendingThrow, remoteLeft;
+    Quaternion remoteUpper, remoteLower, remoteHand;
     float blend;
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
@@ -94,6 +97,40 @@ public sealed class ToastBookCarry : MonoBehaviour
     {
         ApplyCarryPose();
         ApplyThrowArm();
+        if (networkPlayer && networkPlayer.IsSpawned && networkPlayer.IsOwner && inventory)
+        {
+            bool active = inventory.IsThrowPoseActive;
+            if ((active && Time.unscaledTime >= nextPoseSend) || (wasSendingThrow && !active))
+            {
+                nextPoseSend = Time.unscaledTime + 1f / 30f;
+                networkPlayer.SubmitThrowPoseRpc(lastUpperPose, lastLowerPose, lastHandPose,
+                    inventory.throwHand == PlayerInteraction.ThrowHand.Left, active);
+            }
+            wasSendingThrow = active;
+        }
+    }
+
+    public void ReceiveThrowPose(Quaternion upper, Quaternion lower, Quaternion wrist, bool left, bool active)
+    {
+        remoteUpper = upper; remoteLower = lower; remoteHand = wrist; remoteLeft = left;
+        // The final reliable pose survives book detachment, including a one-frame release.
+        remotePoseUntil = Time.unscaledTime + (active ? 0.25f : 0.10f);
+    }
+
+    bool ApplyRemoteThrow()
+    {
+        if (!networkPlayer || !networkPlayer.IsSpawned || networkPlayer.IsOwner) return false;
+        bool active = Time.unscaledTime < remotePoseUntil && !networkPlayer.IsDown;
+        throwBlend = Mathf.MoveTowards(throwBlend, active ? 1f : 0f, Time.deltaTime / 0.08f);
+        if (throwBlend <= 0f || !SelectThrowArm(remoteLeft, out throwUpper, out throwLower, out throwHand)) return true;
+        throwUpperBase = throwUpper.localRotation;
+        throwLowerBase = throwLower.localRotation;
+        throwHandBase = throwHand.localRotation;
+        throwUpper.localRotation = Quaternion.Slerp(throwUpperBase, remoteUpper, throwBlend);
+        throwLower.localRotation = Quaternion.Slerp(throwLowerBase, remoteLower, throwBlend);
+        throwHand.localRotation = Quaternion.Slerp(throwHandBase, remoteHand, throwBlend);
+        throwApplied = true;
+        return true;
     }
 
     void ApplyCarryPose()
@@ -292,6 +329,7 @@ public sealed class ToastBookCarry : MonoBehaviour
     private void ApplyThrowArm()
     {
         if (!animator || !animator.enabled || !inventory) return;
+        if (ApplyRemoteThrow()) return;
         bool left = inventory.throwHand == PlayerInteraction.ThrowHand.Left;
         BookItem book = inventory.IsThrowPoseActive ? inventory.ActiveHeldBook : null;
         if (networkPlayer && networkPlayer.IsSpawned && !networkPlayer.IsOwner)
