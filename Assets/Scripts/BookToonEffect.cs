@@ -61,8 +61,29 @@ public class BookToonEffect : MonoBehaviour
         Material cel = template != null ? new Material(template) : new Material(shader);
         cel.name = source.name + "_GlobalToon";
         cel.enableInstancing = true;
-        cel.SetFloat("_HalftoneEnabled", 1);
-        cel.EnableKeyword("_TOON_HALFTONE");
+        // Pastel comic treatment: stable, texture-first, and independent of scene lighting.
+        // The toon shader is used only as a visual filter; no scene-light response is added.
+        cel.SetFloat("_UseLocalStyle", 1f);
+        cel.EnableKeyword("_TOON_LOCAL_STYLE");
+
+        cel.SetFloat("_OverrideShadowSteps", 1f);
+        cel.SetFloat("_LocalShadowSteps", 1f);
+        cel.SetFloat("_OverrideRampSmoothness", 1f);
+        cel.SetFloat("_LocalRampSmoothness", 1f);
+        cel.SetFloat("_OverrideBakedInfluence", 1f);
+        cel.SetFloat("_LocalBakedInfluence", 0f);
+
+        cel.SetFloat("_OverrideSpecEnabled", 1f);
+        cel.SetFloat("_LocalSpecEnabled", 0f);
+        cel.SetFloat("_OverrideRimEnabled", 1f);
+        cel.SetFloat("_LocalRimEnabled", 0f);
+
+        cel.SetFloat("_OverrideHalftoneEnabled", 1f);
+        cel.SetFloat("_LocalHalftoneEnabled", 0f);
+
+        cel.SetFloat("_OutlineEnabled", 1f);
+        cel.SetFloat("_HalftoneEnabled", 0f);
+        cel.DisableKeyword("_TOON_HALFTONE");
         string map = source.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
         if (source.HasProperty(map))
         {
@@ -70,8 +91,15 @@ public class BookToonEffect : MonoBehaviour
             cel.SetTextureScale("_BaseMap", source.GetTextureScale(map));
             cel.SetTextureOffset("_BaseMap", source.GetTextureOffset(map));
         }
-        if (source.HasProperty("_BaseColor")) cel.SetColor("_BaseColor", source.GetColor("_BaseColor"));
-        else if (source.HasProperty("_Color")) cel.SetColor("_BaseColor", source.GetColor("_Color"));
+        Color baseColor = source.HasProperty("_BaseColor")
+            ? source.GetColor("_BaseColor")
+            : (source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
+
+        // Soft pastel lift: preserve the original cover art while gently reducing
+        // harsh saturation. This is material-only; no extra scene-light response.
+        Color pastel = Color.Lerp(baseColor, Color.white, 0.10f);
+        cel.SetColor("_BaseColor", pastel);
+
         Materials[source] = cel;
         return cel;
     }

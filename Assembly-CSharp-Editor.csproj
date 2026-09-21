@@ -56,6 +56,7 @@
     <Compile Include="Assets\ComicShopShelfFrame\Editor\ComicShopShelfFrameWindow.cs" />
     <Compile Include="Assets\ComicShopV16\Editor\ShopV16RecoverAmbience.cs" />
     <Compile Include="Assets\Editor\BookMeasurementTool.cs" />
+    <Compile Include="Assets\Editor\BookPresentationSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ComicShopPendantSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonFinalSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonArchitectureRepair.cs" />
@@ -70,6 +71,7 @@
     <Compile Include="Assets\ComicShopToon\Editor\CreateToonPresets.cs" />
     <Compile Include="Assets\Editor\MultiplayerRegressionChecks.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonVariantReport.cs" />
+    <Compile Include="Assets\Editor\BookSpawnerEditor.cs" />
     <Compile Include="Assets\Editor\CharacterBookCarryChecks.cs" />
     <Compile Include="Assets\Editor\BookCorridorSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonLitGUI.cs" />

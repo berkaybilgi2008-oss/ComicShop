@@ -46,6 +46,11 @@ public class NetworkPlayerSetup : NetworkBehaviour
     {
         if (!IsServer || IsDown || float.IsNaN(impulse.sqrMagnitude) || float.IsInfinity(impulse.sqrMagnitude)) return;
         PlayCueRpc((int)ShopCue.Bonk, transform.position);
+
+        // A knocked-down player cannot keep inventory attached to the hand.
+        // Release is authoritative on the server so every client sees the same books fall.
+        NetworkBook.ReleaseAllForPlayer(OwnerClientId);
+
         downState.Value = new DownState { ReadyAt = NetworkManager.ServerTime.Time + (head ? 3d : 0.6d),
             Head = head, Impulse = Vector3.ClampMagnitude(impulse, 8f) };
     }

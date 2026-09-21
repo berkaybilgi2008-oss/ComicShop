@@ -120,6 +120,7 @@ public class PlayerInteraction : MonoBehaviour
     public Vector3 CurrentThrowShake => isChargingThrow
         ? ChargeShake() * (chargeShakeAmount * chargeAmount) : Vector3.zero;
     private BookItem chargingBook;
+    private int lastWheelDirection;
     private ToastBookCarry throwRig;
     private Vector3 enterStartPosition;
     private Quaternion enterStartRotation;
@@ -192,7 +193,10 @@ public class PlayerInteraction : MonoBehaviour
 
         float wheel = Input.mouseScrollDelta.y;
         if (Mathf.Abs(wheel) > 0.01f && heldBooks.Count > 1)
-            ChangeActiveHeldBook(wheel < 0f ? 1 : -1);
+        {
+            lastWheelDirection = wheel < 0f ? 1 : -1;
+            ChangeActiveHeldBook(lastWheelDirection);
+        }
     }
 
     private readonly RaycastHit[] lookHits = new RaycastHit[128];
@@ -426,8 +430,37 @@ public class PlayerInteraction : MonoBehaviour
         if (index < 0)
             yield break;
 
+        // The held stack is displayed bottom -> top by GetDisplayOrder(), with the
+        // active book always on top. When the top book is thrown, the book that was
+        // directly underneath it must become active. This keeps the visible stack
+        // order unchanged instead of jumping to an unrelated item.
+        List<int> displayOrderBeforeThrow = GetDisplayOrder();
+        int fallbackHeldIndex = -1;
+        int displayIndex = displayOrderBeforeThrow.IndexOf(index);
+        if (displayIndex > 0)
+        {
+            int nextVisibleHeldIndex = displayOrderBeforeThrow[displayIndex - 1];
+            if (nextVisibleHeldIndex >= 0 && nextVisibleHeldIndex < heldBooks.Count)
+                fallbackHeldIndex = nextVisibleHeldIndex;
+        }
+
         heldBooks.RemoveAt(index);
-        activeHeldIndex = heldBooks.Count == 0 ? -1 : Mathf.Clamp(index, 0, heldBooks.Count - 1);
+
+        if (heldBooks.Count == 0)
+        {
+            activeHeldIndex = -1;
+        }
+        else
+        {
+            // Convert the pre-removal list index to the new list index.
+            BookItem nextBook = fallbackHeldIndex >= 0
+                ? GetBookFromPreRemovalIndex(displayOrderBeforeThrow, displayIndex - 1)
+                : null;
+            int newIndex = nextBook != null ? heldBooks.IndexOf(nextBook) : -1;
+            activeHeldIndex = newIndex >= 0
+                ? newIndex
+                : Mathf.Clamp(index, 0, heldBooks.Count - 1);
+        }
 
         Transform cam = playerCamera.transform;
         var throwView = GetComponentInChildren<FirstPersonThrowView>();
@@ -648,8 +681,53 @@ public class PlayerInteraction : MonoBehaviour
 
     public void CancelForKnockdown()
     {
+        ReleaseAllHeldBooksForKnockdown();
+    }
+
+    public void ReleaseAllHeldBooksForKnockdown()
+    {
         CancelHandAnimations();
-        RepositionHeldBooksImmediate();
+
+        if (heldBooks.Count == 0)
+        {
+            activeHeldIndex = -1;
+            return;
+        }
+
+        List<BookItem> books = new List<BookItem>(heldBooks);
+        heldBooks.Clear();
+        activeHeldIndex = -1;
+
+        foreach (BookItem book in books)
+        {
+            if (book == null) continue;
+
+            book.transform.SetParent(null, true);
+            IgnorePlayerCollision(book, false);
+
+            // NetworkBook is released authoritatively by NetworkPlayerSetup when
+            // the knockdown begins. Do not send ReleaseRpc here: the server rejects
+            // releases from an already-down player.
+            if (book.GetComponent<NetworkBook>() != null &&
+                book.GetComponent<NetworkBook>().IsSpawned)
+                continue;
+
+            book.SetHeld(false);
+            book.transform.localScale = book.OriginalScale;
+
+            Rigidbody rb = book.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.isKinematic = false;
+                rb.useGravity = true;
+                rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+                rb.linearVelocity = Vector3.down * 0.6f;
+                rb.angularVelocity = Random.insideUnitSphere * 1.5f;
+                rb.WakeUp();
+            }
+        }
+
+        RestoreAllPlayerCollisions();
     }
 
     Quaternion GetHeldLocalRotation(BookItem book)
@@ -701,6 +779,38 @@ public class PlayerInteraction : MonoBehaviour
     {
         normalizedTime = Mathf.Clamp01(normalizedTime);
         return bookMoveCurve != null ? bookMoveCurve.Evaluate(normalizedTime) : normalizedTime;
+    }
+
+    BookItem GetBookFromPreRemovalIndex(List<int> displayOrderBeforeThrow, int displayIndex)
+    {
+        if (displayOrderBeforeThrow == null || displayIndex < 0 || displayIndex >= displayOrderBeforeThrow.Count)
+            return null;
+
+        int heldIndex = displayOrderBeforeThrow[displayIndex];
+        if (heldIndex < 0 || heldIndex >= heldBooks.Count)
+            return null;
+
+        return heldBooks[heldIndex];
+    }
+
+    int GetNextIndexAfterThrown(int removedIndex)
+    {
+        if (heldBooks.Count == 0)
+            return -1;
+
+        // Scroll up/down is a direction, not just a selection. After throwing the
+        // active book, continue in that same direction through the remaining stack.
+        if (lastWheelDirection > 0)
+            return removedIndex >= heldBooks.Count ? 0 : removedIndex;
+
+        if (lastWheelDirection < 0)
+        {
+            int next = removedIndex - 1;
+            if (next < 0) next = heldBooks.Count - 1;
+            return next;
+        }
+
+        return Mathf.Clamp(removedIndex, 0, heldBooks.Count - 1);
     }
 
     void ChangeActiveHeldBook(int direction)
