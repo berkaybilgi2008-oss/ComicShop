@@ -331,18 +331,18 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-                spawner.SpawnSession();
+            {
+                yield return spawner.SpawnSessionAsync();
+                if (spawner.SpawnError != null)
+                {
+                    Debug.LogException(spawner.SpawnError);
+                    StopWithStatus("Kitaplar oluşturulamadı: " + spawner.SpawnError.Message);
+                    yield break;
+                }
+            }
             ShopRound.Begin();
         }
-        catch (Exception error)
-        {
-            Debug.LogException(error);
-            StopWithStatus("Kitaplar oluşturulamadı: " + error.Message);
-        }
-        finally
-        {
-            serverStartup = null;
-        }
+        finally { serverStartup = null; ShopLoadingScreen.Hide(); }
     }
 
     private void HandleConnected(ulong id)

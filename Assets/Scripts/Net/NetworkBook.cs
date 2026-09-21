@@ -348,8 +348,7 @@ public class NetworkBook : NetworkBehaviour
         if (player == null || Holder != rpc.Receive.SenderClientId || slot == null ||
             player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
-        var collider = slot.GetComponentInChildren<Collider>();
-        if (collider == null || !GameplayPhysics.CanReach(player.transform, eye, collider, player.interactRange + 0.5f))
+        if (!slot.CanInteract(player.transform, eye, player.interactRange + 0.5f))
         { Reject(player, "Rafa yaklaş; arada engel var."); return; }
         if (!slot.TryGetNextPlacementPose(item, out Vector3 position, out _) ||
             Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance)

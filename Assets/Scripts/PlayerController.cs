@@ -35,6 +35,7 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if (ShopLoadingScreen.IsVisible) return;
         if (knockdown != null && knockdown.IsDown) { velocity = Vector3.zero; return; }
         if (Cursor.lockState != CursorLockMode.Locked || cameraTransform == null || !controller.enabled) return;
         HandleLook();

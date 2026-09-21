@@ -79,8 +79,11 @@ public class BookItem : MonoBehaviour
         var below = support.GetComponentInParent<BookItem>();
         if (below != null && !below.frozenAtRest) return false;
         if (support.attachedRigidbody != null && !support.attachedRigidbody.isKinematic) return false;
-        body.linearVelocity = Vector3.zero;
-        body.angularVelocity = Vector3.zero;
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
         restSupports.Clear();
         restSupports.Add(new RestSupport { collider = support, position = support.transform.position,
             rotation = support.transform.rotation, scale = support.transform.lossyScale });
@@ -89,6 +92,8 @@ public class BookItem : MonoBehaviour
         nextSupportCheck = Time.time + 0.1f;
         return true;
     }
+
+    public bool IsFrozenAtRest => frozenAtRest;
 
     private bool CaptureRestSupports()
     {

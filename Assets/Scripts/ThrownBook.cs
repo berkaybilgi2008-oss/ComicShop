@@ -47,6 +47,7 @@ public class ThrownBook : MonoBehaviour
     private float alignmentElapsed;
     private const float alignmentDuration = 0.065f;
     private bool hasHit;
+    private bool hitPlayer;
     public bool HasImpacted => hasHit;
     private Transform thrower;
     private Vector3 incomingVelocity;
@@ -76,6 +77,7 @@ public class ThrownBook : MonoBehaviour
     {
         thrower = source;
         hasHit = false;
+        hitPlayer = false;
         spawnTime = Time.time;
         previousPosition = transform.position;
         alignmentElapsed = 0f;
@@ -96,7 +98,7 @@ public class ThrownBook : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (body != null && !hasHit && !body.isKinematic)
+        if (body != null && !hitPlayer && !body.isKinematic)
         {
             incomingVelocity = body.linearVelocity;
             CheckPlayerHit();
@@ -144,7 +146,9 @@ public class ThrownBook : MonoBehaviour
         {
             if (player == null || player.IsDown || player.transform == thrower) continue;
             Bounds bounds = player.HitBounds;
-            bounds.Expand(0.12f);
+            var collider = GetComponent<Collider>();
+            Vector3 half = collider != null ? collider.bounds.extents : Vector3.one * 0.06f;
+            bounds.Expand(Vector3.Min(half, Vector3.one * 0.3f) * 2f);
             if (bounds.IntersectRay(ray, out float distance) && distance <= closest)
             { closest = distance; target = player; }
         }
@@ -170,7 +174,8 @@ public class ThrownBook : MonoBehaviour
         Vector3 point = ray.GetPoint(closest);
         bool head = target.IsHeadPoint(point);
         target.Hit(body.linearVelocity, head);
-        RegisterHit(); // One knockdown per throw; floor-bounced books do not hit again.
+        hitPlayer = true;
+        RegisterHit(); // One player hit per throw, including a fast ricochet.
         body.linearVelocity *= 0.25f;
     }
 
@@ -185,10 +190,11 @@ public class ThrownBook : MonoBehaviour
         var authority = Unity.Netcode.NetworkManager.Singleton;
         if (authority != null && authority.IsListening && !authority.IsServer) return;
         var target = collision.collider.GetComponentInParent<PlayerKnockdown>();
-        if (!hasHit && target != null && target.transform != thrower && !target.IsDown && incomingVelocity.sqrMagnitude > 4f)
+        if (!hitPlayer && target != null && target.transform != thrower && !target.IsDown && incomingVelocity.sqrMagnitude > 4f)
         {
             Vector3 point = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;
             target.Hit(incomingVelocity, target.IsHeadPoint(point));
+            hitPlayer = true;
         }
         // Ignore residual contacts with the thrower's own rig.
         if (thrower != null && collision.collider.transform.IsChildOf(thrower)) return;

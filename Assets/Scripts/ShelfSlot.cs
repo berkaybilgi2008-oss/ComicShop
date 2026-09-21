@@ -168,6 +168,20 @@ public class ShelfSlot : MonoBehaviour
     void Awake()
     {
         EnsureArray();
+        // Placement volumes are interaction triggers, never solid barriers across openings.
+        foreach (var box in GetComponentsInChildren<BoxCollider>(true))
+            if ((box.gameObject == gameObject || box.name == "__ShelfInteraction") &&
+                box.GetComponentInParent<ShelfSlot>() == this && box.GetComponentInParent<BookItem>() == null)
+            { box.enabled = true; box.isTrigger = true; }
+    }
+
+    public bool CanInteract(Transform actor, Vector3 eye, float range)
+    {
+        foreach (var box in GetComponentsInChildren<BoxCollider>())
+            if (box.enabled && box.GetComponentInParent<ShelfSlot>() == this &&
+                box.GetComponentInParent<BookItem>() == null && GameplayPhysics.CanReach(actor, eye, box, range))
+                return true;
+        return false;
     }
 
     void EnsureArray()

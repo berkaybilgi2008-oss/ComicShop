@@ -146,6 +146,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        if (ShopLoadingScreen.IsVisible) return;
         UpdateCollisionRestoration();
         if (heldBooks.RemoveAll(book => book == null) > 0)
         {
@@ -240,7 +241,7 @@ public class PlayerInteraction : MonoBehaviour
             var blockingSlot = hit.collider.GetComponentInParent<ShelfSlot>();
             // An interaction mask must never make a wall transparent to pickup.
             if (blockingBook == null && blockingSlot == null) break;
-            if ((interactMask.value & (1 << hit.collider.gameObject.layer)) == 0) break;
+            if (blockingSlot == null && (interactMask.value & (1 << hit.collider.gameObject.layer)) == 0) break;
             if (nearestBook == null)
             {
                 BookItem book = hit.collider.GetComponentInParent<BookItem>();

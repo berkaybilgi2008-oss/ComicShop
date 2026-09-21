@@ -1,4 +1,5 @@
 using Unity.Netcode;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -43,13 +44,13 @@ public class BookSpawner : MonoBehaviour
     private bool sessionSpawned;
     private readonly List<GameObject> sessionBooks = new List<GameObject>();
 
-    void Start()
+    IEnumerator Start()
     {
-        if (FindFirstObjectByType<NetworkManager>() != null) return;
+        if (FindFirstObjectByType<NetworkManager>() != null) yield break;
         ValidateConfiguration(false);
         InitializeStats();
-        SpawnBooks(BookTypeCount);
-        ShopRound.BeginOffline();
+        yield return SpawnSessionAsync();
+        if (SpawnError == null) ShopRound.BeginOffline();
     }
 
     private int BookTypeCount => bookTypes != null && bookTypes.Length > 0
@@ -73,11 +74,42 @@ public class BookSpawner : MonoBehaviour
         }
     }
 
-    public void SpawnSession()
+    public System.Exception SpawnError { get; private set; }
+    public IEnumerator SpawnSessionAsync()
     {
-        if (sessionSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
-        SpawnBooks(BookTypeCount);
-        sessionSpawned = true;
+        if (sessionSpawned) yield break;
+        SpawnError = null;
+        ShopLoadingScreen.Show();
+        var routine = SpawnBooks(BookTypeCount);
+        try
+        {
+            yield return null;
+            yield return null;
+            while (true)
+            {
+                bool more = false;
+                try { more = routine.MoveNext(); }
+                catch (System.Exception error) { SpawnError = error; }
+                if (SpawnError != null || !more) break;
+                yield return routine.Current;
+            }
+            sessionSpawned = SpawnError == null;
+        }
+        finally
+        {
+            (routine as System.IDisposable)?.Dispose();
+            if (!sessionSpawned)
+            {
+                foreach (var book in sessionBooks)
+                {
+                    if (book == null) continue;
+                    var net = book.GetComponent<NetworkObject>();
+                    if (net != null && net.IsSpawned) net.Despawn(true); else Destroy(book);
+                }
+                sessionBooks.Clear();
+            }
+            ShopLoadingScreen.Hide();
+        }
     }
 
     private void InitializeStats()
@@ -95,7 +127,7 @@ public class BookSpawner : MonoBehaviour
         GameStats.Initialize(ids, copiesPerBook);
     }
 
-    void SpawnBooks(int bookTypeCount)
+    IEnumerator SpawnBooks(int bookTypeCount)
     {
         List<int> ids = new List<int>(bookTypeCount * copiesPerBook);
 
@@ -113,39 +145,38 @@ public class BookSpawner : MonoBehaviour
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
         sessionBooks.Clear();
-        try
         {
             // One guaranteed book per assigned area, remaining books weighted by usable area.
             var positions = CreateSpawnPositions(ids.Count);
-            for (int i = 0; i < ids.Count; i++) SpawnSingleBook(ids[i], positions[i]);
+            for (int i = 0; i < ids.Count; i++)
+            {
+                SpawnSingleBook(ids[i], positions[i]);
+                if (i % 12 == 0) { ShopLoadingScreen.Progress((float)i / ids.Count * 0.45f); yield return null; }
+            }
             var books = new List<BookItem>(sessionBooks.Count);
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
             spawnedTowerBooks.Clear();
-            ArrangeTowers(books);
-            SeparateInitialBooks(books);
+            var towers = ArrangeTowers(books);
+            while (towers.MoveNext()) yield return towers.Current;
+            ShopLoadingScreen.Progress(0.55f);
+            var scattered = SeparateInitialBooks(books);
+            while (scattered.MoveNext()) yield return scattered.Current;
+            int published = 0;
             // Publish the completed server layout, never the pre-arrangement poses.
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
-                foreach (var book in books)
+            foreach (var book in books)
+            {
+                var body = book.GetComponent<Rigidbody>();
+                if (body != null) body.isKinematic = book.IsFrozenAtRest;
+                if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
                 {
                     var networkBook = book.GetComponent<NetworkBook>();
                     networkBook.Initialize(book.bookID, book.brandID);
                     networkBook.NetworkObject.Spawn(true);
                 }
-        }
-        catch
-        {
-            foreach (var book in sessionBooks)
-            {
-                if (book == null) continue;
-                var network = book.GetComponent<NetworkObject>();
-                if (network != null && network.IsSpawned) network.Despawn(true);
-                else Destroy(book);
+                if (++published % 12 == 0)
+                { ShopLoadingScreen.Progress(0.85f + 0.15f * published / books.Count); yield return null; }
             }
-            sessionBooks.Clear();
-            sessionSpawned = false;
-            throw;
         }
-
         Debug.Log($"BookSpawner: {ids.Count} fiziksel kitap spawn edildi ({bookTypeCount} farkli kitap x {copiesPerBook} kopya).");
     }
 
@@ -175,10 +206,10 @@ public class BookSpawner : MonoBehaviour
         Vector3 heading = Quaternion.AngleAxis(Random.Range(0f, 360f), Vector3.up) * Vector3.forward;
         book.transform.rotation = bookItem.GetAlignedRotation(Vector3.up, heading);
         Rigidbody rb = book.GetComponent<Rigidbody>();
-        if (rb != null && !rb.isKinematic)
+        if (rb != null)
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
+            if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            rb.isKinematic = true; // No settling until the entire layout is ready.
         }
 
     }
@@ -236,7 +267,7 @@ public class BookSpawner : MonoBehaviour
         return nearest < float.PositiveInfinity && ground.normal.y > 0.98f && ground.collider.attachedRigidbody == null;
     }
 
-    private int ArrangeTowers(List<BookItem> books)
+    private IEnumerator ArrangeTowers(List<BookItem> books)
     {
         int small = Mathf.Max(2, smallTowerSize);
         int large = Mathf.Max(2, largeTowerSize);
@@ -248,21 +279,22 @@ public class BookSpawner : MonoBehaviour
         for (int i = 0; i < (budget - budget / 2) / large; i++) sizes.Add(large);
         int tallBudget = Mathf.Min(books.Count - budget,
             Mathf.RoundToInt(books.Count * Mathf.Clamp01(extraTallTowerBookFraction)));
-        for (int i = 0; i < (tallBudget / 2) / (small + 10); i++) sizes.Add(small + 10);
-        for (int i = 0; i < (tallBudget - tallBudget / 2) / (large + 10); i++) sizes.Add(large + 10);
+        for (int i = 0; i < (tallBudget / 2) / (small + 10); i++) sizes.Add(small + 5);
+        for (int i = 0; i < (tallBudget - tallBudget / 2) / (large + 10); i++) sizes.Add(large + 5);
         for (int i = sizes.Count - 1; i > 0; i--)
         {
             int j = Random.Range(0, i + 1);
             (sizes[i], sizes[j]) = (sizes[j], sizes[i]);
         }
         int requested = sizes.Count;
-        if (requested == 0) return 0;
+        if (requested == 0) yield break;
         var reservations = new List<Vector4>();
         var stacked = new HashSet<BookItem>();
         Physics.SyncTransforms();
         int cursor = 0;
         for (int tower = 0; tower < requested; tower++)
         {
+            yield return null;
             int count = sizes[tower];
             int first = cursor;
             cursor += count;
@@ -357,10 +389,10 @@ public class BookSpawner : MonoBehaviour
         }
         Physics.SyncTransforms();
         if (reservations.Count < requested) Debug.LogWarning($"BookSpawner: {requested} kuleden {reservations.Count} tanesi sigdi; kalan kitaplar daginik.");
-        return reservations.Count;
+        yield return null;
     }
 
-    private void SeparateInitialBooks(List<BookItem> books)
+    private IEnumerator SeparateInitialBooks(List<BookItem> books)
     {
         Physics.SyncTransforms();
         var placed = new List<Bounds>(books.Count);
@@ -373,9 +405,11 @@ public class BookSpawner : MonoBehaviour
                 placed.Add(bounds);
                 towerBounds.Add(bounds);
             }
-        int unresolved = 0;
+        int unresolved = 0, processed = 0;
         foreach (var book in books)
         {
+            if (++processed % 12 == 0)
+            { ShopLoadingScreen.Progress(0.55f + 0.3f * processed / books.Count); yield return null; }
             if (spawnedTowerBooks.Contains(book)) continue;
             Bounds original = BookBounds(book);
             Vector3 offset = original.center - book.transform.position;
