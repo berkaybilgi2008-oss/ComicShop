@@ -101,6 +101,7 @@
     <Compile Include="Assets\ComicShopToon\Runtime\ToonCameraSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Runtime\ToonGlobals.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
+    <Compile Include="Assets\Scripts\ComicEffectController.cs" />
     <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastBookCarry.cs" />
     <Compile Include="Assets\Scripts\BookDisplayName.cs" />
