@@ -43,7 +43,16 @@ namespace ComicShop
             // Supports the previously generated standalone MainMenu scene too.
             foreach (var graphic in FindObjectsByType<Graphic>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
-                Texture texture = graphic.mainTexture;
+                // Do not query Graphic.mainTexture: a texture-less RawImage can
+                // fall back to a material whose shader has no _MainTex property.
+                Texture texture = null;
+                if (graphic is RawImage raw)
+                    texture = raw.texture;
+                else if (graphic is Image image)
+                {
+                    Sprite sprite = image.overrideSprite != null ? image.overrideSprite : image.sprite;
+                    if (sprite != null) texture = sprite.texture;
+                }
                 if (texture != null && texture.name == "menu_background" &&
                     graphic.GetComponent<ComicLiveBackdrop>() == null)
                     graphic.gameObject.AddComponent<ComicLiveBackdrop>();
