@@ -132,6 +132,7 @@ namespace ComicShop.EditorTools
             var bgGO = NewUI("Background", canvasGO.transform);
             var bgImg = bgGO.AddComponent<Image>();
             bgImg.sprite = bgSprite;
+            bgGO.AddComponent<ComicLiveBackdrop>();
             bgImg.raycastTarget = true;          // imlec konumu icin olay yakalar
             bgGO.AddComponent<CursorProbe>();
             var bgRt = bgGO.GetComponent<RectTransform>();

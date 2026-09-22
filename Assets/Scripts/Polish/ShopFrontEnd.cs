@@ -379,6 +379,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         fit.aspectRatio = 1672f / 941f; fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
         var art = titleArt.gameObject.AddComponent<RawImage>();
         art.texture = Resources.Load<Texture2D>("ComicShopMenu/menu_background"); art.raycastTarget = false;
+        art.gameObject.AddComponent<ComicShop.ComicLiveBackdrop>();
         titleButtons = new GameObject("Title buttons", typeof(RectTransform)).GetComponent<RectTransform>();
         titleButtons.SetParent(titleArt, false); Stretch(titleButtons);
         CoverButton("btn_play", 1158, 450, 497, 142, () => { page = Page.Session; Build(); });
