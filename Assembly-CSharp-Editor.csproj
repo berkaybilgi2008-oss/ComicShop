@@ -100,6 +100,7 @@
     <Compile Include="Assets\Editor\BookRotationTool.cs" />
     <Compile Include="Assets\ComicShopV16\Editor\ShopV16LightingRepair.cs" />
     <Compile Include="Assets\ToastRanger\Unity\Editor\ToastAnimatedSetup.cs" />
+    <Compile Include="Assets\Editor\ComicShopIdentityWindow.cs" />
     <Compile Include="Assets\ComicShopMenu\Editor\ComicMenuResourceRecovery.cs" />
     <Compile Include="Assets\ToastRanger\Unity\Editor\ToastRangerSetup.cs" />
     <Compile Include="Assets\TutorialInfo\Editor\ReadmeEditor.cs" />
