@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 324117296961145488}
   - component: {fileID: 4975690203576283548}
   m_Layer: 9
-  m_Name: RafPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -46,9 +45,8 @@ BoxCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+    m_LayerOverridePriority: 0
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -68,26 +66,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
   brandID: 0
   capacity: 10
-  placementMode: 0
-  spreadAxis: 0
-  firstBookInset: 0.04
-  bookSpacing: 0.08
-  alignToBottom: 1
-  restBookOnSurface: 1
-  bottomLift: 0.005
-  worldOffset: {x: 0, y: 0, z: 0}
-  rotateOffsetWithShelf: 1
-  bookRotationOffsetEuler: {x: 0, y: 0, z: 0}
-  maxPointDistance: 3
-  placementPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  showGizmos: 1
