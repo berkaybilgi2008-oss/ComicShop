@@ -136,7 +136,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &3180172
 Transform:
   m_ObjectHideFlags: 0
@@ -186,7 +186,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -280,7 +280,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4813671
 Transform:
   m_ObjectHideFlags: 0
@@ -330,7 +330,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -697,7 +697,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &8162634
 Transform:
   m_ObjectHideFlags: 0
@@ -747,7 +747,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -969,7 +969,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &14338408
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -982,7 +982,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -1529,7 +1529,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &26369602
 Transform:
   m_ObjectHideFlags: 0
@@ -1579,7 +1579,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -2051,7 +2051,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &37288340
 Transform:
   m_ObjectHideFlags: 0
@@ -2101,7 +2101,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -2232,7 +2232,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &39752045
 Transform:
   m_ObjectHideFlags: 0
@@ -2282,7 +2282,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -3755,7 +3755,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &71977519
 Transform:
   m_ObjectHideFlags: 0
@@ -3805,7 +3805,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -4593,7 +4593,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &91222134
 Transform:
   m_ObjectHideFlags: 0
@@ -4643,7 +4643,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -5861,7 +5861,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &118444355
 Transform:
   m_ObjectHideFlags: 0
@@ -5911,7 +5911,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6398,7 +6398,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &140983753
 Transform:
   m_ObjectHideFlags: 0
@@ -6448,7 +6448,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6542,7 +6542,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &142917323
 Transform:
   m_ObjectHideFlags: 0
@@ -6592,7 +6592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6724,7 +6724,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &143651117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6737,7 +6737,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6815,7 +6815,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &149508298
 Transform:
   m_ObjectHideFlags: 0
@@ -6865,7 +6865,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7404,7 +7404,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &178606693
 Transform:
   m_ObjectHideFlags: 0
@@ -7454,7 +7454,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7495,7 +7495,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &179015958
 Transform:
   m_ObjectHideFlags: 0
@@ -7545,7 +7545,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7797,7 +7797,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &192542322
 Transform:
   m_ObjectHideFlags: 0
@@ -7847,7 +7847,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8358,7 +8358,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &208845581
 Transform:
   m_ObjectHideFlags: 0
@@ -8408,7 +8408,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10346,7 +10346,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &263979904
 Transform:
   m_ObjectHideFlags: 0
@@ -10396,7 +10396,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11580,7 +11580,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &291669564
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11593,7 +11593,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11841,7 +11841,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &296083382
 Transform:
   m_ObjectHideFlags: 0
@@ -11891,7 +11891,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12568,7 +12568,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &312901281
 Transform:
   m_ObjectHideFlags: 0
@@ -12618,7 +12618,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12750,7 +12750,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &318517947
 Transform:
   m_ObjectHideFlags: 0
@@ -12800,7 +12800,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -13200,7 +13200,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &323776435
 Transform:
   m_ObjectHideFlags: 0
@@ -13250,7 +13250,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -14324,7 +14324,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &347719229
 Transform:
   m_ObjectHideFlags: 0
@@ -14374,7 +14374,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -15179,7 +15179,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &365625391
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15192,7 +15192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16241,7 +16241,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &397925624
 Transform:
   m_ObjectHideFlags: 0
@@ -16291,7 +16291,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16332,7 +16332,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &398663649
 Transform:
   m_ObjectHideFlags: 0
@@ -16382,7 +16382,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17533,7 +17533,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &426330711
 Transform:
   m_ObjectHideFlags: 0
@@ -17583,7 +17583,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19647,7 +19647,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &481644855
 Transform:
   m_ObjectHideFlags: 0
@@ -19697,7 +19697,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19878,7 +19878,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &482787376
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -19891,7 +19891,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -20785,7 +20785,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &494879354
 Transform:
   m_ObjectHideFlags: 0
@@ -20835,7 +20835,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -21265,7 +21265,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &519227615
 Transform:
   m_ObjectHideFlags: 0
@@ -21315,7 +21315,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -22602,7 +22602,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &561964118
 Transform:
   m_ObjectHideFlags: 0
@@ -22652,7 +22652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -23258,7 +23258,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &577720642
 Transform:
   m_ObjectHideFlags: 0
@@ -23308,7 +23308,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24005,7 +24005,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &599230455
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24018,7 +24018,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24539,7 +24539,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &606604670
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24552,7 +24552,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26353,7 +26353,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &677200757
 Transform:
   m_ObjectHideFlags: 0
@@ -26403,7 +26403,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28009,7 +28009,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &725805922
 Transform:
   m_ObjectHideFlags: 0
@@ -28059,7 +28059,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28100,7 +28100,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &728178119
 Transform:
   m_ObjectHideFlags: 0
@@ -28150,7 +28150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28387,7 +28387,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &733260184
 Transform:
   m_ObjectHideFlags: 0
@@ -28437,7 +28437,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -30123,7 +30123,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &781678916
 Transform:
   m_ObjectHideFlags: 0
@@ -30173,7 +30173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -31261,7 +31261,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &797834238
 Transform:
   m_ObjectHideFlags: 0
@@ -31311,7 +31311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32302,7 +32302,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &825076882
 Transform:
   m_ObjectHideFlags: 0
@@ -32352,7 +32352,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32879,7 +32879,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &858103907
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -32892,7 +32892,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33113,7 +33113,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &863116672
 Transform:
   m_ObjectHideFlags: 0
@@ -33163,7 +33163,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33257,7 +33257,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &869106445
 Transform:
   m_ObjectHideFlags: 0
@@ -33307,7 +33307,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33348,7 +33348,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &872669716
 Transform:
   m_ObjectHideFlags: 0
@@ -33398,7 +33398,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33635,7 +33635,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &883094346
 Transform:
   m_ObjectHideFlags: 0
@@ -33685,7 +33685,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34002,7 +34002,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &888947798
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -34015,7 +34015,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34327,7 +34327,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &896841486
 Transform:
   m_ObjectHideFlags: 0
@@ -34377,7 +34377,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34946,7 +34946,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &904853857
 Transform:
   m_ObjectHideFlags: 0
@@ -34996,7 +34996,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36608,7 +36608,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &944202808
 Transform:
   m_ObjectHideFlags: 0
@@ -36658,7 +36658,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -38072,7 +38072,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &962940241
 Transform:
   m_ObjectHideFlags: 0
@@ -38122,7 +38122,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -39590,7 +39590,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1002920878
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -39603,7 +39603,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41329,7 +41329,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1042797505
 Transform:
   m_ObjectHideFlags: 0
@@ -41379,7 +41379,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42096,7 +42096,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1063728580
 Transform:
   m_ObjectHideFlags: 0
@@ -42146,7 +42146,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42967,7 +42967,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1075064329
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -42980,7 +42980,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43655,7 +43655,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1088813740
 Transform:
   m_ObjectHideFlags: 0
@@ -43705,7 +43705,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43799,7 +43799,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1093452491
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -43812,7 +43812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -44268,7 +44268,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1108116098
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -44281,7 +44281,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45325,7 +45325,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1132392407
 Transform:
   m_ObjectHideFlags: 0
@@ -45375,7 +45375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45654,7 +45654,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1137696434
 Transform:
   m_ObjectHideFlags: 0
@@ -45704,7 +45704,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45745,7 +45745,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1141462251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45758,7 +45758,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46576,7 +46576,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1165055696
 Transform:
   m_ObjectHideFlags: 0
@@ -46626,7 +46626,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46758,7 +46758,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1171461439
 Transform:
   m_ObjectHideFlags: 0
@@ -46808,7 +46808,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -47665,7 +47665,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1197678851
 Transform:
   m_ObjectHideFlags: 0
@@ -47715,7 +47715,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -48134,7 +48134,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1205489210
 Transform:
   m_ObjectHideFlags: 0
@@ -48184,7 +48184,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -48225,7 +48225,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1206468734
 Transform:
   m_ObjectHideFlags: 0
@@ -48275,7 +48275,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50355,7 +50355,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1271860943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -50368,7 +50368,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50537,7 +50537,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1273847454
 Transform:
   m_ObjectHideFlags: 0
@@ -50587,7 +50587,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50861,7 +50861,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1279172768
 Transform:
   m_ObjectHideFlags: 0
@@ -50911,7 +50911,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51118,7 +51118,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1280221084
 Transform:
   m_ObjectHideFlags: 0
@@ -51168,7 +51168,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51209,7 +51209,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1283230586
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -51222,7 +51222,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51813,7 +51813,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1300492212
 Transform:
   m_ObjectHideFlags: 0
@@ -51863,7 +51863,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52304,7 +52304,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1318687518
 Transform:
   m_ObjectHideFlags: 0
@@ -52354,7 +52354,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52395,7 +52395,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1320633388
 Transform:
   m_ObjectHideFlags: 0
@@ -52445,7 +52445,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52817,7 +52817,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1329503912
 Transform:
   m_ObjectHideFlags: 0
@@ -52867,7 +52867,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54045,7 +54045,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1344675405
 Transform:
   m_ObjectHideFlags: 0
@@ -54095,7 +54095,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54672,7 +54672,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1351723248
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -54685,7 +54685,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58487,7 +58487,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1440284368
 Transform:
   m_ObjectHideFlags: 0
@@ -58537,7 +58537,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -61200,7 +61200,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1498247951
 Transform:
   m_ObjectHideFlags: 0
@@ -61250,7 +61250,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63057,7 +63057,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1539652308
 Transform:
   m_ObjectHideFlags: 0
@@ -63107,7 +63107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63505,7 +63505,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1546898001
 Transform:
   m_ObjectHideFlags: 0
@@ -63555,7 +63555,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64989,7 +64989,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1603036890
 Transform:
   m_ObjectHideFlags: 0
@@ -65039,7 +65039,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -67066,7 +67066,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1655551271
 Transform:
   m_ObjectHideFlags: 0
@@ -67116,7 +67116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -68007,7 +68007,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1684228736
 Transform:
   m_ObjectHideFlags: 0
@@ -68057,7 +68057,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69109,7 +69109,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1713386534
 Transform:
   m_ObjectHideFlags: 0
@@ -69159,7 +69159,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69903,7 +69903,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1729532252
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -69916,7 +69916,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70939,7 +70939,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1745074527
 Transform:
   m_ObjectHideFlags: 0
@@ -70989,7 +70989,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -71799,7 +71799,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1768729453
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -71812,7 +71812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -72290,7 +72290,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1779071110
 Transform:
   m_ObjectHideFlags: 0
@@ -72340,7 +72340,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -72832,7 +72832,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1790226690
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -72845,7 +72845,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -74966,7 +74966,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1851690890
 Transform:
   m_ObjectHideFlags: 0
@@ -75016,7 +75016,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 16
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77328,7 +77328,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1907310239
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -77341,7 +77341,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -78702,7 +78702,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1925270597
 Transform:
   m_ObjectHideFlags: 0
@@ -78752,7 +78752,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 14
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -79338,7 +79338,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1940716575
 Transform:
   m_ObjectHideFlags: 0
@@ -79388,7 +79388,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80626,7 +80626,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1977773284
 Transform:
   m_ObjectHideFlags: 0
@@ -80676,7 +80676,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 8
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81292,7 +81292,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1987429599
 Transform:
   m_ObjectHideFlags: 0
@@ -81342,7 +81342,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81580,7 +81580,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2000549894
 Transform:
   m_ObjectHideFlags: 0
@@ -81630,7 +81630,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -82922,7 +82922,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2033069755
 Transform:
   m_ObjectHideFlags: 0
@@ -82972,7 +82972,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -83013,7 +83013,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2035617812
 Transform:
   m_ObjectHideFlags: 0
@@ -83063,7 +83063,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 5
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86159,7 +86159,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2125554222
 Transform:
   m_ObjectHideFlags: 0
@@ -86209,7 +86209,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 7
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86700,7 +86700,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2140569436
 Transform:
   m_ObjectHideFlags: 0
@@ -86750,7 +86750,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 1
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86996,7 +86996,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2144061346
 Transform:
   m_ObjectHideFlags: 0
@@ -87046,7 +87046,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 10
+  brandID: 0
   capacity: 10
   placementMode: 0
   spreadAxis: 2
