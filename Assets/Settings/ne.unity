@@ -186,7 +186,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -330,7 +330,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -656,7 +656,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -747,7 +747,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -838,7 +838,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -982,7 +982,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -1579,7 +1579,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -1723,7 +1723,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -1851,7 +1851,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -2101,7 +2101,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -2282,7 +2282,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -2516,7 +2516,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -3259,7 +3259,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -3440,7 +3440,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -3622,7 +3622,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -3805,7 +3805,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -4462,7 +4462,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -4643,7 +4643,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -5131,7 +5131,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -5911,7 +5911,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6357,7 +6357,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6448,7 +6448,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6592,7 +6592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6683,7 +6683,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6737,7 +6737,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -6865,7 +6865,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7454,7 +7454,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7545,7 +7545,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7847,7 +7847,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -7938,7 +7938,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8029,7 +8029,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8120,7 +8120,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8174,7 +8174,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8408,7 +8408,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8499,7 +8499,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8696,7 +8696,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8787,7 +8787,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -8878,7 +8878,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9096,7 +9096,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9187,7 +9187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9278,7 +9278,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9549,7 +9549,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9640,7 +9640,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -9890,7 +9890,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10215,7 +10215,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10396,7 +10396,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10795,7 +10795,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10886,7 +10886,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -10977,7 +10977,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11068,7 +11068,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11159,7 +11159,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11411,7 +11411,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11593,7 +11593,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11891,7 +11891,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -11982,7 +11982,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12195,7 +12195,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12413,7 +12413,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12618,7 +12618,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -12800,7 +12800,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -13250,7 +13250,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -14374,7 +14374,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -14705,7 +14705,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -14796,7 +14796,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -14940,7 +14940,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -15192,7 +15192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -15320,7 +15320,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16147,7 +16147,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16291,7 +16291,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16382,7 +16382,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16556,7 +16556,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -16843,7 +16843,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17024,7 +17024,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17258,7 +17258,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17349,7 +17349,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17583,7 +17583,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17732,7 +17732,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17876,7 +17876,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -17983,7 +17983,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -18684,7 +18684,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19098,7 +19098,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19424,7 +19424,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19515,7 +19515,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19606,7 +19606,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19697,7 +19697,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -19891,7 +19891,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -20162,7 +20162,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -20835,7 +20835,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -21315,7 +21315,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -21437,7 +21437,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -22338,7 +22338,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -22652,7 +22652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -22706,7 +22706,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -22797,7 +22797,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -23308,7 +23308,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -23724,7 +23724,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -23815,7 +23815,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -23964,7 +23964,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24018,7 +24018,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24408,7 +24408,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24552,7 +24552,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -24696,7 +24696,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -25678,7 +25678,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -25806,7 +25806,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26003,7 +26003,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26094,7 +26094,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26403,7 +26403,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26547,7 +26547,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26834,7 +26834,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -26994,7 +26994,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -27122,7 +27122,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -27266,7 +27266,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -27447,7 +27447,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -27718,7 +27718,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -27809,7 +27809,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28059,7 +28059,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28150,7 +28150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28437,7 +28437,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -28671,7 +28671,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -29035,7 +29035,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -29126,7 +29126,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -29307,7 +29307,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -29938,7 +29938,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -30029,7 +30029,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -30173,7 +30173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -30552,7 +30552,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -31043,7 +31043,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -31311,7 +31311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -31402,7 +31402,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -31991,7 +31991,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32352,7 +32352,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32549,7 +32549,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32838,7 +32838,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -32892,7 +32892,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33163,7 +33163,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33307,7 +33307,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33398,7 +33398,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -33685,7 +33685,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34015,7 +34015,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34196,7 +34196,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34377,7 +34377,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -34996,7 +34996,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -35087,7 +35087,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -35623,7 +35623,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -35714,7 +35714,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -35805,7 +35805,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36107,7 +36107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36259,7 +36259,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36350,7 +36350,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36658,7 +36658,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -36876,7 +36876,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -37200,7 +37200,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -37291,7 +37291,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -37429,7 +37429,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -37557,7 +37557,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -38122,7 +38122,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -38815,7 +38815,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -38922,7 +38922,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -39140,7 +39140,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -39284,7 +39284,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -39375,7 +39375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -39603,7 +39603,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -40048,7 +40048,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -40501,7 +40501,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -40592,7 +40592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41054,7 +41054,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41182,7 +41182,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41379,7 +41379,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41523,7 +41523,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41614,7 +41614,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -41910,7 +41910,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42146,7 +42146,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42290,7 +42290,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42495,7 +42495,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42783,7 +42783,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -42980,7 +42980,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43311,7 +43311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43508,7 +43508,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43705,7 +43705,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -43812,7 +43812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -44281,7 +44281,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -44372,7 +44372,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45217,7 +45217,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45375,7 +45375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45704,7 +45704,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -45758,7 +45758,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46029,7 +46029,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46157,7 +46157,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46301,7 +46301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46535,7 +46535,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46626,7 +46626,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46717,7 +46717,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -46808,7 +46808,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -47246,7 +47246,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -47368,7 +47368,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -47715,7 +47715,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -47912,7 +47912,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -48184,7 +48184,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -48275,7 +48275,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -49311,7 +49311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -49672,7 +49672,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -49847,7 +49847,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50081,7 +50081,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50368,7 +50368,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50459,7 +50459,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50587,7 +50587,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -50911,7 +50911,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51168,7 +51168,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51222,7 +51222,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51313,7 +51313,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51441,7 +51441,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51719,7 +51719,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -51863,7 +51863,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52122,7 +52122,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52354,7 +52354,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52445,7 +52445,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52649,7 +52649,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52867,7 +52867,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -52958,7 +52958,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -53012,7 +53012,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -53209,7 +53209,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -53773,7 +53773,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54004,7 +54004,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54095,7 +54095,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54685,7 +54685,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -54956,7 +54956,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -55100,7 +55100,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -55700,7 +55700,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -56093,7 +56093,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -56311,7 +56311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -57296,7 +57296,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -57477,7 +57477,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58158,7 +58158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58249,7 +58249,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58393,7 +58393,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58537,7 +58537,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -58939,7 +58939,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -59120,7 +59120,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -59574,7 +59574,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -59718,7 +59718,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -60365,7 +60365,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -60898,7 +60898,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -60952,7 +60952,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -61250,7 +61250,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -61628,7 +61628,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -61825,7 +61825,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -62639,7 +62639,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -62963,7 +62963,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63107,7 +63107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63198,7 +63198,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63342,7 +63342,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63427,7 +63427,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63555,7 +63555,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63803,7 +63803,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -63978,7 +63978,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64134,7 +64134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64262,7 +64262,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64353,7 +64353,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64534,7 +64534,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -64641,7 +64641,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -65039,7 +65039,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -66054,7 +66054,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -66476,7 +66476,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -67116,7 +67116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -67604,7 +67604,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -67822,7 +67822,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -67913,7 +67913,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -68057,7 +68057,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -68547,7 +68547,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -68638,7 +68638,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -68909,7 +68909,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69159,7 +69159,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69340,7 +69340,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69770,7 +69770,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -69916,7 +69916,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70187,7 +70187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70278,7 +70278,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70624,7 +70624,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70770,7 +70770,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70898,7 +70898,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -70989,7 +70989,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -71170,7 +71170,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -71812,7 +71812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -72340,7 +72340,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -72845,7 +72845,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -73200,7 +73200,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -73996,7 +73996,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -74087,7 +74087,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -74141,7 +74141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -74375,7 +74375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -75016,7 +75016,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -75107,7 +75107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -75251,7 +75251,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -75305,7 +75305,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -75614,7 +75614,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -76186,7 +76186,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -76277,7 +76277,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 11
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -76368,7 +76368,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -76550,7 +76550,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -76943,7 +76943,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77341,7 +77341,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77432,7 +77432,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77777,7 +77777,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77862,7 +77862,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -77990,7 +77990,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -78441,7 +78441,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -78752,7 +78752,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -79244,7 +79244,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -79388,7 +79388,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -79585,7 +79585,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -79872,7 +79872,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 4
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80234,7 +80234,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80416,7 +80416,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80523,7 +80523,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80676,7 +80676,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80767,7 +80767,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80858,7 +80858,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -80949,7 +80949,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81342,7 +81342,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81433,7 +81433,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81630,7 +81630,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81721,7 +81721,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -81812,7 +81812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 3
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -82194,7 +82194,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -82375,7 +82375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -82737,7 +82737,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 12
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -82972,7 +82972,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -83063,7 +83063,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -83154,7 +83154,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 13
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -83414,7 +83414,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -84045,7 +84045,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 15
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -84306,7 +84306,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 14
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -84621,7 +84621,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 5
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -84803,7 +84803,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 8
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -85034,7 +85034,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 9
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -85239,7 +85239,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -85414,7 +85414,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -85830,7 +85830,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 6
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -85884,7 +85884,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86118,7 +86118,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86209,7 +86209,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 7
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86560,7 +86560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 2
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86750,7 +86750,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 1
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -86955,7 +86955,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -87046,7 +87046,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 10
   capacity: 10
   placementMode: 0
   spreadAxis: 2
@@ -87333,7 +87333,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2866c5efa6f2d04f891fd4a326ba1cd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfSlot
-  brandID: 0
+  brandID: 16
   capacity: 10
   placementMode: 0
   spreadAxis: 2
