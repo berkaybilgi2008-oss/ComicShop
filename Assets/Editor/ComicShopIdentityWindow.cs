@@ -24,6 +24,8 @@ public sealed class ComicShopIdentityWindow : EditorWindow
     int tab, brand;
     Texture2D flag;
     float padding = .04f;
+    [SerializeField] bool flipHorizontal;
+    [SerializeField] bool flipVertical;
     string filter = "", message = "";
 
     [MenuItem("Tools/ComicShop/Kitap Isimleri ve Flamalar")]
@@ -131,6 +133,9 @@ public sealed class ComicShopIdentityWindow : EditorWindow
         EditorGUILayout.HelpBox("Hierarchy'den kitapligi veya LOGO_BOS_KARE nesnesini sec. PNG/JPG flamayi asagi surukle ve yerlestir. Hazir kare noktanin olcusu ve yonu kullanilir; gorsel orani korunur. Ctrl+Z geri alir, Ctrl+S sahneyi kaydeder.", MessageType.Info);
         flag = (Texture2D)EditorGUILayout.ObjectField("Flama gorseli", flag, typeof(Texture2D), false);
         padding = EditorGUILayout.Slider("Kenar boslugu", padding, 0, .3f);
+        flipHorizontal = EditorGUILayout.Toggle("Yatay aynala (sag / sol)", flipHorizontal);
+        flipVertical = EditorGUILayout.Toggle("Dikey cevir (ust / alt)", flipVertical);
+        EditorGUILayout.HelpBox("Yazi ayna gibi tersse Yatay aynala secenegini isaretle, sonra Yerlestir / guncelle butonuna bas. Bu secenekler toplu uygulamada da kullanilir. Asagidaki onizleme kaynak gorseldir.", MessageType.None);
         if (flag) GUILayout.Label(AssetPreview.GetAssetPreview(flag) ?? flag, GUILayout.Width(100), GUILayout.Height(100));
         using (new EditorGUI.DisabledScope(!flag))
             if (GUILayout.Button("Secili raflara flamayi yerlestir / guncelle"))
@@ -209,7 +214,13 @@ public sealed class ComicShopIdentityWindow : EditorWindow
                 var mesh = new Mesh { name = "PublisherFlag" };
                 mesh.vertices = new[] { center-right-up, center+right-up, center+right+up, center-right+up }
                     .Select(anchor.InverseTransformPoint).ToArray();
-                mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+                var uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up };
+                for (int i = 0; i < uv.Length; i++)
+                {
+                    if (flipHorizontal) uv[i].x = 1f - uv[i].x;
+                    if (flipVertical) uv[i].y = 1f - uv[i].y;
+                }
+                mesh.uv = uv;
                 mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
                 mesh.RecalculateNormals(); mesh.RecalculateBounds();
                 string path = AssetDatabase.GenerateUniqueAssetPath(Generated + "/PublisherFlag.asset");
