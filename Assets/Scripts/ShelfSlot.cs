@@ -29,6 +29,8 @@ public class ShelfSlot : MonoBehaviour
 
     [Header("Marka")]
     [Min(0)] public int brandID;
+    public ShelfLogoBinding publisherLogo;
+    public int PublisherID => publisherLogo != null ? publisherLogo.PublisherID : brandID;
 
     [Header("Kapasite")]
     [Min(1)] public int capacity = 10;
@@ -258,7 +260,8 @@ public class ShelfSlot : MonoBehaviour
 
     public bool Matches(BookItem book)
     {
-        if (book == null || book.brandID != brandID || !IsAvailable)
+        int publisher = PublisherID;
+        if (publisher < 0 || book == null || book.brandID != publisher || !IsAvailable)
             return false;
 
         if (IsClaimed)

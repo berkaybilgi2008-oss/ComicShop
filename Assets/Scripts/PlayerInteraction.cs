@@ -285,11 +285,12 @@ public class PlayerInteraction : MonoBehaviour
             if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
             if (lookedSlot != null && ActiveHeldBook != null)
             {
+                if (lookedSlot.PublisherID < 0) return "Raf logosu eksik veya çakışıyor";
                 if (!lookedSlot.IsAvailable) return "Raf gözü dolu";
-                if (ActiveHeldBook.brandID != lookedSlot.brandID) return "Bu raf: " + BrandConfig.GetBrandName(lookedSlot.brandID);
+                if (ActiveHeldBook.brandID != lookedSlot.PublisherID) return "Bu raf: " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
                 if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
                     return "Bu raf gözü başka bir kitap grubuna ayrılmış";
-                return dropKey + ": Rafa yerleştir · " + BrandConfig.GetBrandName(lookedSlot.brandID);
+                return dropKey + ": Rafa yerleştir · " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
             }
             if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
                 return heldBooks.Count >= maxHeldBooks ? "Ellerin dolu" : pickupKey + ": Kitabı al";
@@ -943,8 +944,9 @@ public class PlayerInteraction : MonoBehaviour
         // Explain a local rejection without changing inventory or dropping the book.
         if (!lookedSlot.Matches(book))
         {
-            placementFeedback = !lookedSlot.IsAvailable ? "Raf gözü dolu" :
-                book.brandID != lookedSlot.brandID ? "Yanlış yayıncı" :
+            placementFeedback = lookedSlot.PublisherID < 0 ? "Raf logosu eksik veya çakışıyor" :
+                !lookedSlot.IsAvailable ? "Raf gözü dolu" :
+                book.brandID != lookedSlot.PublisherID ? "Yanlış yayıncı" :
                 "Bu kitap grubu farklı bir raf gözüne ayrılmış";
             ShowFeedback(placementFeedback);
             return false;
