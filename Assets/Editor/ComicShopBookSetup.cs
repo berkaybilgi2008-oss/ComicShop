@@ -175,7 +175,7 @@ public static class ComicShopBookSetup
 
                     BookItem bookItem = bookRoot.AddComponent<BookItem>();
                     BookDisplayName displayName = bookRoot.AddComponent<BookDisplayName>();
-                    displayName.SetName(bookRoot.name);
+                    displayName.SetName(BookNameFormatter.Format(brand.Name, modelName));
                     bookRoot.AddComponent<BookToonEffect>();
                     bookItem.bookID = nextBookID;
                     bookItem.brandID = brand.BrandID;
