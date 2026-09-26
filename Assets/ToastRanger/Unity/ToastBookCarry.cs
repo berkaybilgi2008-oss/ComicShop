@@ -43,6 +43,9 @@ public sealed class ToastBookCarry : MonoBehaviour
     bool wasSendingThrow, remoteLeft;
     Quaternion remoteUpper, remoteLower, remoteHand;
     float blend;
+    Quaternion runRightBase, runLeftBase;
+    bool runRightApplied, runLeftApplied;
+    static readonly int Speed = Animator.StringToHash("Speed");
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
     static readonly int Carry=Animator.StringToHash("Carry");
@@ -90,6 +93,7 @@ public sealed class ToastBookCarry : MonoBehaviour
     {
         RestoreThrow();
         Restore();
+        RestoreRunArms();
         ReadInventory();
         if (!animator) return;
         blend=Mathf.MoveTowards(blend,carryingBook?1f:0f,Time.deltaTime/Mathf.Max(.01f,transitionSeconds));
@@ -98,6 +102,8 @@ public sealed class ToastBookCarry : MonoBehaviour
     }
     void LateUpdate()
     {
+        ReadInventory();
+        ApplyRunArms();
         ApplyCarryPose();
         ApplyThrowArm();
         if (networkPlayer && networkPlayer.IsSpawned && networkPlayer.IsOwner && inventory)
@@ -111,6 +117,51 @@ public sealed class ToastBookCarry : MonoBehaviour
             }
             wasSendingThrow = active;
         }
+    }
+
+    void ApplyRunArms()
+    {
+        if (!animator || !animator.enabled) return;
+        if (networkPlayer && networkPlayer.IsDown) return;
+        if (inventory && inventory.TryGetComponent<PlayerKnockdown>(out var down) && down.IsDown) return;
+        // Give throw windup/release and its blend-out exclusive control of the arms.
+        if ((inventory && inventory.IsThrowPoseActive) || throwBlend > 0f ||
+            Time.unscaledTime < remotePoseUntil) return;
+        float amount = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f, 2f, animator.GetFloat(Speed)));
+        if (amount <= 0f) return;
+        if (!carryingBook)
+            BendRunningElbow(upperArm, forearm, hand, amount, ref runRightBase, ref runRightApplied);
+        BendRunningElbow(leftUpperArm, leftForearm, leftHand, amount, ref runLeftBase, ref runLeftApplied);
+    }
+
+    void BendRunningElbow(Transform upper, Transform lower, Transform wrist, float amount,
+        ref Quaternion saved, ref bool changed)
+    {
+        if (!upper || !lower || !wrist) return;
+        Vector3 upperDirection = lower.position - upper.position;
+        Vector3 lowerDirection = wrist.position - lower.position;
+        if (upperDirection.sqrMagnitude < 0.000001f || lowerDirection.sqrMagnitude < 0.000001f) return;
+        upperDirection.Normalize();
+        // Use the existing shoulder swing as the phase, keeping the legs and arms
+        // in sync without a second animation clock. Bend forward, never sideways.
+        Vector3 bend = Vector3.ProjectOnPlane(transform.forward, upperDirection);
+        if (bend.sqrMagnitude < 0.000001f) return;
+        bend.Normalize();
+        float swing = Mathf.Clamp(Vector3.Dot(upperDirection, transform.forward), -1f, 1f);
+        float flex = (90f + 10f * swing) * Mathf.Deg2Rad;
+        Vector3 direction = upperDirection * Mathf.Cos(flex) + bend * Mathf.Sin(flex);
+        saved = lower.localRotation;
+        Quaternion target = Quaternion.FromToRotation(lowerDirection, direction) * lower.rotation;
+        lower.rotation = Quaternion.Slerp(lower.rotation, target, amount);
+        // Only rotate the elbow: bone lengths and the animated wrist alignment stay intact.
+        changed = true;
+    }
+
+    void RestoreRunArms()
+    {
+        if (runRightApplied && forearm) forearm.localRotation = runRightBase;
+        if (runLeftApplied && leftForearm) leftForearm.localRotation = runLeftBase;
+        runRightApplied = runLeftApplied = false;
     }
 
     public void ReceiveThrowPose(Quaternion upper, Quaternion lower, Quaternion wrist, bool left, bool active)
@@ -420,6 +471,6 @@ public sealed class ToastBookCarry : MonoBehaviour
         if(hand)hand.localRotation=handBase;
         applied=false;
     }
-    void OnDisable() { RestoreThrow(); throwBlend=0f; Restore(); if(animator)animator.SetFloat(Carry,0);blend=0; if(previewBook)previewBook.SetActive(false); }
+    void OnDisable() { RestoreThrow(); throwBlend=0f; Restore(); RestoreRunArms(); if(animator)animator.SetFloat(Carry,0);blend=0; if(previewBook)previewBook.SetActive(false); }
     public void SetCarrying(bool value) { carryingBook=value; }
 }

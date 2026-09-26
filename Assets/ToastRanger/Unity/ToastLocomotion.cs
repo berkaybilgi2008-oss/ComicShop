@@ -11,6 +11,7 @@ public sealed class ToastLocomotion : MonoBehaviour
     [Min(0.01f)] public float walkSpeed = 1.0f;
     [Min(0.02f)] public float runSpeed = 2.5f;
     [Min(0)] public float smoothing = 0.12f;
+    PlayerController movement;
     Vector3 previousPosition;
     bool initialized;
     static readonly int Speed = Animator.StringToHash("Speed");
@@ -37,8 +38,11 @@ public sealed class ToastLocomotion : MonoBehaviour
     public void SetSpeed(float metresPerSecond)
     {
         if (!animator) return;
-        float walk = Mathf.Max(0.01f, walkSpeed);
-        float run = Mathf.Max(walk + 0.01f, runSpeed);
+        if (!movement) movement = GetComponentInParent<PlayerController>();
+        // Prefab preview speeds are not the gameplay controller's 4.5/7.5 m/s.
+        // Read configured movement speeds for both owners and remote visuals.
+        float walk = Mathf.Max(0.01f, movement ? movement.walkSpeed : walkSpeed);
+        float run = Mathf.Max(walk + 0.01f, movement ? movement.sprintSpeed : runSpeed);
         float speed = Mathf.Max(0, metresPerSecond);
         float blend = speed <= walk ? speed / walk : 1f + Mathf.InverseLerp(walk, run, speed);
         animator.SetFloat(Speed, blend, smoothing, Time.deltaTime);

@@ -17,6 +17,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     AudioSource menuMusic;
     int tab;
     bool menuOpen, oldDebug, oldHudEnabled, connectedBefore, dismissedResults;
+    bool gameplayStarted, pendingGameplayStart;
     ConnectionManager connection;
     GameHUD oldHud;
     Canvas canvas;
@@ -116,7 +117,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
                 }
             }
         }
-        else if (Input.GetKeyDown(KeyCode.Escape))
+        else if (!ShopLoadingScreen.IsVisible && !pendingGameplayStart && Input.GetKeyDown(KeyCode.Escape))
         {
             if (page == Page.Display) RevertDisplay();
             else if (page == Page.Settings) { if (Connected) Resume(); else BackFromSettings(); }
@@ -134,8 +135,25 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
             else if (statusText != null) statusText.text = Loc.T("display.countdown", Mathf.CeilToInt(displayDeadline - Time.unscaledTime));
         }
         bool connected = Connected;
-        if (connected && !connectedBefore) { dismissedResults = false; Resume(); }
-        if (!connected && connectedBefore) { menuOpen = true; dismissedResults = false; page = Page.Title; Build(); }
+        if (connected && !connectedBefore)
+        {
+            dismissedResults = false;
+            gameplayStarted = false;
+            pendingGameplayStart = true;
+            menuOpen = false;
+            page = Page.Session;
+            Build();
+        }
+        // Do not treat focus callbacks during spawning/loading as a pause request.
+        // Acquire the cursor once the local player and the game window are ready.
+        if (pendingGameplayStart && connected && ShopRound.State.Active && !ShopLoadingScreen.IsVisible && Application.isFocused &&
+            (connection == null || NetworkPlayerSetup.LocalPlayer != null))
+        {
+            pendingGameplayStart = false;
+            Resume();
+            gameplayStarted = true;
+        }
+        if (!connected && connectedBefore) { gameplayStarted = pendingGameplayStart = false; menuOpen = true; dismissedResults = false; page = Page.Title; Build(); }
         connectedBefore = connected;
         if (connection != null && connection.State != lastState)
         { lastState = connection.State; if (page == Page.Session) Build(); }
@@ -351,7 +369,13 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     }
     void OnApplicationFocus(bool focus)
     {
-        if (!focus && IsActive && Connected) { menuOpen = true; ConnectionManager.SetCursor(false); }
+        if (!focus && IsActive && Connected && gameplayStarted && !ShopLoadingScreen.IsVisible && !menuOpen)
+        {
+            menuOpen = true;
+            page = Page.Session;
+            ConnectionManager.SetCursor(false);
+            Build();
+        }
     }
     void OnApplicationQuit() => ShopSettings.Save();
     void OnDestroy()

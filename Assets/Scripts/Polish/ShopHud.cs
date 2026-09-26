@@ -26,7 +26,7 @@ public sealed class ShopHud
     const float Margin = 22f;
     const float ProgressWidth = 320f, ProgressHeight = 134f;
     const float HeldWidth = 340f, RowTop = 72f, RowHeight = 28f, RowStep = 30f, RowInset = 13f;
-    const int MaxVisibleRows = 8;
+    const int MaxVisibleRows = 10;
 
     readonly Font fallback;
     Font display, body;
@@ -297,14 +297,20 @@ public sealed class ShopHud
         }
 
         int shown = Mathf.Min(count, MaxVisibleRows);
-        int start = count > MaxVisibleRows ? Mathf.Clamp(active - MaxVisibleRows / 2, 0, count - MaxVisibleRows) : 0;
+        // Selected book first; remaining books newest-first, without mutating inventory.
+        int start = 0;
 
         while (rows.Count < shown) CreateRow();
         bool listChanged = count != lastCount || start != lastStart;
         for (int i = 0; i < rows.Count; i++)
         {
             var row = rows[i];
-            int index = start + i;
+            int index = active;
+            if (i > 0)
+            {
+                index = count - i;
+                if (index <= active) index--;
+            }
             var book = i < shown ? held[index] : null;
             bool visible = book != null;
             if (row.rect.gameObject.activeSelf != visible) row.rect.gameObject.SetActive(visible);
