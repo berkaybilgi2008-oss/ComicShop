@@ -16,51 +16,68 @@ MonoBehaviour:
   - brandID: 0
     brandName: AXIOM
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: 08555fb7a3fa096468f8a1a3aa0aa2c6, type: 3}
   - brandID: 1
     brandName: "COLDW\u0130RE"
     bookCount: 15
+    logoTexture: {fileID: 2800000, guid: 8a5123bcecb29e24ea8a345b59ce0ccc, type: 3}
   - brandID: 2
     brandName: CROWNLESS
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: a90ccfb6761e8af4fb72503ddbc6cfe4, type: 3}
   - brandID: 3
     brandName: DARKFIELD
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: a64cb863c6c0e694aae2d76d23bae8c7, type: 3}
   - brandID: 4
     brandName: ECLIPSE
     bookCount: 3
+    logoTexture: {fileID: 0}
   - brandID: 5
     brandName: EMBERLINE
     bookCount: 15
+    logoTexture: {fileID: 2800000, guid: 2beec8aa101c7e64f964e4322c3b9e1f, type: 3}
   - brandID: 6
     brandName: FAULTHOUSE
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: 8f91afbca49cf004794fc6158d1b6c29, type: 3}
   - brandID: 7
     brandName: FORGEPULSE
     bookCount: 11
+    logoTexture: {fileID: 2800000, guid: dc35b67e7b296e24c9a4aaaef148c963, type: 3}
   - brandID: 8
     brandName: GHOSTLINE
     bookCount: 15
+    logoTexture: {fileID: 2800000, guid: a7b1dc9fc292d754d974d358d3a3b99b, type: 3}
   - brandID: 9
     brandName: HARDMILE
     bookCount: 9
+    logoTexture: {fileID: 2800000, guid: 9849c9ad41fcdb04692859c2dcb6e16e, type: 3}
   - brandID: 10
     brandName: MEDIOCRE
     bookCount: 15
+    logoTexture: {fileID: 2800000, guid: 1987c51020eb75b43b83c99ba14d9133, type: 3}
   - brandID: 11
     brandName: NIGHTSHIFT
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: acb0150232debab4faefc06212390572, type: 3}
   - brandID: 12
     brandName: ODDSTAR
     bookCount: 5
+    logoTexture: {fileID: 2800000, guid: 4449f352e847d9b47bc812dbfb4e45bc, type: 3}
   - brandID: 13
     brandName: PARLOR 9
     bookCount: 1
+    logoTexture: {fileID: 2800000, guid: 76e88578a81a46b4588f7d409a4fc91b, type: 3}
   - brandID: 14
     brandName: SURGEHOUSE
     bookCount: 15
+    logoTexture: {fileID: 2800000, guid: ef9831d54e3af5440a90170ae9a8ecda, type: 3}
   - brandID: 15
     brandName: VEILCROSS
     bookCount: 6
+    logoTexture: {fileID: 2800000, guid: 7a5bf44e78cdd9a43b413dc45bb861ac, type: 3}
   - brandID: 16
     brandName: VERIDIAN
     bookCount: 15
+    logoTexture: {fileID: 0}

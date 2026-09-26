@@ -82,7 +82,7 @@ public static class ShopSettings
     public static void Save() { PlayerPrefs.SetString(StorageKey, JsonUtility.ToJson(Current)); PlayerPrefs.Save(); }
     public static string Label(ShopAction action)
     {
-        string[] labels = { "İleri", "Geri", "Sol", "Sağ", "Zıpla / ayağa kalk", "Koş", "Kitabı al", "Yerleştir / bırak", "Şarjlı atış", "Kayıp kitapları çağır" };
-        return labels[(int)action];
+        string[] keys = { "action.forward", "action.back", "action.left", "action.right", "action.jump", "action.sprint", "action.pickup", "action.place", "action.throw", "action.recall" };
+        return Loc.T(keys[(int)action]);
     }
 }

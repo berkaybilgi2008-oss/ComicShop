@@ -61,6 +61,8 @@ public sealed class ShelfLogoBinding : MonoBehaviour
         if (Application.isPlaying) RefreshAll();
     }
 
+    static int loggedFrame = -1;
+
     public static void RefreshAll()
     {
         var bindings = FindObjectsByType<ShelfLogoBinding>(FindObjectsSortMode.None);
@@ -73,20 +75,21 @@ public sealed class ShelfLogoBinding : MonoBehaviour
                 ? "Logo yok, gorunmuyor veya BrandCatalog ile eslesmiyor"
                 : binding.catalog.GetBrandName(binding.resolvedPublisher);
         }
-        // Use raw candidates so both sides of a duplicate are rejected, regardless of order.
-        foreach (var binding in bindings)
+        // Ayni yayincinin logosu birden fazla kitaplikta olabilir: kalabalik yayincilar
+        // (orn. 15 kitaplik seriler) birden cok kitapliga yayilir. Raf gozleri kitap grubu
+        // bazinda zaten ayri ayri sahiplenildigi icin bu bir cakisma degildir.
+        // Her kitapligin Start'i RefreshAll cagirir; uyarilar kare basina bir kez yazilsin.
+        if (Application.isPlaying && Time.frameCount != loggedFrame)
         {
-            int id = binding.catalog != null ? binding.catalog.GetBrandForLogo(binding.resolvedTexture) : -1;
-            if (!binding.isActiveAndEnabled || id < 0) continue;
-            foreach (var other in bindings)
-            {
-                if (other == binding || !other.isActiveAndEnabled ||
-                    other.gameObject.scene != binding.gameObject.scene || other.catalog == null) continue;
-                if (other.catalog.GetBrandForLogo(other.resolvedTexture) != id) continue;
-                binding.resolvedPublisher = -1;
-                binding.Status = "Ayni yayincinin logosu birden fazla kitaplikta";
-                break;
-            }
+            loggedFrame = Time.frameCount;
+            int missing = 0;
+            foreach (var binding in bindings)
+                if (binding.isActiveAndEnabled && binding.resolvedPublisher < 0)
+                {
+                    missing++;
+                    Debug.LogWarning($"[Raf] '{binding.name}': {binding.Status}. Tabela dokusunu BrandCatalog'daki bir yayinci logosuna bagla.", binding);
+                }
+            if (missing > 0) Debug.LogWarning($"[Raf] {missing} kitaplikta yayinci logosu cozulemedi; bu raflara kitap konamaz.");
         }
     }
 }

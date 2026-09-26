@@ -138,8 +138,8 @@ public class PlayerKnockdown : MonoBehaviour
         if (!IsDown || !Local) return;
         double remaining = readyAt - Clock;
         string label = headHit && remaining > 0
-            ? "Baygınlık geçirdin — " + Mathf.CeilToInt((float)remaining) + " sn"
-            : remaining > 0 ? "Yere düştün" : "Kalk: " + ShopSettings.Key(ShopAction.Jump);
+            ? Loc.T("knock.out", Mathf.CeilToInt((float)remaining))
+            : remaining > 0 ? Loc.T("knock.down") : Loc.T("knock.getup", ShopHud.KeyName(ShopSettings.Key(ShopAction.Jump)));
         GUI.Box(new Rect(Screen.width / 2f - 180, Screen.height * 0.65f, 360, 45), label);
     }
 }

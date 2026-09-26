@@ -83,7 +83,7 @@ public class PlayerInteraction : MonoBehaviour
             1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
 
     [Header("Etkilesim")]
-    public float interactRange = 3f;
+    public float interactRange = 5f;
     public LayerMask interactMask = ~0;
 
     [Header("Yerlestirme Guvenligi / Debug")]
@@ -132,6 +132,10 @@ public class PlayerInteraction : MonoBehaviour
             playerCamera = GetComponentInChildren<Camera>();
 
         interactMask |= 1 << 0;
+
+        // Prefab'ta eski 3 m kayitli olsa da menzil kisalmasin; sunucu dogrulamasi da ayni degeri kullanir.
+        interactRange = Mathf.Max(interactRange, GameplayPhysics.MinInteractRange);
+        maxPlacementDistance = Mathf.Max(maxPlacementDistance, interactRange + 2f);
 
         // Multiplayer: her oyuncu KENDI nisangahini kullanmali. Sahne genelinde
         // arayinca baska bir oyuncunun nisangahini bulup ona yaziyordu.
@@ -232,9 +236,11 @@ public class PlayerInteraction : MonoBehaviour
         // Raf collider'i, kitap collider'indan once gelebiliyor. Bu yuzden ikisini de
         // ayri ayri topluyoruz: en yakin serbest kitap + en yakin raf gozu.
         // (Eskiden kitap bulununca lookedSlot null'lanip rafa koyma tamamen bloklaniyordu.)
+        float blockedBeyond = float.PositiveInfinity;
         for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
         {
             RaycastHit hit = hits[hitIndex];
+            if (hit.distance > blockedBeyond) break;
             // ComicFix15 trigger filter
             if (hit.collider.isTrigger && !hit.collider.GetComponentInParent<ShelfSlot>()) continue;
             if (hit.collider.transform.IsChildOf(transform)) continue;
@@ -242,8 +248,17 @@ public class PlayerInteraction : MonoBehaviour
             if (blockingBook != null && blockingBook.IsHeld) continue;
             var blockingSlot = hit.collider.GetComponentInParent<ShelfSlot>();
             // An interaction mask must never make a wall transparent to pickup.
-            if (blockingBook == null && blockingSlot == null) break;
-            if (blockingSlot == null && (interactMask.value & (1 << hit.collider.gameObject.layer)) == 0) break;
+            bool obstacle = (blockingBook == null && blockingSlot == null) ||
+                (blockingSlot == null && (interactMask.value & (1 << hit.collider.gameObject.layer)) == 0);
+            if (obstacle)
+            {
+                // Kitaplik govdesi/tabelasi, diger oyuncular ve kitaplar hedefi gizlemez.
+                // Gercek bir engelin hemen arkasindaki (ince parca kadar) hedef yine secilebilir;
+                // daha gerisi (duvarin arkasi gibi) secilemez. Sunucu da ayni kurali uygular.
+                if (GameplayPhysics.IsSoftObstacle(hit.collider, null)) continue;
+                if (float.IsPositiveInfinity(blockedBeyond)) blockedBeyond = hit.distance + GameplayPhysics.ObstacleTolerance;
+                continue;
+            }
             if (nearestBook == null)
             {
                 BookItem book = hit.collider.GetComponentInParent<BookItem>();
@@ -278,24 +293,33 @@ public class PlayerInteraction : MonoBehaviour
     }
     private string placementFeedback;
     private float placementFeedbackUntil;
-    public string InteractionHint
+    // HUD'un ipucunu metinden tahmin etmesine gerek kalmasin diye ipucunun turu ayrica verilir.
+    public enum HintKind { None, Pickup, Place, Warning }
+    public HintKind CurrentHintKind { get { ComputeHint(out var kind); return kind; } }
+    public string InteractionHint => ComputeHint(out _);
+
+    string ComputeHint(out HintKind kind)
     {
-        get
+        kind = HintKind.Warning;
+        if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
+        if (lookedSlot != null && ActiveHeldBook != null)
         {
-            if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
-            if (lookedSlot != null && ActiveHeldBook != null)
-            {
-                if (lookedSlot.PublisherID < 0) return "Raf logosu eksik veya çakışıyor";
-                if (!lookedSlot.IsAvailable) return "Raf gözü dolu";
-                if (ActiveHeldBook.brandID != lookedSlot.PublisherID) return "Bu raf: " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
-                if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
-                    return "Bu raf gözü başka bir kitap grubuna ayrılmış";
-                return dropKey + ": Rafa yerleştir · " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
-            }
-            if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
-                return heldBooks.Count >= maxHeldBooks ? "Ellerin dolu" : pickupKey + ": Kitabı al";
-            return string.Empty;
+            if (lookedSlot.PublisherID < 0) return Loc.T("hint.logo_missing");
+            if (!lookedSlot.IsAvailable) return Loc.T("hint.slot_full");
+            if (ActiveHeldBook.brandID != lookedSlot.PublisherID) return Loc.T("hint.this_shelf", BrandConfig.GetBrandName(lookedSlot.PublisherID));
+            if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
+                return Loc.T("hint.reserved");
+            kind = HintKind.Place;
+            return dropKey + ": " + Loc.T("prompt.place") + " · " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
         }
+        if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
+        {
+            if (heldBooks.Count >= maxHeldBooks) return Loc.T("hint.hands_full");
+            kind = HintKind.Pickup;
+            return pickupKey + ": " + Loc.T("prompt.pickup");
+        }
+        kind = HintKind.None;
+        return string.Empty;
     }
 
     void HandlePickupPress()
@@ -944,10 +968,10 @@ public class PlayerInteraction : MonoBehaviour
         // Explain a local rejection without changing inventory or dropping the book.
         if (!lookedSlot.Matches(book))
         {
-            placementFeedback = lookedSlot.PublisherID < 0 ? "Raf logosu eksik veya çakışıyor" :
-                !lookedSlot.IsAvailable ? "Raf gözü dolu" :
-                book.brandID != lookedSlot.PublisherID ? "Yanlış yayıncı" :
-                "Bu kitap grubu farklı bir raf gözüne ayrılmış";
+            placementFeedback = lookedSlot.PublisherID < 0 ? Loc.T("hint.logo_missing") :
+                !lookedSlot.IsAvailable ? Loc.T("hint.slot_full") :
+                book.brandID != lookedSlot.PublisherID ? Loc.T("hint.wrong_publisher") :
+                Loc.T("hint.reserved");
             ShowFeedback(placementFeedback);
             return false;
         }

@@ -46,10 +46,11 @@ public static class ShelfLogoChecks
             firstMaterial.SetTexture("_BaseMap", veridian);
             var second = Bookcase("Second", catalog, secondMaterial, veridian, out var secondSlot);
             ShelfLogoBinding.RefreshAll();
-            Check(first.PublisherID == -1 && second.PublisherID == -1, "Duplicate publisher not rejected on both shelves");
+            // Ayni yayinci birden fazla kitaplikta olabilir; ikisi de o yayincinin kitaplarini kabul eder.
+            Check(first.PublisherID == 16 && second.PublisherID == 16 && secondSlot.Matches(book), "Same publisher on two bookcases was rejected");
             secondMaterial.SetTexture("_BaseMap", axiom);
             ShelfLogoBinding.RefreshAll();
-            Check(first.PublisherID == 16 && second.PublisherID == 0, "Duplicate resolution failed");
+            Check(first.PublisherID == 16 && second.PublisherID == 0, "Second bookcase did not follow its new logo");
             first.logoRenderer.enabled = false;
             Check(!slot.Matches(book), "Invisible sign accepted a book");
             first.logoRenderer.enabled = true;
@@ -61,7 +62,7 @@ public static class ShelfLogoChecks
             first.logoRenderer.SetPropertyBlock(null, 0);
             catalog.brands[0].logoTexture = veridian;
             Check(catalog.GetBrandForLogo(veridian) == -1, "Ambiguous catalogue logo was accepted");
-            Debug.Log("[SHELF LOGO PASS] publisher match, logo swap, stale identity, unknown, duplicate/recovery, hidden image, property block, ambiguous catalogue.");
+            Debug.Log("[SHELF LOGO PASS] publisher match, logo swap, stale identity, unknown, shared publisher, hidden image, property block, ambiguous catalogue.");
         }
         finally
         {

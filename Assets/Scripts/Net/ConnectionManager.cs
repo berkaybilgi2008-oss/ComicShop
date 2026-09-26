@@ -28,8 +28,9 @@ public class ConnectionManager : MonoBehaviour
     public event Action<string> OnStatusChanged;
 
     private NetworkManager networkManager;
-    public string Status => status;
-    private string status = "Bagli degil";
+    // Durum metni ekrana basilirken secili dile cevrilir; bos ise "bagli degil".
+    public string Status => string.IsNullOrEmpty(status) ? Loc.T("net.not_connected") : status;
+    private string status = "";
     private float attemptStarted;
     private int onlineOperation;
     private Coroutine serverStartup;
@@ -107,14 +108,14 @@ public class ConnectionManager : MonoBehaviour
     public async void StartRelayHost()
     {
         connectionRoute = ConnectionRoute.InternetRelay;
-        if (!BeginOnlinePreparation("Internet odasi hazirlaniyor...")) return;
+        if (!BeginOnlinePreparation(Loc.T("net.preparing_online"))) return;
         int operation = onlineOperation;
         try
         {
             await relayTransport.PrepareHostAsync(networkManager, Mathf.Clamp(maxPlayers, 1, 4));
             if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
             relayJoinCode = relayTransport.JoinCode;
-            StartPreparedSession(true, $"Internet odasi kuruluyor. Kod: {relayJoinCode}");
+            StartPreparedSession(true, Loc.T("net.hosting_online", relayJoinCode));
         }
         catch (Exception exception)
         {
@@ -128,16 +129,16 @@ public class ConnectionManager : MonoBehaviour
         relayJoinCode = UnityRelaySessionTransport.NormalizeJoinCode(relayJoinCode);
         if (relayJoinCode.Length == 0)
         {
-            SetStatus("Oda kodunu gir.");
+            SetStatus(Loc.T("net.enter_code"));
             return;
         }
-        if (!BeginOnlinePreparation("Oda kodu kontrol ediliyor...")) return;
+        if (!BeginOnlinePreparation(Loc.T("net.checking_code"))) return;
         int operation = onlineOperation;
         try
         {
             await relayTransport.PrepareClientAsync(networkManager, relayJoinCode);
             if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
-            StartPreparedSession(false, $"Internet odasina baglaniliyor: {relayJoinCode}");
+            StartPreparedSession(false, Loc.T("net.joining_online", relayJoinCode));
         }
         catch (Exception exception)
         {
@@ -162,7 +163,7 @@ public class ConnectionManager : MonoBehaviour
         relayTransport.Reset();
         State = SessionState.Idle;
         SetCursor(false);
-        SetStatus("Internet odasi hatasi: " + FriendlyOnlineError(exception));
+        SetStatus(Loc.T("net.online_error", FriendlyOnlineError(exception)));
     }
 
     private static string FriendlyOnlineError(Exception exception)
@@ -171,7 +172,7 @@ public class ConnectionManager : MonoBehaviour
         if (message.IndexOf("join", StringComparison.OrdinalIgnoreCase) >= 0 ||
             message.IndexOf("allocation", StringComparison.OrdinalIgnoreCase) >= 0 ||
             message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0)
-            return "Oda kodu gecersiz veya odanin suresi dolmus.";
+            return Loc.T("net.code_invalid");
         return message.Length > 140 ? message.Substring(0, 140) : message;
     }
 
@@ -186,7 +187,7 @@ public class ConnectionManager : MonoBehaviour
         }
         if (!host && string.IsNullOrWhiteSpace(address))
         {
-            SetStatus("Baglanilacak adresi gir.");
+            SetStatus(Loc.T("net.enter_address"));
             return false;
         }
         try
@@ -195,12 +196,12 @@ public class ConnectionManager : MonoBehaviour
             transport.SetConnectionData(host ? "127.0.0.1" : address.Trim(), port,
                 host ? "0.0.0.0" : null);
             return StartPreparedSession(host,
-                host ? $"Yerel oda kuruluyor (port {port})" : $"Yerel aga baglaniliyor: {address}:{port}");
+                host ? Loc.T("net.hosting_local", port) : Loc.T("net.joining_local", address, port));
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            StopWithStatus($"Baglanti hatasi: {exception.Message}");
+            StopWithStatus(Loc.T("net.conn_error", exception.Message));
             return false;
         }
     }
@@ -209,7 +210,7 @@ public class ConnectionManager : MonoBehaviour
     {
         if (networkManager == null || IsRunning)
         {
-            SetStatus("Once mevcut baglantinin kapanmasini bekle.");
+            SetStatus(Loc.T("net.wait_close"));
             return false;
         }
         if (networkManager.NetworkConfig.PlayerPrefab == null)
@@ -241,18 +242,18 @@ public class ConnectionManager : MonoBehaviour
             SetStatus(startingMessage);
             bool started = host ? networkManager.StartHost() : networkManager.StartClient();
             if (!started)
-                StopWithStatus(host ? "Oda baslatilamadi." : "Baglanti baslatilamadi.");
+                StopWithStatus(host ? Loc.T("net.host_failed") : Loc.T("net.client_failed"));
             return started;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            StopWithStatus($"Baglanti hatasi: {exception.Message}");
+            StopWithStatus(Loc.T("net.conn_error", exception.Message));
             return false;
         }
     }
 
-    public void Disconnect() => StopWithStatus("Baglanti kapatiliyor...");
+    public void Disconnect() => StopWithStatus(Loc.T("net.closing"));
 
     private void StopWithStatus(string message)
     {
@@ -276,14 +277,14 @@ public class ConnectionManager : MonoBehaviour
             ShopRound.Reset();
             State = SessionState.Idle;
             SetCursor(false);
-            SetStatus(status + " Yeni oturum acabilirsin.");
+            SetStatus(Status + " " + Loc.T("net.new_session"));
         }
         float timeout = State == SessionState.PreparingOnline ? onlineServiceTimeout : connectionTimeout;
         if ((State == SessionState.PreparingOnline || State == SessionState.Connecting ||
              State == SessionState.StartingHost) && Time.realtimeSinceStartup - attemptStarted >= timeout)
             StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
-                ? "Internet odasi zaman asimina ugradi. Baglantini ve oda kodunu kontrol et."
-                : "Baglanti zaman asimina ugradi. Host ve adresi kontrol et.");
+                ? Loc.T("net.timeout_online")
+                : Loc.T("net.timeout_local"));
         if (!ShopFrontEnd.IsActive && State == SessionState.Connected && Input.GetKeyDown(KeyCode.Escape))
             SetCursor(Cursor.lockState != CursorLockMode.Locked);
     }
@@ -298,7 +299,7 @@ public class ConnectionManager : MonoBehaviour
         response.Approved = hostConnection || networkManager.ConnectedClientsIds.Count < maxPlayers;
         response.CreatePlayerObject = response.Approved;
         response.Pending = false;
-        response.Reason = response.Approved ? "" : "Oda dolu.";
+        response.Reason = response.Approved ? "" : "net.room_full";
         Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
         if (response.Approved)
         {
@@ -311,7 +312,7 @@ public class ConnectionManager : MonoBehaviour
                 response.Position = spawn.position;
                 Debug.LogWarning("[ComicShop] Guvenli nokta taramasi sonuc vermedi; host sahnedeki PlayerSpawnPoint konumunda olusturuluyor.");
             }
-            else { response.Approved = false; response.CreatePlayerObject = false; response.Reason = "Baslangic yakininda guvenli bos alan bulunamadi."; }
+            else { response.Approved = false; response.CreatePlayerObject = false; response.Reason = "net.no_spawn"; }
         }
         response.Rotation = spawn.rotation;
     }
@@ -336,7 +337,7 @@ public class ConnectionManager : MonoBehaviour
                 if (spawner.SpawnError != null)
                 {
                     Debug.LogException(spawner.SpawnError);
-                    StopWithStatus("Kitaplar oluşturulamadı: " + spawner.SpawnError.Message);
+                    StopWithStatus(Loc.T("net.spawn_fail", spawner.SpawnError.Message));
                     yield break;
                 }
             }
@@ -352,11 +353,11 @@ public class ConnectionManager : MonoBehaviour
         {
             State = SessionState.Connected;
             if (connectionRoute == ConnectionRoute.InternetRelay)
-                SetStatus(networkManager.IsHost ? $"Internet odasi acik. Kod: {relayJoinCode}" : "Internet odasina katildin.");
+                SetStatus(networkManager.IsHost ? Loc.T("net.online_open", relayJoinCode) : Loc.T("net.online_joined"));
             else
-                SetStatus(networkManager.IsHost ? $"Yerel oda acik (port {port})" : "Yerel odaya katildin.");
+                SetStatus(networkManager.IsHost ? Loc.T("net.local_open", port) : Loc.T("net.local_joined"));
         }
-        else if (networkManager.IsServer) SetStatus($"Oyuncu katildi (ID {id}).");
+        else if (networkManager.IsServer) SetStatus(Loc.T("net.player_joined", id));
     }
 
     private void HandleDisconnected(ulong id)
@@ -364,12 +365,12 @@ public class ConnectionManager : MonoBehaviour
         if (networkManager.IsServer && id != networkManager.LocalClientId)
         {
             NetworkBook.ReleaseAllForPlayer(id);
-            SetStatus($"Oyuncu ayrildi (ID {id}).");
+            SetStatus(Loc.T("net.player_left", id));
             return;
         }
         if (State == SessionState.Disconnecting) return;
         string reason = networkManager.DisconnectReason;
-        StopWithStatus(string.IsNullOrEmpty(reason) ? "Baglanti kesildi." : reason);
+        StopWithStatus(string.IsNullOrEmpty(reason) ? Loc.T("net.disconnected") : Loc.Resolve(reason));
     }
 
     private void HandleStopped(bool wasHost)
@@ -379,8 +380,8 @@ public class ConnectionManager : MonoBehaviour
     }
 
     private void HandleTransportFailure() => StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
-        ? "Relay ag hatasi. Internet baglantini kontrol et."
-        : $"Ag hatasi. Adres ve port {port} ayarini kontrol et.");
+        ? Loc.T("net.relay_error")
+        : Loc.T("net.net_error", port));
 
     public static void SetCursor(bool gameplay)
     {

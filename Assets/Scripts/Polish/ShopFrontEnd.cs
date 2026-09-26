@@ -23,8 +23,8 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     CanvasScaler canvasScaler;
     RectTransform overlay, card, content, hud;
     Text statusText;
-    ComicGameplayHud gameplayHud;
-    Font font;
+    ShopHud gameplayHud;
+    Font font, baseFont;
     AudioListener menuListener;
     int lastRevision = -1;
     ConnectionManager.SessionState lastState;
@@ -62,6 +62,9 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         if (oldHud != null) { oldHudEnabled = oldHud.enabled; oldHud.enabled = false; if (oldHud.hudText != null) oldHud.hudText.text = ""; }
         font = Resources.Load<Font>("ComicShopMenu/ComicNeue-Bold");
         if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        baseFont = font;
+        font = Loc.Body(baseFont);
+        Loc.Changed += OnLanguageChanged;
         var root = new GameObject("ComicShop Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         root.transform.SetParent(transform, false);
         canvas = root.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.sortingOrder = 110;
@@ -77,7 +80,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         card = Panel(overlay, "ComicShop menu", Paper); card.anchorMin = card.anchorMax = new Vector2(.5f, .5f);
         card.pivot = new Vector2(.5f, .5f); card.sizeDelta = new Vector2(1080, 760); card.anchoredPosition = Vector2.zero;
         hud = Panel(root.transform, "Gameplay HUD", Color.clear); Stretch(hud); hud.GetComponent<Image>().raycastTarget = false;
-        gameplayHud = new ComicGameplayHud(hud, font);
+        gameplayHud = new ShopHud(hud, font);
         ShopSettings.Apply();
         if (!Application.isEditor && ShopSettings.Current.width > 0)
             Screen.SetResolution(ShopSettings.Current.width, ShopSettings.Current.height,
@@ -108,7 +111,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
                 {
                     if (!Input.GetKeyDown(key)) continue;
                     if (ShopSettings.Rebind(waitingKey.Value, key)) { waitingKey = null; Build(); }
-                    else if (statusText != null) statusText.text = "Bu tuş kullanımda. Başka bir tuş seç; Esc iptal eder.";
+                    else if (statusText != null) statusText.text = Loc.T("rebind.in_use");
                     break;
                 }
             }
@@ -128,7 +131,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         if (page == Page.Display && displayDeadline > 0)
         {
             if (Time.unscaledTime >= displayDeadline) RevertDisplay();
-            else if (statusText != null) statusText.text = $"{Mathf.CeilToInt(displayDeadline - Time.unscaledTime)} saniye içinde onaylanmazsa eski görüntü geri gelir.";
+            else if (statusText != null) statusText.text = Loc.T("display.countdown", Mathf.CeilToInt(displayDeadline - Time.unscaledTime));
         }
         bool connected = Connected;
         if (connected && !connectedBefore) { dismissedResults = false; Resume(); }
@@ -144,7 +147,6 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
             if (manager != null && manager.IsServer)
                 foreach (var peer in manager.ConnectedClientsList)
                     if (peer.PlayerObject != null && peer.PlayerObject.TryGetComponent<NetworkPlayerSetup>(out var player)) player.PublishRound();
-            UpdateHud();
             if (page == Page.Session && statusText != null && connection != null) statusText.text = connection.Status;
         }
         if (lastRevision != ShopRound.Revision)
@@ -164,6 +166,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
             else if (!connected && !menuMusic.isPlaying && menuMusic.clip != null) menuMusic.UnPause();
         }
         UpdateSteps(connected && !visible);
+        if (connected && !visible) UpdateHud();
     }
     void UpdateSteps(bool gameplay)
     {
@@ -181,16 +184,21 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     {
         var player = NetworkPlayerSetup.LocalPlayer;
         var interaction = player != null ? player.GetComponent<PlayerInteraction>() : oldHud != null ? oldHud.playerInteraction : null;
-        gameplayHud.Refresh(interaction, TimeLabel(ShopRound.Elapsed));
+        gameplayHud.Refresh(interaction);
     }
     static string TimeLabel(double seconds)
     {
         var time = TimeSpan.FromSeconds(Math.Max(0, seconds));
         return time.TotalHours >= 1 ? $"{(int)time.TotalHours:00}:{time.Minutes:00}:{time.Seconds:00}" : $"{time.Minutes:00}:{time.Seconds:00}";
     }
+    // Dil degisince acik sayfa yeni dilde ve dile uygun fontla yeniden kurulur (HUD kendini yeniler).
+    void OnLanguageChanged() { if (this != null && card != null) Build(); }
+
     void Build()
     {
+        font = Loc.Body(baseFont != null ? baseFont : font);
         foreach (Transform child in card) { child.gameObject.SetActive(false); Destroy(child.gameObject); }
+        ClearLobby();
         PrepareComicFrame();
         statusText = null;
         bool title = page == Page.Title;
@@ -199,6 +207,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         card.gameObject.SetActive(!title);
         overlay.GetComponent<Image>().color = title ? Color.black : new Color(.02f, .01f, .03f, .88f);
         if (title) return;
+        if (BuildLobbyPage()) return;
         var border = card.GetComponent<Outline>();
         if (border == null) border = card.gameObject.AddComponent<Outline>();
         border.effectColor = Ink; border.effectDistance = new Vector2(7, -7);
@@ -206,8 +215,8 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
         Label(rail, "COMIC\nSHOP", 28, 35, 248, 120, 48, Paper);
         Label(rail, "TIDY UP TOGETHER", 30, 175, 250, 26, 16, Accent);
         var rule = Panel(rail, "Rule", Accent); Rect(rule, 30, 225, 238, 4);
-        Label(rail, "Bir kitap.\nDoğru raf.\nBirlikte biten bir tur.", 30, 257, 240, 125, 24, Paper);
-        Label(rail, "HER OTURUM YENİ BİR TUR\nKitap düzeni oturum sonunda sıfırlanır. Kişisel ayarların saklanır.", 30, 575, 240, 130, 17, Paper);
+        Label(rail, Loc.T("rail.tagline"), 30, 257, 240, 125, 24, Paper);
+        Label(rail, Loc.T("rail.note"), 30, 575, 240, 130, 17, Paper);
         content = new GameObject("Page", typeof(RectTransform)).GetComponent<RectTransform>();
         content.SetParent(card, false); Rect(content, 336, 30, 708, 700);
         switch (page)
@@ -225,39 +234,39 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     {
         Label(content, eyebrow, 0, 0, 708, 28, 16, Muted);
         var heading = Label(content, title, 0, 35, 708, 60, 40, Ink);
-        heading.fontStyle = FontStyle.BoldAndItalic;
+        heading.font = Loc.Display(baseFont); heading.fontStyle = FontStyle.Normal;
         Label(content, subtitle, 0, 103, 708, 62, 19, Muted);
     }
     void BuildSession()
     {
-        Title("BİR TUR DAHA?", Connected ? "Dükkân açık." : "Hoş geldin.", Connected ? "Mola verebilirsin; çevrimiçi oda çalışmaya devam eder." : "Yerdeki kitapları yayıncılarına göre raflara yerleştirin.");
+        Title(Loc.T("session.eyebrow"), Connected ? Loc.T("session.open") : Loc.T("session.welcome"), Connected ? Loc.T("session.open_sub") : Loc.T("session.welcome_sub"));
         statusText = Label(content, connection != null ? connection.Status : "", 0, 164, 690, 70, 19, Ink);
         if (Connected)
         {
-            Label(content, "ODA KODU  " + (connection != null && !string.IsNullOrEmpty(connection.relayJoinCode) ? connection.relayJoinCode : "Yerel oturum"), 0, 246, 708, 35, 25, Ink);
-            Button(content, "OYUNA DÖN", 0, 303, 708, 58, Resume, true);
-            if (connection != null && !string.IsNullOrEmpty(connection.relayJoinCode)) Button(content, "Oda kodunu kopyala", 0, 380, 340, 48, () => GUIUtility.systemCopyBuffer = connection.relayJoinCode);
-            Button(content, "AYARLAR", 0, 456, 708, 52, OpenSettings);
-            Button(content, "Oturumdan ayrıl", 0, 531, 708, 52, () => { page = Page.Leave; Build(); });
+            Label(content, Loc.T("lobby.room_code") + "  " + (connection != null && !string.IsNullOrEmpty(connection.relayJoinCode) ? connection.relayJoinCode : Loc.T("pause.local")), 0, 246, 708, 35, 25, Ink);
+            Button(content, Loc.T("pause.resume"), 0, 303, 708, 58, Resume, true);
+            if (connection != null && !string.IsNullOrEmpty(connection.relayJoinCode)) Button(content, Loc.T("session.copy_code"), 0, 380, 340, 48, () => GUIUtility.systemCopyBuffer = connection.relayJoinCode);
+            Button(content, Loc.T("pause.settings"), 0, 456, 708, 52, OpenSettings);
+            Button(content, Loc.T("pause.leave"), 0, 531, 708, 52, () => { page = Page.Leave; Build(); });
         }
         else if (connection != null && connection.IsRunning)
         {
-            Label(content, "Bağlantı hazırlanıyor…", 0, 290, 708, 65, 28, Ink);
-            Button(content, "İPTAL", 0, 410, 708, 58, connection.Disconnect);
+            Label(content, Loc.T("session.preparing"), 0, 290, 708, 65, 28, Ink);
+            Button(content, Loc.T("lobby.cancel"), 0, 410, 708, 58, connection.Disconnect);
         }
         else if (connection != null)
         {
-            Button(content, "TEK BAŞINA BAŞLA", 0, 242, 708, 54, () => { connection.maxPlayers = 1; connection.StartHost(); }, true);
-            Button(content, "ARKADAŞLARINLA • ODA KUR", 0, 311, 708, 54, () => { connection.maxPlayers = 4; connection.StartRelayHost(); });
-            var code = InputField(content, "ODA KODU", connection.relayJoinCode, 0, 388, 450, 54, value => connection.relayJoinCode = value.Trim().ToUpperInvariant());
+            Button(content, Loc.T("lobby.solo"), 0, 242, 708, 54, () => { connection.maxPlayers = 1; connection.StartHost(); }, true);
+            Button(content, Loc.T("lobby.host_online"), 0, 311, 708, 54, () => { connection.maxPlayers = 4; connection.StartRelayHost(); });
+            var code = InputField(content, Loc.T("lobby.room_code"), connection.relayJoinCode, 0, 388, 450, 54, value => connection.relayJoinCode = value.Trim().ToUpperInvariant());
             code.characterLimit = 16;
-            Button(content, "KATIL", 470, 388, 238, 54, connection.StartRelayClient);
-            Button(content, "AYARLAR", 0, 481, 340, 54, OpenSettings);
-            Button(content, "OYUNDAN ÇIK", 368, 481, 340, 54, () => { page = Page.Leave; Build(); });
-            var ip = InputField(content, "Yerel IP", connection.address, 0, 578, 450, 46, value => connection.address = value.Trim());
+            Button(content, Loc.T("lobby.join"), 470, 388, 238, 54, connection.StartRelayClient);
+            Button(content, Loc.T("pause.settings"), 0, 481, 340, 54, OpenSettings);
+            Button(content, Loc.T("lobby.quit_game"), 368, 481, 340, 54, () => { page = Page.Leave; Build(); });
+            var ip = InputField(content, Loc.T("lobby.local_ip"), connection.address, 0, 578, 450, 46, value => connection.address = value.Trim());
             ip.characterLimit = 64;
-            Button(content, "YEREL AĞA KATIL", 470, 578, 238, 46, () => connection.StartClient());
-            Button(content, "YEREL ODA KUR • 4 OYUNCU", 0, 642, 708, 42, () => { connection.maxPlayers = 4; connection.StartHost(); });
+            Button(content, Loc.T("lobby.connect"), 470, 578, 238, 46, () => connection.StartClient());
+            Button(content, Loc.T("lobby.host_local"), 0, 642, 708, 42, () => { connection.maxPlayers = 4; connection.StartHost(); });
         }
     }
     void Resume()
@@ -274,21 +283,21 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     }
     void BuildResults()
     {
-        Title("TUR TAMAMLANDI", "Her kitap yerini buldu.", "Dükkânı birlikte toparladınız. Biraz dolaşın, eserinizin tadını çıkarın.");
-        Label(content, ShopRound.State.Total.ToString("N0"), 0, 226, 708, 92, 76, Ink, TextAnchor.MiddleCenter);
-        Label(content, "KİTAP RAFTA", 0, 330, 708, 35, 22, Muted, TextAnchor.MiddleCenter);
-        Label(content, "TUR SÜRESİ  " + TimeLabel(ShopRound.Elapsed), 0, 397, 708, 40, 27, Ink, TextAnchor.MiddleCenter);
-        Button(content, "DÜKKÂNDA KAL", 0, 500, 708, 58, Resume, true);
-        Button(content, "OTURUM MENÜSÜ", 0, 582, 708, 52, () => { dismissedResults = true; page = Page.Session; Build(); });
+        Title(Loc.T("results.eyebrow"), Loc.T("results.title"), "");
+        Label(content, Loc.Number(ShopRound.State.Total), 0, 226, 708, 92, 76, Ink, TextAnchor.MiddleCenter);
+        Label(content, Loc.T("hud.shelved"), 0, 330, 708, 35, 22, Muted, TextAnchor.MiddleCenter);
+        Label(content, TimeLabel(ShopRound.Elapsed), 0, 397, 708, 40, 27, Ink, TextAnchor.MiddleCenter);
+        Button(content, Loc.T("results.stay"), 0, 500, 708, 58, Resume, true);
+        Button(content, Loc.T("results.menu"), 0, 582, 708, 52, () => { dismissedResults = true; page = Page.Session; Build(); });
     }
     void BuildLeave()
     {
         bool host = NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
-        Title("AYRILMADAN ÖNCE", Connected ? "Bu turdan ayrıl?" : "Dükkânı kapat?", Connected
-            ? host ? "Ev sahibi ayrıldığında herkesin oturumu kapanır. Kitap düzeni saklanmaz; yeni oturum yeni turdur." : "Diğer oyuncular devam edebilir. Elindeki kitaplar dükkânda kalır."
-            : "Kişisel ayarların kaydedilecek.");
-        Button(content, "VAZGEÇ", 0, 298, 708, 58, () => { page = Page.Session; Build(); }, true);
-        Button(content, Connected ? "EVET, OTURUMDAN AYRIL" : "EVET, OYUNDAN ÇIK", 0, 389, 708, 58, () =>
+        Title(Loc.T("leave.eyebrow"), Connected ? Loc.T("leave.title") : Loc.T("lobby.close_shop"), Connected
+            ? host ? Loc.T("leave.host_note") : Loc.T("leave.client_note")
+            : Loc.T("lobby.save_note"));
+        Button(content, Loc.T("lobby.stay"), 0, 298, 708, 58, () => { page = Page.Session; Build(); }, true);
+        Button(content, Connected ? Loc.T("leave.confirm") : Loc.T("lobby.quit_game"), 0, 389, 708, 58, () =>
         {
             ShopSettings.Save();
             if (Connected && connection != null) { connection.Disconnect(); page = Page.Session; Build(); }
@@ -326,14 +335,14 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     }
     void BuildDisplayConfirmation()
     {
-        Title("GÖRÜNTÜ KONTROLÜ", "Bu ayarı koru?", $"{proposedWidth} × {proposedHeight}");
+        Title(Loc.T("display.eyebrow"), Loc.T("display.title"), $"{proposedWidth} × {proposedHeight}");
         statusText = Label(content, "", 0, 214, 708, 65, 23, Ink);
-        Button(content, "EVET, KORU", 0, 330, 708, 58, () =>
+        Button(content, Loc.T("display.keep"), 0, 330, 708, 58, () =>
         {
             var p = ShopSettings.Current; p.width = proposedWidth; p.height = proposedHeight; p.windowMode = proposedMode;
             displayDeadline = 0; ShopSettings.Save(); page = Page.Settings; Build();
         }, true);
-        Button(content, "ESKİ AYARA DÖN", 0, 416, 708, 54, RevertDisplay);
+        Button(content, Loc.T("display.revert"), 0, 416, 708, 54, RevertDisplay);
     }
     void RevertDisplay()
     {
@@ -347,6 +356,7 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     void OnApplicationQuit() => ShopSettings.Save();
     void OnDestroy()
     {
+        Loc.Changed -= OnLanguageChanged;
         IsActive = false;
         if (displayDeadline > 0) Screen.SetResolution(priorWidth, priorHeight, priorMode);
         if (connection != null) connection.showDebugUI = oldDebug;
@@ -383,9 +393,9 @@ public sealed partial class ShopFrontEnd : MonoBehaviour
     }
     void BuildCredits()
     {
-        Title("COMIC SHOP", "Tidy Up Together", "Birlikte toparla. Her kitaba rafında yer aç.");
-        Label(content, "COMIC SHOP: TIDY UP TOGETHER\n\nMENÜ MÜZİĞİ\nSunday Morning Vinyl", 0, 245, 708, 240, 28, Ink);
-        Button(content, "ANA MENÜ", 0, 555, 708, 56, () => { page = Page.Title; Build(); }, true);
+        Title("COMIC SHOP", "Tidy Up Together", Loc.T("credits.motto"));
+        Label(content, "COMIC SHOP: TIDY UP TOGETHER\n\n" + Loc.T("credits.music") + "\nSunday Morning Vinyl", 0, 245, 708, 240, 28, Ink);
+        Button(content, Loc.T("credits.main_menu"), 0, 555, 708, 56, () => { page = Page.Title; Build(); }, true);
     }
 
     RectTransform Panel(Transform parent, string name, Color color)

@@ -39,17 +39,17 @@ public sealed class ShopLoadingScreen : MonoBehaviour
             for (int x = 770; x < 1220; x += 24)
                 Fill(new Rect(x, y, 3, 3), new Color(0.25f, 0.15f, 0.085f));
         Fill(new Rect(64, 58, 5, 34), gold);
-        Label(new Rect(84, 58, 700, 34), "COMIC SHOP  /  ÇİZGİ ROMAN DÜKKÂNI", 17, gold);
+        Label(new Rect(84, 58, 700, 34), Loc.T("load.brand"), 17, gold);
         Fill(new Rect(64, 151, 145, 28), gold);
-        Label(new Rect(76, 152, 130, 26), "YENİ BİR GÜN", 13, ink);
-        Label(new Rect(60, 208, 710, 156), "HER RAFIN\nBİR HİKÂYESİ VAR.", 48, cream);
-        Label(new Rect(66, 391, 620, 35), "Sen gel, gerisini birlikte toparlarız.", 20, muted);
+        Label(new Rect(76, 152, 130, 26), Loc.T("load.day"), 13, ink);
+        Label(new Rect(60, 208, 710, 156), Loc.T("load.headline"), 48, cream);
+        Label(new Rect(66, 391, 620, 35), Loc.T("load.sub"), 20, muted);
         // Three printed covers, with heavy outlines and offset ink shadows.
         Cover(new Rect(863, 221, 220, 286), -13, muted, ink, cream, 0);
         Cover(new Rect(905, 188, 220, 286), 9, new Color(0.56f, 0.28f, 0.12f), ink, cream, 1);
         Cover(new Rect(867, 171, 220, 286), -4, gold, ink, cream, 2);
         Fill(new Rect(64, 547, 1152, 2), muted);
-        string phase = progress < 0.45f ? "Koleksiyon açılıyor" : progress < 0.85f ? "Kitaplar yerini buluyor" : "Son hazırlıklar";
+        string phase = progress < 0.45f ? Loc.T("load.p1") : progress < 0.85f ? Loc.T("load.p2") : Loc.T("load.p3");
         Label(new Rect(64, 573, 800, 32), phase, 19, cream);
         Label(new Rect(1130, 571, 100, 36), Mathf.FloorToInt(progress * 100) + "%", 22, gold);
         Fill(new Rect(64, 627, 1152, 9), ink);
@@ -84,6 +84,8 @@ public sealed class ShopLoadingScreen : MonoBehaviour
             style.normal.textColor = Color.white;
             styles[size] = style;
         }
+        // Dile gore font: basliklar menu fontu, digerleri okunakli govde fontu.
+        style.font = size >= 25 ? Loc.Display(null) : Loc.Body(null);
         GUI.Label(rect, text, style);
     }
 }

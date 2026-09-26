@@ -74,6 +74,7 @@
     <Compile Include="Assets\ComicShopToon\Editor\ComicShopPendantSetup.cs" />
     <Compile Include="Assets\ComicShopMenu\Editor\ComicVisualFix13.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonFinalSetup.cs" />
+    <Compile Include="Assets\Editor\BookNameChecks.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonArchitectureRepair.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonStyleEditor.cs" />
     <Compile Include="Assets\ComicShopV16\Editor\ShopV16SealLighting.cs" />
@@ -88,6 +89,7 @@
     <Compile Include="Assets\ComicShopToon\Editor\CreateToonPresets.cs" />
     <Compile Include="Assets\Editor\MultiplayerRegressionChecks.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonVariantReport.cs" />
+    <Compile Include="Assets\Editor\ShelfLogoBindingEditor.cs" />
     <Compile Include="Assets\Editor\BookSpawnerEditor.cs" />
     <Compile Include="Assets\Editor\CharacterBookCarryChecks.cs" />
     <Compile Include="Assets\Editor\BookCorridorSetup.cs" />
@@ -97,6 +99,7 @@
     <Compile Include="Assets\Editor\BookEdgeMeshReadability.cs" />
     <Compile Include="Assets\Editor\GameplayQaChecks.cs" />
     <Compile Include="Assets\ComicShopMenu\Editor\ComicProjectAutoBind.cs" />
+    <Compile Include="Assets\Editor\ShelfLogoChecks.cs" />
     <Compile Include="Assets\Editor\BookRotationTool.cs" />
     <Compile Include="Assets\ComicShopV16\Editor\ShopV16LightingRepair.cs" />
     <Compile Include="Assets\ToastRanger\Unity\Editor\ToastAnimatedSetup.cs" />

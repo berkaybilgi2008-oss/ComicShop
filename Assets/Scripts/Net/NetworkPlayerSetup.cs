@@ -23,7 +23,7 @@ public class NetworkPlayerSetup : NetworkBehaviour
     [Rpc(SendTo.Owner, InvokePermission = RpcInvokePermission.Server)]
     public void ActionRejectedRpc(string reason)
     {
-        if (interaction != null) interaction.ShowFeedback(reason);
+        if (interaction != null) interaction.ShowFeedback(Loc.Resolve(reason));
     }
 
     private float nextThrowPoseAccepted;

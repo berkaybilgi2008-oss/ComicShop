@@ -314,13 +314,14 @@ public class NetworkBook : NetworkBehaviour
         ulong sender = rpc.Receive.SenderClientId;
         var player = GetPlayer(sender);
         if (player == null) return;
-        if (Holder != NoHolder || IsPlacementAnimating) { Reject(player, "Kitap şu anda başka bir oyuncuda veya yerleştiriliyor."); return; }
-        if (!WithinReach(player)) { Reject(player, "Kitaba yaklaş; aradaki engeli kaldır."); return; }
-        if (CountHeldBy(sender) >= player.maxHeldBooks) { Reject(player, "Ellerin dolu."); return; }
+        if (Holder != NoHolder || IsPlacementAnimating) { Reject(player, "reject.busy"); return; }
+        if (!WithinReach(player)) { Reject(player, "reject.reach_book"); return; }
+        if (CountHeldBy(sender) >= player.maxHeldBooks) { Reject(player, "hint.hands_full"); return; }
         Claim(sender);
         player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Pickup, transform.position);
     }
 
+    // reason bir Loc anahtaridir; metni alici oyuncu kendi dilinde gosterir.
     static void Reject(PlayerInteraction player, string reason)
     {
         if (player != null && player.TryGetComponent<NetworkPlayerSetup>(out var setup)) setup.ActionRejectedRpc(reason);
@@ -346,24 +347,24 @@ public class NetworkBook : NetworkBehaviour
         var player = GetPlayer(rpc.Receive.SenderClientId);
         var slot = ShelfSlot.FindNetworkSlot(slotKey);
         if (player == null) return;
-        if (slot == null) { Reject(player, "Raf kimliği eşleşmedi. İki oyuncu da aynı sürümü kullanmalı."); return; }
-        if (Holder != rpc.Receive.SenderClientId) { Reject(player, "Kitabı alma işlemi henüz tamamlanmadı."); return; }
+        if (slot == null) { Reject(player, "reject.slot_id"); return; }
+        if (Holder != rpc.Receive.SenderClientId) { Reject(player, "reject.pending"); return; }
         if (player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         if (!slot.Matches(item))
-        { Reject(player, !slot.IsAvailable ? "Raf gözü dolu." : item.brandID != slot.brandID
-            ? "Bu raf: " + BrandConfig.GetBrandName(slot.brandID) : "Bu kitap grubu başka bir raf gözüne ayrılmış."); return; }
+        { Reject(player, slot.PublisherID < 0 ? "hint.logo_missing" : !slot.IsAvailable ? "hint.slot_full" : item.brandID != slot.PublisherID
+            ? Loc.Key("hint.this_shelf", BrandConfig.GetBrandName(slot.PublisherID)) : "hint.reserved"); return; }
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         if (!slot.CanInteract(player.transform, eye, player.interactRange + 0.5f))
-        { Reject(player, "Rafa yaklaş; arada engel var."); return; }
+        { Reject(player, "reject.reach_shelf"); return; }
         if (!slot.TryGetNextPlacementPose(item, out Vector3 position, out _) ||
             Vector3.Distance(player.transform.position, position) > player.maxPlacementDistance)
-        { Reject(player, "Raf uygun değil: yayıncı, yer veya mesafeyi kontrol et."); return; }
+        { Reject(player, "reject.invalid_slot"); return; }
         Vector3 startPosition = transform.position;
         Quaternion startRotation = transform.rotation;
         Vector3 startScale = transform.lossyScale;
         // Claim the exact slot/index before the visual animation starts, so concurrent
         // placements cannot reserve the same space or bypass brand/capacity checks.
-        if (!slot.PlaceBook(item)) { Reject(player, "Raf gözü artık müsait değil."); return; }
+        if (!slot.PlaceBook(item)) { Reject(player, "reject.slot_taken"); return; }
         player.GetComponent<NetworkPlayerSetup>().PlayCueRpc((int)ShopCue.Place, transform.position);
         var value = state.Value;
         value.Holder = NoHolder;
