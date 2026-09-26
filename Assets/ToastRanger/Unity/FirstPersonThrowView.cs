@@ -204,12 +204,10 @@ public sealed class FirstPersonThrowView : MonoBehaviour
                 if (index < 0 || index >= sourceBones.Length || !sourceBones[index]) continue;
                 Transform bone = sourceBones[index];
                 armVertex[i] = bone == lower || bone.IsChildOf(lower);
-                bool head = false;
-                for (Transform t = bone; t && t != rig.transform; t = t.parent)
-                    if (t.name == "Head" || t.name == "Neck") head = true;
-                hideVertex[i] = bone == upper || bone.IsChildOf(upper) || head;
-                // The camera must not see the open neck/shoulder cut of the body.
-                if (bone.name == "Chest" || bone.name == "Spine") hideVertex[i] = true;
+                // Match the normal owner-camera arms-only view, retaining only the
+                // opposite forearm here. The throwing arm has its own view mesh.
+                hideVertex[i] = !FirstPersonHead.IsViewArmBone(bone, rig) ||
+                    bone == upper || bone.IsChildOf(upper);
             }
             Mesh armMesh = Instantiate(original), bodyMesh = Instantiate(original);
             meshes.Add(armMesh); meshes.Add(bodyMesh);

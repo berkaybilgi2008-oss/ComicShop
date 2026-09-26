@@ -1,7 +1,7 @@
 using UnityEngine;
 
 // Cizgi-roman temali nisangah: siyah cerceveli krem nokta.
-// Kitaba ya da rafa bakinca nokta turuncuya doner ve etrafinda dort kisa cizgi belirir.
+// Kitaba ya da rafa bakinca yalnizca noktanin rengi turuncuya doner.
 // Sarjli atista nokta cevresinde dolan boncuklar (pip) gosterilir.
 public class Crosshair : MonoBehaviour
 {
@@ -15,7 +15,7 @@ public class Crosshair : MonoBehaviour
     static readonly Color Cream = new Color32(255, 244, 181, 255);
     static readonly Color Orange = new Color32(245, 151, 2, 255);
     static readonly Color Red = new Color32(214, 58, 18, 255);
-    const int Pips = 16;
+    const int Pips = 12;
 
     static Texture2D disc;
     PlayerInteraction interaction;
@@ -67,22 +67,8 @@ public class Crosshair : MonoBehaviour
 
         Color fill = Color.Lerp(Color.Lerp(Cream, Orange, ease), Red, warn);
 
-        // Hedef isaretleri: dort kisa, siyah cerceveli cizgi.
-        if (ease > 0.01f)
-        {
-            float gap = (8f + 6f * (1f - ease)) * s, length = 6f * s, width = 3f * s, border = 1.5f * s;
-            for (int i = 0; i < 4; i++)
-            {
-                Vector2 dir = i == 0 ? Vector2.up : i == 1 ? Vector2.down : i == 2 ? Vector2.left : Vector2.right;
-                Vector2 mid = c + dir * (gap + length * 0.5f);
-                Vector2 size = dir.x == 0 ? new Vector2(width, length) : new Vector2(length, width);
-                Box(mid, size + Vector2.one * border * 2f, new Color(Ink.r, Ink.g, Ink.b, ease));
-                Box(mid, size, new Color(fill.r, fill.g, fill.b, ease));
-            }
-        }
-
         // Nokta: yumusak golge, kalin siyah cerceve, dolgu.
-        float r = (3.2f + 0.8f * ease) * s;
+        float r = 3.2f * s;
         Disc(c + new Vector2(1.2f, 1.6f) * s, r + 2.2f * s, new Color(0f, 0f, 0f, 0.35f));
         Disc(c, r + 2f * s, Ink);
         Disc(c, r, fill);
@@ -91,8 +77,8 @@ public class Crosshair : MonoBehaviour
         if (chargeShown > 0.001f)
         {
             bool full = charge >= 0.999f;
-            float pulse = full ? 1f + 0.12f * Mathf.Sin(Time.unscaledTime * 14f) : 1f;
-            float ring = 21f * s * pulse, pip = 2.6f * s;
+            float pulse = full ? 1f + 0.06f * Mathf.Sin(Time.unscaledTime * 14f) : 1f;
+            float ring = 14f * s * pulse, pip = 1.5f * s;
             float filled = chargeShown * Pips;
             for (int i = 0; i < Pips; i++)
             {
@@ -100,7 +86,7 @@ public class Crosshair : MonoBehaviour
                 Vector2 p = c + new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * ring;
                 float amount = Mathf.Clamp01(filled - i);
                 Color on = Color.Lerp(Orange, Red, full ? 1f : chargeShown * chargeShown);
-                Disc(p, pip + 1.6f * s, Ink);
+                Disc(p, pip + 1f * s, Ink);
                 Disc(p, pip, Color.Lerp(new Color(Cream.r, Cream.g, Cream.b, 0.55f), on, amount));
             }
         }
@@ -114,9 +100,4 @@ public class Crosshair : MonoBehaviour
         GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2f, radius * 2f), disc, ScaleMode.StretchToFill, true);
     }
 
-    static void Box(Vector2 center, Vector2 size, Color color)
-    {
-        GUI.color = color;
-        GUI.DrawTexture(new Rect(center.x - size.x * 0.5f, center.y - size.y * 0.5f, size.x, size.y), Texture2D.whiteTexture);
-    }
 }
