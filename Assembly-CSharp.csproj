@@ -70,6 +70,7 @@
     <Compile Include="Assets\Scripts\ShelfSlot.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicPanelGraphic.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\MenuMusic.cs" />
+    <Compile Include="Assets\Scripts\BookRecallMachine-1.cs" />
     <Compile Include="Assets\Scripts\PlayerKnockdown.cs" />
     <Compile Include="Assets\Scripts\BookSpawner.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\MenuBootstrap.cs" />
@@ -125,6 +126,7 @@
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicThemedPanel.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastLocomotion.cs" />
     <Compile Include="Assets\ComicShopV16\Runtime\ShopV16Appearance.cs" />
+    <Compile Include="Assets\ToastRanger\Unity\FirstPersonHead.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicMenuButton.cs" />
     <Compile Include="Assets\Scripts\Polish\ComicProjectCursor.cs" />
     <Compile Include="Assets\Scripts\HeldBookHandOffset.cs" />

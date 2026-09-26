@@ -104,6 +104,13 @@ public class BookSpawner : MonoBehaviour
                 frameBudgetStarted = Time.realtimeSinceStartupAsDouble;
             }
             sessionSpawned = SpawnError == null;
+            // Acilis ekrani kitaplar yere inip durana kadar kalir; dusme animasyonu gorunmez.
+            // Tur (ve sayac) ancak bu bittikten sonra baslar.
+            if (sessionSpawned)
+            {
+                var settle = WaitForBooksToSettle();
+                while (settle.MoveNext()) yield return settle.Current;
+            }
         }
         finally
         {
@@ -120,6 +127,42 @@ public class BookSpawner : MonoBehaviour
             }
             ShopLoadingScreen.Hide();
         }
+    }
+
+    [Header("Acilis")]
+    [Tooltip("Kitaplarin yere inip durmasi icin acilis ekraninin en fazla bekleyecegi sure (saniye).")]
+    [Min(1f)] public float maxSettleSeconds = 12f;
+
+    // Kitaplar yerlesene kadar bekler: hareket eden kitap kalmayinca (kisa bir sessizlikten sonra)
+    // ya da sure dolunca biter. Yalnizca fizik durumunu okur; kitaplara dokunmaz.
+    private IEnumerator WaitForBooksToSettle()
+    {
+        var bodies = new List<Rigidbody>(sessionBooks.Count);
+        foreach (var book in sessionBooks)
+            if (book != null && book.TryGetComponent<Rigidbody>(out var body)) bodies.Add(body);
+        float start = Time.unscaledTime, quietSince = -1f;
+        int initial = -1;
+        ShopLoadingScreen.Settling(0f);
+        while (true)
+        {
+            int moving = 0;
+            foreach (var body in bodies)
+            {
+                if (body == null || body.isKinematic || body.IsSleeping()) continue;
+                if (body.linearVelocity.sqrMagnitude > 0.0025f || body.angularVelocity.sqrMagnitude > 0.04f) moving++;
+            }
+            if (initial < 0) initial = Mathf.Max(1, moving);
+            float elapsed = Time.unscaledTime - start;
+            float settled = 1f - Mathf.Clamp01(moving / (float)initial);
+            ShopLoadingScreen.Settling(Mathf.Max(settled * 0.95f, elapsed / Mathf.Max(1f, maxSettleSeconds)));
+            if (moving == 0) { if (quietSince < 0f) quietSince = Time.unscaledTime; }
+            else quietSince = -1f;
+            if ((quietSince >= 0f && Time.unscaledTime - quietSince >= 0.6f && elapsed >= 1f) || elapsed >= maxSettleSeconds)
+                break;
+            yield return null;
+        }
+        ShopLoadingScreen.Settling(1f);
+        yield return new WaitForSecondsRealtime(0.35f); // Dolan cubuk kisa bir an tam gorunsun.
     }
 
     private void InitializeStats()

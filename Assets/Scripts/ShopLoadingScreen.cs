@@ -1,17 +1,55 @@
 using UnityEngine;
+using UnityEngine.UI;
 
-// Lightweight immediate-mode opening card. No textures, font imports or scene rewiring.
+// Acilis ekrani: ana menunun gorseli ve buton dili (krem/turuncu kagit, kalin siyah cerceve).
+// Kitaplar arkada olusup yere yerlesene kadar acik kalir; kapaninca oyun ve sayac baslar.
 public sealed class ShopLoadingScreen : MonoBehaviour
 {
     static ShopLoadingScreen instance;
-    float progress;
     public static bool IsVisible => instance != null;
+
+    // Ana menu gorseli 1672 x 941; yerlesim ayni koordinatlarla (logonun alti, sag kolon).
+    const float ArtW = 1672f, ArtH = 941f, ColX = 1146f, ColW = 478f;
+    const float SpawnShare = 0.8f;
+    const float TipSeconds = 4.5f;
+
+    float target, shown;
+    bool settling;
+    Text title, phase, percent, tip;
+    RectTransform fill;
+    float trackWidth;
+    int tipIndex;
+    float nextTip;
+
     public static void Show()
     {
-        if (instance == null) instance = new GameObject("Shop opening card").AddComponent<ShopLoadingScreen>();
-        instance.progress = 0f;
+        if (instance == null)
+        {
+            var go = new GameObject("Shop opening card");
+            DontDestroyOnLoad(go);
+            instance = go.AddComponent<ShopLoadingScreen>();
+            instance.Build();
+        }
+        instance.target = instance.shown = 0f;
+        instance.settling = false;
     }
-    public static void Progress(float value) { if (instance != null) instance.progress = Mathf.Clamp01(value); }
+
+    // Kitaplarin olusturulmasi (0..1).
+    public static void Progress(float value)
+    {
+        if (instance == null) return;
+        instance.settling = false;
+        instance.target = Mathf.Max(instance.target, Mathf.Clamp01(value) * SpawnShare);
+    }
+
+    // Kitaplarin yere inip durmasi (0..1). Ekran bu asama bitince kapanir.
+    public static void Settling(float value)
+    {
+        if (instance == null) return;
+        instance.settling = true;
+        instance.target = Mathf.Max(instance.target, SpawnShare + Mathf.Clamp01(value) * (1f - SpawnShare));
+    }
+
     public static void Hide()
     {
         if (instance == null) return;
@@ -20,72 +58,137 @@ public sealed class ShopLoadingScreen : MonoBehaviour
         old.enabled = false;
         Destroy(old.gameObject);
     }
+
     void OnDestroy() { if (instance == this) instance = null; }
-    void OnGUI()
+
+    // ------------------------------------------------------------------ kurulum
+
+    void Build()
     {
-        GUI.depth = -30000;
-        Color oldColor = GUI.color;
-        Matrix4x4 oldMatrix = GUI.matrix;
-        GUI.matrix = Matrix4x4.identity;
-        Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.13f, 0.075f, 0.045f));
-        float scale = Mathf.Min(Screen.width / 1280f, Screen.height / 720f);
-        GUI.matrix = Matrix4x4.TRS(new Vector3((Screen.width - 1280 * scale) / 2, (Screen.height - 720 * scale) / 2), Quaternion.identity, Vector3.one * scale);
-        Color ink = new Color(0.105f, 0.055f, 0.035f);
-        Color gold = new Color(0.89f, 0.66f, 0.28f);
-        Color cream = new Color(0.98f, 0.91f, 0.76f);
-        Color muted = new Color(0.65f, 0.47f, 0.29f);
-        // Quiet halftone print texture on the illustration side.
-        for (int y = 60; y < 650; y += 24)
-            for (int x = 770; x < 1220; x += 24)
-                Fill(new Rect(x, y, 3, 3), new Color(0.25f, 0.15f, 0.085f));
-        Fill(new Rect(64, 58, 5, 34), gold);
-        Label(new Rect(84, 58, 700, 34), Loc.T("load.brand"), 17, gold);
-        Fill(new Rect(64, 151, 145, 28), gold);
-        Label(new Rect(76, 152, 130, 26), Loc.T("load.day"), 13, ink);
-        Label(new Rect(60, 208, 710, 156), Loc.T("load.headline"), 48, cream);
-        Label(new Rect(66, 391, 620, 35), Loc.T("load.sub"), 20, muted);
-        // Three printed covers, with heavy outlines and offset ink shadows.
-        Cover(new Rect(863, 221, 220, 286), -13, muted, ink, cream, 0);
-        Cover(new Rect(905, 188, 220, 286), 9, new Color(0.56f, 0.28f, 0.12f), ink, cream, 1);
-        Cover(new Rect(867, 171, 220, 286), -4, gold, ink, cream, 2);
-        Fill(new Rect(64, 547, 1152, 2), muted);
-        string phase = progress < 0.45f ? Loc.T("load.p1") : progress < 0.85f ? Loc.T("load.p2") : Loc.T("load.p3");
-        Label(new Rect(64, 573, 800, 32), phase, 19, cream);
-        Label(new Rect(1130, 571, 100, 36), Mathf.FloorToInt(progress * 100) + "%", 22, gold);
-        Fill(new Rect(64, 627, 1152, 9), ink);
-        Fill(new Rect(64, 627, 1152 * progress, 9), gold);
-        GUI.matrix = oldMatrix;
-        GUI.color = oldColor;
+        var canvas = gameObject.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 32000;
+        var scaler = gameObject.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(ArtW, ArtH);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+        gameObject.AddComponent<GraphicRaycaster>();
+
+        // Tum ekrani kaplayan koyu zemin; tiklamalari da arkadaki menuye gecirmez.
+        var backdrop = Node("Backdrop", transform);
+        backdrop.anchorMin = Vector2.zero; backdrop.anchorMax = Vector2.one; backdrop.offsetMin = backdrop.offsetMax = Vector2.zero;
+        backdrop.gameObject.AddComponent<Image>().color = new Color32(13, 6, 8, 255);
+
+        var art = Node("Art", transform);
+        art.anchorMin = art.anchorMax = art.pivot = new Vector2(.5f, .5f);
+        art.sizeDelta = new Vector2(ArtW, ArtH);
+        var image = art.gameObject.AddComponent<RawImage>();
+        image.texture = Resources.Load<Texture2D>("ComicShopMenu/menu_background");
+        image.raycastTarget = false;
+        if (image.texture == null) image.color = new Color32(13, 6, 8, 255);
+
+        Font display = Loc.Display(null), body = Loc.Body(null);
+        Font builtin = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (display == null) display = builtin;
+        if (body == null) body = builtin;
+
+        // Baslik: logodaki gibi turuncu, kalin siyah kontur ve golge.
+        title = Label(art, Loc.Upper(Loc.T("load.title")), display, 56, ShopHud.Orange, ColX, 452, ColW, 80, TextAnchor.MiddleCenter);
+        var outline = title.gameObject.AddComponent<Outline>();
+        outline.effectColor = HudShape.Ink; outline.effectDistance = new Vector2(3, -3);
+        var drop = title.gameObject.AddComponent<Shadow>();
+        drop.effectColor = HudShape.Ink; drop.effectDistance = new Vector2(5, -6);
+
+        // Ilerleme cubugu: SETTINGS butonu gibi krem kagit kart.
+        var card = Shape(art, ShopHud.PaperLight, ColX, 548, ColW, 76, 18, false, true, HudShape.Frame.Menu);
+        const float trackX = 20, trackY = 22, trackH = 32;
+        trackWidth = ColW - trackX - 118;
+        Shape(card, HudShape.Ink, trackX, trackY, trackWidth, trackH, 9, false, false, HudShape.Frame.None);
+        fill = Shape(card, ShopHud.Orange, trackX + 3, trackY + 3, 0, trackH - 6, 7, true, false, HudShape.Frame.None);
+        percent = Label(card, "0%", display, 38, HudShape.Ink, ColW - 112, 6, 92, 64, TextAnchor.MiddleRight);
+
+        phase = Label(art, "", body, 24, ShopHud.Cream, ColX + 4, 634, ColW - 8, 40, TextAnchor.MiddleLeft);
+        var phaseShadow = phase.gameObject.AddComponent<Shadow>();
+        phaseShadow.effectColor = new Color32(14, 8, 12, 220); phaseShadow.effectDistance = new Vector2(2, -2);
+
+        // Ipucu karti: turuncu "!" rozeti ve kisa bir oyun ipucu.
+        var tipCard = Shape(art, ShopHud.Paper, ColX, 696, ColW, 150, 18, true, true, HudShape.Frame.Menu);
+        var badge = Shape(tipCard, ShopHud.Orange, 20, 22, 52, 52, 12, false, false, HudShape.Frame.Menu);
+        Label(badge, "!", display, 40, HudShape.Ink, 0, 0, 52, 52, TextAnchor.MiddleCenter);
+        tip = Label(tipCard, "", body, 23, HudShape.Ink, 88, 16, ColW - 108, 118, TextAnchor.MiddleLeft);
+        tip.horizontalOverflow = HorizontalWrapMode.Wrap;
+        tip.resizeTextForBestFit = true; tip.resizeTextMinSize = 14; tip.resizeTextMaxSize = 23;
+
+        tipIndex = Random.Range(0, 3);
+        ShowTip();
+        Refresh();
     }
-    static void Cover(Rect rect, float angle, Color cover, Color ink, Color cream, int variant)
+
+    void ShowTip()
     {
-        Matrix4x4 saved = GUI.matrix;
-        GUIUtility.RotateAroundPivot(angle, rect.center);
-        Fill(new Rect(rect.x + 12, rect.y + 14, rect.width, rect.height), ink);
-        Fill(rect, ink);
-        Fill(new Rect(rect.x + 5, rect.y + 5, rect.width - 10, rect.height - 10), cover);
-        Fill(new Rect(rect.x + 17, rect.y + 18, 5, rect.height - 36), ink);
-        Label(new Rect(rect.x + 32, rect.y + 24, 168, 40), variant == 2 ? "COMICS" : "STORIES", 25, ink);
-        Fill(new Rect(rect.x + 32, rect.y + 70, 153, 3), ink);
-        Label(new Rect(rect.x + 45, rect.y + 100, 155, 105), "POW!", 38, cream);
-        Fill(new Rect(rect.x + 33, rect.y + 233, 105, 4), ink);
-        Fill(new Rect(rect.x + 33, rect.y + 246, 73, 4), ink);
-        GUI.matrix = saved;
+        tip.text = Loc.T("load.tip" + (tipIndex % 3 + 1));
+        nextTip = Time.unscaledTime + TipSeconds;
     }
-    static readonly System.Collections.Generic.Dictionary<int, GUIStyle> styles = new System.Collections.Generic.Dictionary<int, GUIStyle>();
-    static void Fill(Rect rect, Color color) { GUI.color = color; GUI.DrawTexture(rect, Texture2D.whiteTexture); }
-    static void Label(Rect rect, string text, int size, Color color)
+
+    void Update()
     {
-        GUI.color = color;
-        if (!styles.TryGetValue(size, out var style))
-        {
-            style = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = TextAnchor.MiddleLeft,
-                fontStyle = size >= 25 ? FontStyle.Bold : FontStyle.Normal };
-            style.normal.textColor = Color.white;
-            styles[size] = style;
-        }
-        // Dile gore font: basliklar menu fontu, digerleri okunakli govde fontu.
-        style.font = size >= 25 ? Loc.Display(null) : Loc.Body(null);
-        GUI.Label(rect, text, style);
+        if (Time.unscaledTime >= nextTip) { tipIndex++; ShowTip(); }
+        shown = Mathf.MoveTowards(shown, target, Time.unscaledDeltaTime * 0.9f);
+        shown = Mathf.Lerp(shown, target, 1f - Mathf.Exp(-6f * Time.unscaledDeltaTime));
+        Refresh();
+    }
+
+    void Refresh()
+    {
+        fill.sizeDelta = new Vector2(Mathf.Max(0f, (trackWidth - 6f) * shown), fill.sizeDelta.y);
+        percent.text = Loc.Current == GameLanguage.Turkish
+            ? "%" + Mathf.FloorToInt(shown * 100f)
+            : Mathf.FloorToInt(shown * 100f) + "%";
+        float spawn = target / SpawnShare;
+        phase.text = settling ? Loc.T("load.p4")
+            : spawn < 0.45f ? Loc.T("load.p1") : spawn < 0.85f ? Loc.T("load.p2") : Loc.T("load.p3");
+    }
+
+    // ------------------------------------------------------------------ yardimcilar
+
+    static RectTransform Node(string name, Transform parent)
+    {
+        var go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(parent, false);
+        return (RectTransform)go.transform;
+    }
+
+    static void Place(RectTransform rect, float x, float y, float w, float h)
+    {
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+        rect.anchoredPosition = new Vector2(x, -y);
+        rect.sizeDelta = new Vector2(w, h);
+    }
+
+    static RectTransform Shape(Transform parent, Color color, float x, float y, float w, float h, float cut, bool dots, bool shadow, HudShape.Frame frame)
+    {
+        var go = new GameObject("Shape", typeof(RectTransform), typeof(CanvasRenderer), typeof(HudShape));
+        go.transform.SetParent(parent, false);
+        var rect = (RectTransform)go.transform;
+        Place(rect, x, y, w, h);
+        var shape = go.GetComponent<HudShape>();
+        shape.raycastTarget = false;
+        shape.Set(color, frame, cut, dots, shadow);
+        return rect;
+    }
+
+    static Text Label(Transform parent, string value, Font font, int size, Color color, float x, float y, float w, float h, TextAnchor align)
+    {
+        var go = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+        go.transform.SetParent(parent, false);
+        Place((RectTransform)go.transform, x, y, w, h);
+        var text = go.GetComponent<Text>();
+        text.font = font; text.fontSize = size; text.color = color; text.alignment = align;
+        text.raycastTarget = false; text.supportRichText = false;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow; text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.text = value;
+        // Uzun ceviriler kutuya sigsin.
+        while (text.fontSize > 12 && text.preferredWidth > w) text.fontSize--;
+        return text;
     }
 }

@@ -61,6 +61,9 @@ public sealed class ToastBookCarry : MonoBehaviour
         rightWristRest = hand ? hand.localRotation : Quaternion.identity;
         if (!GetComponent<FirstPersonThrowView>())
             gameObject.AddComponent<FirstPersonThrowView>();
+        // Kendi kameramizda kendi kafamizi/sapkamizi gormeyelim.
+        if (!GetComponent<FirstPersonHead>())
+            gameObject.AddComponent<FirstPersonHead>();
         // Procedural arms can leave the bounds baked into the idle clip. Keep
         // skinning/bounds updated when the torso itself is outside the camera.
         foreach (var skin in GetComponentsInChildren<SkinnedMeshRenderer>(true))

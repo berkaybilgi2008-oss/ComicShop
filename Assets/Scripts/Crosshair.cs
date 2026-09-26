@@ -1,109 +1,122 @@
 using UnityEngine;
 
+// Cizgi-roman temali nisangah: siyah cerceveli krem nokta.
+// Kitaba ya da rafa bakinca nokta turuncuya doner ve etrafinda dort kisa cizgi belirir.
+// Sarjli atista nokta cevresinde dolan boncuklar (pip) gosterilir.
 public class Crosshair : MonoBehaviour
 {
-    [Header("Gorunum")]
-    [Min(4f)] public float size = 14f;
-    [Min(0.5f)] public float thickness = 2f;
-    public Color color = Color.white;
-
-    [Header("Sarj Bari")]
     [Tooltip("0 = gizli. PlayerInteraction her karede bu degeri yazar.")]
     [Range(0f, 1f)] public float chargeAmount = 0f;
-    [Min(20f)] public float barWidth = 170f;
-    [Min(3f)] public float barHeight = 9f;
-    [Tooltip("Barin nisangahin ne kadar altinda duracagi.")]
-    public float barOffsetY = 34f;
-    public Color barBackColor = new Color(0f, 0f, 0f, 0.45f);
-    public Color barLowColor = new Color(1f, 0.82f, 0.35f, 0.95f);
-    public Color barFullColor = new Color(1f, 0.42f, 0.2f, 1f);
 
-    private Texture2D ringTexture;
+    [Tooltip("Genel boyut carpani (1 = 1080p icin varsayilan).")]
+    [Range(0.5f, 2f)] public float scale = 1f;
+
+    static readonly Color Ink = new Color32(10, 6, 5, 255);
+    static readonly Color Cream = new Color32(255, 244, 181, 255);
+    static readonly Color Orange = new Color32(245, 151, 2, 255);
+    static readonly Color Red = new Color32(214, 58, 18, 255);
+    const int Pips = 16;
+
+    static Texture2D disc;
+    PlayerInteraction interaction;
+    float focus, warn, charge, chargeShown;
 
     void Awake()
     {
-        CreateRingTexture();
+        interaction = GetComponent<PlayerInteraction>();
+        if (disc == null) disc = CreateDisc(64);
     }
 
-    void OnDestroy()
+    static Texture2D CreateDisc(int size)
     {
-        if (ringTexture != null)
-            Destroy(ringTexture);
-    }
-
-    void CreateRingTexture()
-    {
-        int textureSize = 64;
-        ringTexture = new Texture2D(textureSize, textureSize, TextureFormat.RGBA32, false);
-        ringTexture.wrapMode = TextureWrapMode.Clamp;
-        ringTexture.filterMode = FilterMode.Bilinear;
-
-        float center = (textureSize - 1) * 0.5f;
-        float outerRadius = center - 1f;
-        float innerRadius = outerRadius - 3f;
-
-        for (int y = 0; y < textureSize; y++)
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
         {
-            for (int x = 0; x < textureSize; x++)
+            wrapMode = TextureWrapMode.Clamp,
+            filterMode = FilterMode.Bilinear,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+        float center = (size - 1) * 0.5f, radius = size * 0.5f - 1f;
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
             {
                 float distance = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                float outerAlpha = Mathf.Clamp01(outerRadius - distance + 1f);
-                float innerAlpha = Mathf.Clamp01(distance - innerRadius + 1f);
-                float alpha = outerAlpha * innerAlpha;
-
-                ringTexture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(radius - distance + 0.5f)));
             }
-        }
+        texture.Apply();
+        return texture;
+    }
 
-        ringTexture.Apply();
+    void Update()
+    {
+        var kind = interaction != null ? interaction.CurrentHintKind : PlayerInteraction.HintKind.None;
+        bool hot = kind == PlayerInteraction.HintKind.Pickup || kind == PlayerInteraction.HintKind.Place;
+        float dt = Time.unscaledDeltaTime;
+        focus = Mathf.MoveTowards(focus, hot ? 1f : 0f, dt * 9f);
+        warn = Mathf.MoveTowards(warn, kind == PlayerInteraction.HintKind.Warning ? 1f : 0f, dt * 9f);
+        charge = Mathf.Clamp01(chargeAmount);
+        chargeShown = charge <= 0.001f ? 0f : Mathf.MoveTowards(chargeShown, charge, dt * 6f);
     }
 
     void OnGUI()
     {
-        float centerX = Screen.width * 0.5f;
-        float centerY = Screen.height * 0.5f;
-
+        if (Event.current.type != EventType.Repaint || disc == null || ShopLoadingScreen.IsVisible) return;
         Color oldColor = GUI.color;
-        GUI.color = color;
+        float s = scale * Mathf.Clamp(Screen.height / 1080f, 0.85f, 2f);
+        Vector2 c = new Vector2(Mathf.Round(Screen.width * 0.5f), Mathf.Round(Screen.height * 0.5f));
+        float ease = 1f - (1f - focus) * (1f - focus);
 
-        GUI.DrawTexture(
-            new Rect(centerX - size * 0.5f, centerY - size * 0.5f, size, size),
-            ringTexture,
-            ScaleMode.StretchToFill,
-            true);
+        Color fill = Color.Lerp(Color.Lerp(Cream, Orange, ease), Red, warn);
 
-        DrawChargeBar(centerX, centerY);
+        // Hedef isaretleri: dort kisa, siyah cerceveli cizgi.
+        if (ease > 0.01f)
+        {
+            float gap = (8f + 6f * (1f - ease)) * s, length = 6f * s, width = 3f * s, border = 1.5f * s;
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2 dir = i == 0 ? Vector2.up : i == 1 ? Vector2.down : i == 2 ? Vector2.left : Vector2.right;
+                Vector2 mid = c + dir * (gap + length * 0.5f);
+                Vector2 size = dir.x == 0 ? new Vector2(width, length) : new Vector2(length, width);
+                Box(mid, size + Vector2.one * border * 2f, new Color(Ink.r, Ink.g, Ink.b, ease));
+                Box(mid, size, new Color(fill.r, fill.g, fill.b, ease));
+            }
+        }
+
+        // Nokta: yumusak golge, kalin siyah cerceve, dolgu.
+        float r = (3.2f + 0.8f * ease) * s;
+        Disc(c + new Vector2(1.2f, 1.6f) * s, r + 2.2f * s, new Color(0f, 0f, 0f, 0.35f));
+        Disc(c, r + 2f * s, Ink);
+        Disc(c, r, fill);
+
+        // Sarjli atis: nokta cevresinde dolan boncuklar.
+        if (chargeShown > 0.001f)
+        {
+            bool full = charge >= 0.999f;
+            float pulse = full ? 1f + 0.12f * Mathf.Sin(Time.unscaledTime * 14f) : 1f;
+            float ring = 21f * s * pulse, pip = 2.6f * s;
+            float filled = chargeShown * Pips;
+            for (int i = 0; i < Pips; i++)
+            {
+                float angle = (i / (float)Pips) * Mathf.PI * 2f;
+                Vector2 p = c + new Vector2(Mathf.Sin(angle), -Mathf.Cos(angle)) * ring;
+                float amount = Mathf.Clamp01(filled - i);
+                Color on = Color.Lerp(Orange, Red, full ? 1f : chargeShown * chargeShown);
+                Disc(p, pip + 1.6f * s, Ink);
+                Disc(p, pip, Color.Lerp(new Color(Cream.r, Cream.g, Cream.b, 0.55f), on, amount));
+            }
+        }
 
         GUI.color = oldColor;
     }
 
-    void DrawChargeBar(float centerX, float centerY)
+    static void Disc(Vector2 center, float radius, Color color)
     {
-        if (chargeAmount <= 0.001f)
-            return;
+        GUI.color = color;
+        GUI.DrawTexture(new Rect(center.x - radius, center.y - radius, radius * 2f, radius * 2f), disc, ScaleMode.StretchToFill, true);
+    }
 
-        float fill = Mathf.Clamp01(chargeAmount);
-        float left = centerX - barWidth * 0.5f;
-        float top = centerY + barOffsetY;
-
-        // Zemin
-        GUI.color = barBackColor;
-        GUI.DrawTexture(new Rect(left, top, barWidth, barHeight), Texture2D.whiteTexture);
-
-        // Dolan kisim -- doldukca sariden turuncuya doner
-        GUI.color = Color.Lerp(barLowColor, barFullColor, fill);
-        GUI.DrawTexture(new Rect(left + 1f, top + 1f, (barWidth - 2f) * fill, barHeight - 2f),
-            Texture2D.whiteTexture);
-
-        // Bar dolunca ince bir cerceve ile belli et
-        if (fill >= 0.999f)
-        {
-            GUI.color = barFullColor;
-            float t = 1f;
-            GUI.DrawTexture(new Rect(left - t, top - t, barWidth + t * 2f, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(left - t, top + barHeight, barWidth + t * 2f, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(left - t, top - t, t, barHeight + t * 2f), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(left + barWidth, top - t, t, barHeight + t * 2f), Texture2D.whiteTexture);
-        }
+    static void Box(Vector2 center, Vector2 size, Color color)
+    {
+        GUI.color = color;
+        GUI.DrawTexture(new Rect(center.x - size.x * 0.5f, center.y - size.y * 0.5f, size.x, size.y), Texture2D.whiteTexture);
     }
 }
