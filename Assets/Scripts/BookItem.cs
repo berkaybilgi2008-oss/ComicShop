@@ -114,6 +114,8 @@ public class BookItem : MonoBehaviour
     public bool FreezeWhereResting(Transform ignoreRoot)
     {
         if (body == null || physicsCollider == null || IsHeld || currentSlot != null || frozenAtRest || body.isKinematic) return false;
+        // Hala kayan/donen kitap dondurulmaz (havada asili kalmasin); fizik bitirsin.
+        if (!body.IsSleeping() && (body.linearVelocity.sqrMagnitude > 0.01f || body.angularVelocity.sqrMagnitude > 0.05f)) return false;
         Bounds b = physicsCollider.bounds;
         int count = Physics.OverlapBoxNonAlloc(b.center - Vector3.up * 0.03f, b.extents + new Vector3(0.01f, 0.02f, 0.01f),
             freezeHits, Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore);
@@ -126,7 +128,10 @@ public class BookItem : MonoBehaviour
             if (col.GetComponentInParent<PlayerInteraction>() != null) continue;
             var other = col.GetComponentInParent<BookItem>();
             if (other != null && other.IsHeld) continue;
-            // Yalnizca kitabin ortasinin ALTINDA kalan temaslar destek sayilir.
+            // Destek sabit olmali: zemin/raf ya da zaten donmus kitap. Hareketli kitap destek
+            // sayilirsa o kayinca ustundeki de cozuluyor, yigin surekli kipirdiyordu.
+            var supportBody = col.attachedRigidbody;
+            if (supportBody != null && !supportBody.isKinematic) continue;
             float contactY = col is MeshCollider mesh && !mesh.convex ? col.bounds.max.y : col.ClosestPoint(b.center).y;
             if (contactY > b.center.y - 0.005f) continue;
             bool duplicate = false;
@@ -158,7 +163,9 @@ public class BookItem : MonoBehaviour
         if (manager != null && manager.IsListening && !manager.IsServer) return;
         var hitter = collision.rigidbody;
         if (hitter == null || hitter.isKinematic || hitter == body) return;
-        if (hitter.GetComponentInParent<BookItem>() == null) return;
+        // Yalnizca oyuncunun FIRLATTIGI kitap (ThrownBook) etkiler; acilistaki dusus ya da yigindan
+        // kayan kitaplar kuleleri/yiginlari dagitmaz.
+        if (BookSpawner.LayoutInProgress || hitter.GetComponentInParent<ThrownBook>() == null) return;
         float speed = collision.relativeVelocity.magnitude;
         if (speed < 3f) return;
         Vector3 point = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;

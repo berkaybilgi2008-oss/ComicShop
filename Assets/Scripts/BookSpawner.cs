@@ -75,6 +75,111 @@ public class BookSpawner : MonoBehaviour
     private struct DroppedBody { public Rigidbody body; public CollisionDetectionMode mode; public float depenetration; }
     private readonly List<DroppedBody> droppedBodies = new List<DroppedBody>();
 
+    /// <summary>Yerlesim (dusus) suruyorken true: gercekci carpma etkileri bu surede kapali.</summary>
+    public static bool LayoutInProgress { get; private set; }
+
+    /// <summary>
+    /// Dusus fizigini acilis ekraninin arkasinda HIZLANDIRILMIS calistirir (Physics.Simulate):
+    /// kitaplar gercek fizikle devrilip durur, oyuncu saniyelerce beklemez. Sonra yalnizca
+    /// gercekten duran ve alti dolu olan kitaplar, alttan uste, oldugu yerde dondurulur.
+    /// </summary>
+    private IEnumerator FastForwardDrop()
+    {
+        const float step = 0.02f;
+        var entries = new List<(Rigidbody body, BookItem item)>(sessionBooks.Count);
+        foreach (var go in sessionBooks)
+        {
+            if (go == null || !go.TryGetComponent<Rigidbody>(out var rb) || rb.isKinematic) continue;
+            entries.Add((rb, go.GetComponent<BookItem>()));
+        }
+        // Alttan uste dalgalar: ayni anda binlerce dinamik govde simule etmek cok yavasti (oyuncu
+        // 20+ sn bekliyordu). Her dalga ~300 kitap; o dalga durunca yerinde donar, sonra ustundeki
+        // dalga onun ustune duser. Bekleyen dalgalar havada kinematik bekler.
+        entries.Sort((a, b) => a.body.position.y.CompareTo(b.body.position.y));
+        var saved = new Dictionary<Rigidbody, (float linear, float angular, float sleep)>(entries.Count);
+        foreach (var e in entries)
+        {
+            saved[e.body] = (e.body.linearDamping, e.body.angularDamping, e.body.sleepThreshold);
+            e.body.isKinematic = true;
+        }
+        var previousMode = Physics.simulationMode;
+        LayoutInProgress = true;
+        Transform ignore = dropWalls != null ? dropWalls.transform : null;
+        int waveSize = Mathf.Clamp(entries.Count / 8 + 1, 150, 400);
+        int frozen = 0;
+        float simulatedTotal = 0f;
+        var active = new List<(Rigidbody body, BookItem item)>(waveSize * 2);
+        ShopLoadingScreen.Settling(0f);
+        try
+        {
+            Physics.simulationMode = SimulationMode.Script;
+            for (int start = 0; start < entries.Count; start += waveSize)
+            {
+                for (int i = start; i < Mathf.Min(entries.Count, start + waveSize); i++)
+                {
+                    var e = entries[i];
+                    if (e.body == null) continue;
+                    e.body.isKinematic = false;
+                    // Dusus sirasinda biraz daha sonumlu: cabuk durulur, yine de devrilir/kayar.
+                    e.body.linearDamping = Mathf.Max(e.body.linearDamping, 0.35f);
+                    e.body.angularDamping = Mathf.Max(e.body.angularDamping, 0.8f);
+                    e.body.sleepThreshold = Mathf.Max(e.body.sleepThreshold, 0.04f);
+                    e.body.WakeUp();
+                    active.Add(e);
+                }
+                float simulated = 0f;
+                int quiet = 0;
+                while (simulated < 2.2f)
+                {
+                    double began = Time.realtimeSinceStartupAsDouble;
+                    while (Time.realtimeSinceStartupAsDouble - began < 0.08 && simulated < 2.2f)
+                    {
+                        Physics.Simulate(step);
+                        simulated += step;
+                    }
+                    int moving = 0;
+                    foreach (var e in active)
+                    {
+                        if (e.body == null || e.body.isKinematic || e.body.IsSleeping()) continue;
+                        if (e.body.linearVelocity.sqrMagnitude > 0.0025f || e.body.angularVelocity.sqrMagnitude > 0.02f) moving++;
+                    }
+                    ShopLoadingScreen.Settling(Mathf.Clamp01((start + (float)waveSize * Mathf.Min(1f, simulated / 1.2f)) / entries.Count) * 0.97f);
+                    if (simulated >= 0.4f && moving <= active.Count / 50) { if (++quiet >= 2) break; } else quiet = 0;
+                    yield return null;
+                }
+                simulatedTotal += simulated;
+                // Bu dalgadan duranlar (ve onceki dalgalardan kalanlar) alttan uste donar.
+                Physics.SyncTransforms();
+                active.Sort((a, b) => a.body.position.y.CompareTo(b.body.position.y));
+                for (int pass = 0; pass < 6; pass++)
+                {
+                    int changed = 0;
+                    foreach (var e in active)
+                        if (e.item != null && e.item.FreezeWhereResting(ignore)) changed++;
+                    frozen += changed;
+                    if (changed == 0) break;
+                }
+                active.RemoveAll(e => e.body == null || e.body.isKinematic);
+            }
+        }
+        finally
+        {
+            Physics.simulationMode = previousMode;
+            foreach (var pair in saved)
+            {
+                if (pair.Key == null) continue;
+                pair.Key.linearDamping = pair.Value.linear;
+                pair.Key.angularDamping = pair.Value.angular;
+                pair.Key.sleepThreshold = pair.Value.sleep;
+            }
+        }
+        Debug.Log($"BookSpawner: dusus {simulatedTotal:0.0} sn (dalgalar halinde, hizlandirilmis) simule edildi; " +
+                  $"{frozen} kitap yerinde donduruldu, {active.Count} serbest.");
+        EndDrop();
+        LayoutInProgress = false;
+        ShopLoadingScreen.Settling(1f);
+    }
+
     private void EndDrop()
     {
         if (dropWalls != null) { Destroy(dropWalls); dropWalls = null; }
@@ -93,7 +198,7 @@ public class BookSpawner : MonoBehaviour
         double now = Time.realtimeSinceStartupAsDouble;
         // Yukleme ekrani sadece dusen kitaplari gizler; her karede daha fazla is yapip
         // ekrani kisa tut (ilerleme cubugu yine akici gorunur).
-        if (now - frameBudgetStarted < 0.03) return false;
+        if (now - frameBudgetStarted < 0.09) return false;
         frameBudgetStarted = now;
         return true;
     }
@@ -276,23 +381,15 @@ public class BookSpawner : MonoBehaviour
             // Tur (ve sayac) ancak bu bittikten sonra baslar.
             if (sessionSpawned)
             {
-                var settle = WaitForBooksToSettle();
-                while (settle.MoveNext()) yield return settle.Current;
                 if (dropWalls != null)
                 {
-                    // Dusus bitti: her kitap oldugu yerde, oldugu egimle donar (yiginlar artik
-                    // kendi kendine ziplamaz). Duvarlar destek sayilmaz; sonra kaldirilir.
-                    yield return new WaitForFixedUpdate();
-                    int frozen = 0, loose = 0;
-                    Transform ignore = dropWalls.transform;
-                    foreach (var go in sessionBooks)
-                    {
-                        if (go == null || !go.TryGetComponent<BookItem>(out var item)) continue;
-                        if (item.FreezeWhereResting(ignore)) frozen++;
-                        else if (go.TryGetComponent<Rigidbody>(out var rb) && !rb.isKinematic) loose++;
-                    }
-                    Debug.Log($"BookSpawner: dusus sonrasi {frozen} kitap yerinde donduruldu, {loose} kitap serbest.");
-                    EndDrop();
+                    var fast = FastForwardDrop();
+                    while (fast.MoveNext()) yield return fast.Current;
+                }
+                else
+                {
+                    var settle = WaitForBooksToSettle();
+                    while (settle.MoveNext()) yield return settle.Current;
                 }
             }
         }
@@ -300,6 +397,8 @@ public class BookSpawner : MonoBehaviour
         {
             (routine as System.IDisposable)?.Dispose();
             EndDrop();
+            LayoutInProgress = false;
+            if (Physics.simulationMode == SimulationMode.Script) Physics.simulationMode = SimulationMode.FixedUpdate;
             if (!sessionSpawned)
             {
                 foreach (var book in sessionBooks)
@@ -923,11 +1022,11 @@ public class BookSpawner : MonoBehaviour
             bool takeLowest = Random.value < 0.7f;
             // Birkac gecerli aday icinden en alcagi: once zemin dolar, yiginlar kendiliginden
             // ve duzensiz olusur; yine de hic bir yer bos kalip baska yer kuleye donmez.
-            for (int attempt = 0; attempt < 220 && valid < 4; attempt++)
+            for (int attempt = 0; attempt < 90 && valid < 2; attempt++)
             {
                 // Ilk 140 deneme seridin herhangi bir yeri; sonra mevcut bir daginik kitabin ustunde
                 // rastgele bir nokta (kaymis, donuk yonlu yigin), daha yuksek yigina izin verilerek.
-                bool overPile = attempt >= 140;
+                bool overPile = attempt >= 55;
                 var cell = cells[Random.Range(0, cells.Count)];
                 Vector2 c;
                 if (!overPile)

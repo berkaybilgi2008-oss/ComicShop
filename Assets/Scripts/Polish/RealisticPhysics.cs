@@ -57,7 +57,11 @@ public sealed class PendantLampSwing : MonoBehaviour
         instance = new GameObject("Pendant Lamp Swing (runtime)").AddComponent<PendantLampSwing>();
     }
 
-    void Start() => BuildLamps();
+    void Start()
+    {
+        BuildLamps();
+        Debug.Log($"Gercekci fizik: {lamps.Count} sarkan lamba bulundu (ayar {(RealisticPhysics.Enabled ? "acik" : "kapali")}).");
+    }
 
     void BuildLamps()
     {
@@ -171,7 +175,9 @@ public sealed class PendantLampSwing : MonoBehaviour
                 var lamp = lamps[i];
                 if (lamp.pivot == null) continue;
                 float distance = SegmentDistance(before, now, lamp.pivot.position, lamp.Bottom);
-                if (distance > lamp.radius + 0.18f) continue;
+                // Kitabin merkezi degil KENARI lambaya degince sayilir: kitabin yari boyu eklenir
+                // (eskiden yalnizca merkez 0.2 m'ye girince sayiliyordu, cogu isabet kaciyordu).
+                if (distance > lamp.radius + BookReach(book)) continue;
                 long key = ((long)System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(book) << 32) ^ (uint)i;
                 if (recentHits.TryGetValue(key, out float last) && Time.time - last < 0.4f) continue;
                 recentHits[key] = Time.time;
@@ -181,6 +187,19 @@ public sealed class PendantLampSwing : MonoBehaviour
             }
         }
         if (recentHits.Count > 512) recentHits.Clear();
+    }
+
+    readonly Dictionary<BookItem, float> reach = new Dictionary<BookItem, float>();
+
+    float BookReach(BookItem book)
+    {
+        if (reach.TryGetValue(book, out float value)) return value;
+        var col = book.GetComponentInChildren<Collider>();
+        // Yatay yari boyun buyugu (kitap donerek geldigi icin kosegen yerine en uzun kenar).
+        value = col != null ? Mathf.Max(col.bounds.extents.x, col.bounds.extents.z, col.bounds.extents.y) + 0.06f : 0.35f;
+        value = Mathf.Clamp(value, 0.15f, 0.6f);
+        reach[book] = value;
+        return value;
     }
 
     // Iki dogru parcasi arasindaki en kisa mesafe.

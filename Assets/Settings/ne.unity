@@ -36700,12 +36700,19 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c09a93d66975e574a88512ea43e734b2, type: 2}
   copiesPerBook: 20
   booksCastShadows: 1
+  gatherInFrontOfShelves: 1
+  bookAreaDepthMeters: 4.45
+  shelfFrontClearance: 0.1
   testBookTypeCount: 150
-  mixedTowerBookFraction: 0.1
-  smallTowerSize: 10
-  largeTowerSize: 15
+  towerBookShare: 0.08
+  dropLooseBooks: 1
+  smallTowerMaxBooks: 10
+  largeTowerMaxBooks: 20
   towerYawJitter: 8
-  extraTallTowerBookFraction: 0.1
+  towerGapMeters: 1.1
+  shelfEndPassage: 1.6
+  propClearance: 1.1
+  bookLeanChance: 0.85
   maxSettleSeconds: 12
 --- !u!4 &899125251
 Transform:
@@ -40228,7 +40235,7 @@ Transform:
   m_GameObject: {fileID: 961994287}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 38.58, y: 7.63, z: 14.7}
+  m_LocalPosition: {x: 38.58, y: 5.94, z: 14.7}
   m_LocalScale: {x: 45.4, y: 0.43, z: 24.28}
   m_ConstrainProportionsScale: 0
   m_Children: []
