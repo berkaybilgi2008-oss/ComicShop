@@ -1627,6 +1627,22 @@ public class BookSpawner : MonoBehaviour
         done(true);
     }
 
+    // Spawn boxes also cover the walking lanes. They bound the room; shelf bands reserve
+    // the two middle walkways and the crossings. Both constraints apply to every retry.
+    private bool IsNaturalHeapFootprintAllowed(Vector3 center, Vector2 half, float yaw)
+    {
+        float radius = half.magnitude;
+        if (!InsideArea(center, radius)) return false;
+        if (!gatherInFrontOfShelves) return true;
+        if (!InShelfBand(center, radius)) return false;
+        Vector3 along = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward * half.x;
+        Vector3 across = Quaternion.Euler(0f, yaw, 0f) * Vector3.right * half.y;
+        for (int q = 0; q < 4; q++)
+            if (!InShelfBand(center + (q < 2 ? along : -along) + ((q & 1) == 0 ? across : -across), 0.02f))
+                return false;
+        return true;
+    }
+
     /// <summary>
     /// Photo-like piles: mostly horizontal books, small offsets and related headings.
     /// Bounds, support and obstacles are checked for every book, including retries.
@@ -1661,8 +1677,16 @@ public class BookSpawner : MonoBehaviour
         var depths = new List<int>(n);
         var tops = new List<int>();
         var targets = new List<int>();
+        var bases = new List<LooseRect>();
+        var columnYaws = new List<float>();
         int cap = Mathf.Max(2, heapMaxColumnBooks);
         int onFloor = 0;
+
+        // Use the original shelf-front strips to seed piles, so attempts are not wasted
+        // in the middle walkways. Final per-book checks still enforce the authored boxes.
+        List<BandCell> seeds = null;
+        if (gatherInFrontOfShelves && shelfFootprints.Count > 0 && corridorAreas != null && corridorAreas.Length > 0)
+            seeds = BuildBandCells(0.5f, 0.5f);
 
         bool TryPlace(int k, Vector2 center, float yaw, RaycastHit floor, int column)
         {
@@ -1670,17 +1694,14 @@ public class BookSpawner : MonoBehaviour
             Vector2 axis = new Vector2(Mathf.Sin(yaw * Mathf.Deg2Rad), Mathf.Cos(yaw * Mathf.Deg2Rad));
             Vector2 side = new Vector2(-axis.y, axis.x);
             var rect = new LooseRect { center = center, axis = axis, half = new Vector2(size.z, size.x) * 0.5f };
-            // A radius enclosing the whole cover must fit ONE authored box, even at rotated edges.
             Vector3 floorPoint = new Vector3(center.x, floor.point.y, center.y);
             float radius = rect.half.magnitude;
-            if (!InsideArea(floorPoint, radius)) return false;
+            if (!IsNaturalHeapFootprintAllowed(floorPoint, rect.half, yaw)) return false;
             for (int q = 0; q < 4; q++)
             {
                 Vector2 corner = center + axis * (q < 2 ? rect.half.x : -rect.half.x)
                     + side * ((q & 1) == 0 ? rect.half.y : -rect.half.y);
                 Vector3 point = new Vector3(corner.x, floor.point.y, corner.y);
-                // Authored corridor boxes are authoritative; shelf-band heuristics may extend outside them.
-                if ((corridorAreas == null || corridorAreas.Length == 0) && gatherInFrontOfShelves && !InShelfBand(point, 0.02f)) return false;
                 if (!Ground(point + Vector3.up * 0.08f, out var edge) || Mathf.Abs(edge.point.y - floor.point.y) > 0.01f)
                     return false;
             }
@@ -1723,6 +1744,8 @@ public class BookSpawner : MonoBehaviour
             else
             {
                 tops.Add(rects.Count - 1);
+                bases.Add(rect);
+                columnYaws.Add(yaw);
                 // Different heights give neighbouring stacks an uneven silhouette.
                 targets.Add(Random.Range(Mathf.Min(4, cap), cap + 1));
                 onFloor++;
@@ -1745,7 +1768,10 @@ public class BookSpawner : MonoBehaviour
                 if (join)
                 {
                     int i = tops[column];
-                    float yaw = Mathf.Atan2(rects[i].axis.x, rects[i].axis.y) * Mathf.Rad2Deg;
+                    // Vary around a shared heading, not the previous book: accumulated
+                    // random rotations made stacks turn into spirals rather than piles.
+                    float yaw = attempt >= 192
+                        ? Mathf.Atan2(rects[i].axis.x, rects[i].axis.y) * Mathf.Rad2Deg : columnYaws[column];
                     float variation = attempt >= 192 ? 0f : 1f;
                     yaw += Random.Range(-11f, 11f) * variation + (Random.value < 0.22f ? 180f : 0f);
                     Vector2 shift = Random.insideUnitCircle * Mathf.Min(sizes[k].x, sizes[k].z) * 0.075f * variation;
@@ -1759,11 +1785,28 @@ public class BookSpawner : MonoBehaviour
                     if (column >= 0 && attempt < 96 && Random.value < 0.7f)
                     {
                         int i = tops[column];
+                        var foundation = bases[column];
                         Vector2 direction = Random.insideUnitCircle.normalized;
-                        float distance = rects[i].half.magnitude + new Vector2(sizes[k].x, sizes[k].z).magnitude * 0.5f;
-                        Vector2 anchor = rects[i].center + direction * distance * Random.Range(0.85f, 1.15f);
+                        if (direction.sqrMagnitude < 0.01f) direction = foundation.axis;
+                        yaw = columnYaws[column] + Random.Range(-18f, 18f);
+                        Vector2 axis = new Vector2(Mathf.Sin(yaw * Mathf.Deg2Rad), Mathf.Cos(yaw * Mathf.Deg2Rad));
+                        Vector2 side = new Vector2(-axis.y, axis.x);
+                        // Tight neighbouring bases like the photo, with a small gap. A sum
+                        // of bounding-circle radii left isolated columns far apart.
+                        float distance = foundation.half.x * Mathf.Abs(Vector2.Dot(foundation.axis, direction))
+                            + foundation.half.y * Mathf.Abs(Vector2.Dot(new Vector2(-foundation.axis.y, foundation.axis.x), direction))
+                            + sizes[k].z * 0.5f * Mathf.Abs(Vector2.Dot(axis, direction))
+                            + sizes[k].x * 0.5f * Mathf.Abs(Vector2.Dot(side, direction)) + Random.Range(0.015f, 0.045f);
+                        Vector2 anchor = foundation.center + direction * distance;
                         point = new Vector3(anchor.x, floors[i].point.y + 0.1f, anchor.y);
-                        yaw = Mathf.Atan2(rects[i].axis.x, rects[i].axis.y) * Mathf.Rad2Deg + Random.Range(-24f, 24f);
+                    }
+                    else if (seeds != null && seeds.Count > 0)
+                    {
+                        var seed = seeds[Random.Range(0, seeds.Count)];
+                        point = seed.point + Vector3.up * 0.1f;
+                        point.x += Random.Range(-0.2f, 0.2f);
+                        point.z += Random.Range(-0.2f, 0.2f);
+                        yaw = seed.axisYaw + Random.Range(-22f, 22f);
                     }
                     else if (corridorAreas != null && corridorAreas.Length > 0)
                         point = SampleArea(corridorAreas[Random.Range(0, corridorAreas.Length)]);
