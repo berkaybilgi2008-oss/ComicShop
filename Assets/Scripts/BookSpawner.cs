@@ -361,6 +361,7 @@ public class BookSpawner : MonoBehaviour
     }
 
     public System.Exception SpawnError { get; private set; }
+    private string loadPhase = "";
     public IEnumerator SpawnSessionAsync()
     {
         if (sessionSpawned) yield break;
@@ -375,8 +376,11 @@ public class BookSpawner : MonoBehaviour
             while (true)
             {
                 bool more = false;
+                double stepStart = Time.realtimeSinceStartupAsDouble;
                 try { more = routine.MoveNext(); }
                 catch (System.Exception error) { SpawnError = error; }
+                double stepMs = (Time.realtimeSinceStartupAsDouble - stepStart) * 1000.0;
+                if (stepMs > 120.0) Debug.Log($"[Takilma] Yukleme adimi {stepMs:F0} ms ({loadPhase}).");
                 if (SpawnError != null || !more) break;
                 yield return routine.Current;
                 frameBudgetStarted = Time.realtimeSinceStartupAsDouble;
@@ -504,11 +508,22 @@ public class BookSpawner : MonoBehaviour
         }
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
+        loadPhase = "raf izleri";
         BuildShelfFootprints();
+        loadPhase = "kitap olusturma";
         sessionBooks.Clear();
         {
             // One guaranteed book per assigned area, remaining books weighted by usable area.
-            var positions = CreateSpawnPositions(ids.Count);
+            // Yigin/dagitim modunda tum kitaplar zaten sonradan yerlestirilir: baslangic konumu icin
+            // pahali serit ornekleme (3000 kitap x binlerce deneme, TEK karede) Play Solo'da oyunu
+            // saniyelerce donduruyordu. Ucuz rastgele koridor noktasi yeterli.
+            Vector3[] positions;
+            if (heapLayoutMode && corridorAreas != null && corridorAreas.Length > 0)
+            {
+                positions = new Vector3[ids.Count];
+                for (int i = 0; i < positions.Length; i++) positions[i] = SampleArea(corridorAreas[i % corridorAreas.Length]);
+            }
+            else positions = CreateSpawnPositions(ids.Count);
             for (int i = 0; i < ids.Count; i++)
             {
                 SpawnSingleBook(ids[i], positions[i]);
@@ -524,9 +539,11 @@ public class BookSpawner : MonoBehaviour
                 while (towers.MoveNext()) yield return towers.Current;
             }
             ShopLoadingScreen.Progress(0.55f);
+            loadPhase = "yerlesim";
             var scattered = SeparateInitialBooks(books);
             while (scattered.MoveNext()) yield return scattered.Current;
             int published = 0;
+            loadPhase = "ag yayini";
             // Publish the completed server layout, never the pre-arrangement poses.
             foreach (var book in books)
             {
@@ -1461,12 +1478,487 @@ public class BookSpawner : MonoBehaviour
         done(true);
     }
 
+    /// <summary>
+    /// Karman corman dagilim: seridin her yerinde COK sayida KUCUK yigin (1-6 kitap). Her kitap
+    /// rastgele yonde (0-360) ve yiginin ortasindan rastgele kaymis durur; ust uste binenler
+    /// yalnizca alttakinin ortasina oturabildiginde biner (devrilmez, havada kalmaz), ic ice gecme
+    /// yok (ustten bakis carpisma testi), her kitabin dort kosesi alan icinde. Hepsi yerinde donmus.
+    /// </summary>
+    private IEnumerator PlaceBooksAsPiles(List<BookItem> books, System.Action<bool> done)
+    {
+        var loose = new List<BookItem>(books.Count);
+        foreach (var book in books) if (!spawnedTowerBooks.Contains(book)) loose.Add(book);
+        if (loose.Count == 0 || shelfFootprints.Count == 0 || !gatherInFrontOfShelves) { done(false); yield break; }
+
+        foreach (var book in loose) book.transform.rotation = book.GetAlignedRotation(Vector3.up, Vector3.forward);
+        Physics.SyncTransforms();
+        int n = loose.Count;
+        var lengths = new float[n]; var widths = new float[n]; var heights = new float[n];
+        var offsets = new Vector3[n];
+        var widthList = new List<float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            Bounds b = BookBounds(loose[i]);
+            lengths[i] = b.size.z; widths[i] = b.size.x; heights[i] = b.size.y;
+            offsets[i] = b.center - loose[i].transform.position;
+            widthList.Add(b.size.x);
+        }
+        float sample = Mathf.Clamp(Percentile(widthList, 0.5f) * 0.6f, 0.2f, 0.5f);
+        var cells = BuildBandCells(sample, sample);
+        if (cells.Count == 0) { done(false); yield break; }
+
+        placedGrid.Clear();
+        var gridBounds = new List<Bounds>(n);
+        var rects = new List<LooseRect>(n);
+        var restOrder = new List<BookItem>(n);
+        var restSupport = new List<Collider>(n);
+        var floors = new List<float>(n);
+        // Yigin: merkez (x,z), zemin y, hedef kitap sayisi, simdiki sayi.
+        var piles = new List<(Vector2 center, float floor, Collider floorCollider, int target, int count)>();
+        const float maxPileHeight = 0.5f;
+        var covered = new List<bool>(n);
+        int onFloor = 0, stacked = 0, forced = 0;
+
+        bool TryPlace(int k, Vector2 center, float floorY, Collider floorCollider, out int support, out LooseRect rect, out float bottom, out float yaw, bool ignoreHeight = false)
+        {
+            yaw = Random.Range(0f, 360f);
+            Vector2 axis = new Vector2(Mathf.Sin(yaw * Mathf.Deg2Rad), Mathf.Cos(yaw * Mathf.Deg2Rad));
+            rect = new LooseRect { center = center, axis = axis, half = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f) };
+            support = -1; bottom = floorY;
+            Vector2 side = new Vector2(-axis.y, axis.x);
+            for (int q = 0; q < 4; q++)
+            {
+                Vector2 corner = center + axis * (q < 2 ? rect.half.x : -rect.half.x) + side * ((q & 1) == 0 ? rect.half.y : -rect.half.y);
+                Vector3 corner3 = new Vector3(corner.x, floorY + 0.5f, corner.y);
+                if (!InShelfBand(corner3, 0.02f) || !InsideAreaRelaxed(corner3, 1.2f)) return false;
+            }
+            foreach (int i in GridQuery(RectBounds(rect, floorY)))
+            {
+                if (!RectsOverlap(rect, rects[i])) continue;
+                if (rects[i].top > bottom) { bottom = rects[i].top; support = i; }
+            }
+            if (support >= 0 && !RectContains(rects[support], center, 0.05f)) return false;
+            if (!ignoreHeight && bottom - floorY > maxPileHeight - heights[k]) return false;
+            return true;
+        }
+
+        void Commit(int k, LooseRect rect, float bottom, float yaw, int support, float floorY, Collider floorCollider)
+        {
+            rect.top = bottom + heights[k];
+            rect.book = restOrder.Count;
+            Quaternion spin = Quaternion.Euler(0f, yaw, 0f);
+            var book = loose[k];
+            book.transform.rotation = book.GetAlignedRotation(Vector3.up, spin * Vector3.forward);
+            book.transform.position = new Vector3(rect.center.x, bottom + heights[k] * 0.5f + 0.0015f, rect.center.y) - spin * offsets[k];
+            rects.Add(rect);
+            covered.Add(false);
+            if (support >= 0) covered[support] = true;
+            GridAdd(gridBounds, RectBounds(rect, bottom));
+            restOrder.Add(book);
+            restSupport.Add(support >= 0 ? restOrder[rects[support].book].GetComponentInChildren<Collider>() : floorCollider);
+            floors.Add(floorY);
+            if (support >= 0) stacked++; else onFloor++;
+        }
+
+        for (int k = 0; k < n; k++)
+        {
+            if (YieldForFrameBudget()) { ShopLoadingScreen.Progress(0.55f + 0.3f * k / n); yield return null; }
+            bool placedOk = false;
+            for (int attempt = 0; attempt < 70 && !placedOk; attempt++)
+            {
+                // Cogu kitap yeni ya da henuz dolmamis kucuk bir yigina gider; yiginlar dagitik ve alcak.
+                bool joinPile = piles.Count > 0 && Random.value < 0.62f;
+                int pileIndex = -1;
+                Vector2 anchor; float floorY; Collider floorCollider;
+                if (joinPile)
+                {
+                    pileIndex = Random.Range(0, piles.Count);
+                    if (piles[pileIndex].count >= piles[pileIndex].target) { joinPile = false; pileIndex = -1; } // dolu: yeni nokta
+                }
+                if (joinPile)
+                {
+                    var pile = piles[pileIndex];
+                    anchor = pile.center + Random.insideUnitCircle * (widths[k] * 0.42f); // kaykin, hizasiz
+                    floorY = pile.floor; floorCollider = pile.floorCollider;
+                }
+                else
+                {
+                    var cell = cells[Random.Range(0, cells.Count)];
+                    anchor = new Vector2(cell.point.x, cell.point.z) + Random.insideUnitCircle * sample * 0.5f;
+                    floorY = cell.point.y; floorCollider = cell.floor;
+                }
+                if (!TryPlace(k, anchor, floorY, floorCollider, out int support, out var rect, out float bottom, out float yaw)) continue;
+                Commit(k, rect, bottom, yaw, support, floorY, floorCollider);
+                if (pileIndex >= 0) { var pile = piles[pileIndex]; pile.count++; piles[pileIndex] = pile; }
+                else piles.Add((anchor, floorY, floorCollider, Random.Range(1, 7), 1));
+                placedOk = true;
+            }
+            if (placedOk) continue;
+            // Yer kalmadiysa: TEK bir kuleyi buyutmek yerine en ALCAK acik yiginlarin ustune, hafif
+            // kaydirarak ve rastgele acida koy. Fazla kitaplar tum yiginlara esit ve daginik yayilir;
+            // mukemmel sutun olusmaz, ic ice gecme yine yok.
+            for (int t = 0; t < 160 && !placedOk; t++)
+            {
+                int best = -1; float bestTop = float.MaxValue;
+                for (int c = 0; c < 10; c++)
+                {
+                    int i = Random.Range(0, rects.Count);
+                    if (covered[i] && t < 120) continue;
+                    if (rects[i].top < bestTop) { bestTop = rects[i].top; best = i; }
+                }
+                if (best < 0) continue;
+                var top = rects[best];
+                float floorY = floors[top.book];
+                Vector2 anchor = top.center + Random.insideUnitCircle * (widths[k] * (t < 100 ? 0.35f : 0.03f));
+                if (!TryPlace(k, anchor, floorY, null, out int support, out var rect, out float bottom, out float yaw, true)) continue;
+                if (support < 0) continue;
+                Commit(k, rect, bottom, yaw, support, floorY, null);
+                forced++;
+                placedOk = true;
+            }
+        }
+        Physics.SyncTransforms();
+        int frozen = 0;
+        for (int i = 0; i < restOrder.Count; i++)
+            if (restSupport[i] != null && restOrder[i].InitializeSpawnSupport(restSupport[i])) frozen++;
+        placedGrid.Clear();
+        Debug.Log($"BookSpawner: {restOrder.Count}/{n} kitap {piles.Count} kucuk yigina dagitildi ({onFloor} zeminde, {stacked} ustte, " +
+                  $"{forced} yedek); {frozen} kitap yerinde donmus.");
+        done(true);
+    }
+
+    /// <summary>
+    /// Karman corman kitap yiginlari: kitaplar rastgele konum/acida birbirinin ustune YIGILIR,
+    /// alttakilerin uzerine yaslanip EGILIR (bir ucu kitapta, bir ucu yerde gibi). Her kitabin alt
+    /// yuzeyi, altindaki yukseklik profilinin ust zarfina oturan bir duzlemdir: hic bir yere
+    /// gomulmez (ic ice gecme yok), en az bir-iki noktadan temas eder (havada asili durmaz) ve
+    /// dayandigi kitaplar hareket edene kadar yerinde donmus baslar. Dort kosesi de seridin
+    /// icindedir; yurume yoluna / gecitlere tasmaz.
+    /// </summary>
+    private IEnumerator PlaceBooksAsMessyHeaps(List<BookItem> books, System.Action<bool> done)
+    {
+        var loose = new List<BookItem>(books.Count);
+        foreach (var book in books) if (!spawnedTowerBooks.Contains(book)) loose.Add(book);
+        if (loose.Count == 0 || shelfFootprints.Count == 0 || !gatherInFrontOfShelves) { done(false); yield break; }
+
+        foreach (var book in loose) book.transform.rotation = book.GetAlignedRotation(Vector3.up, Vector3.forward);
+        Physics.SyncTransforms();
+        int n = loose.Count;
+        var lengths = new float[n]; var widths = new float[n]; var thick = new float[n];
+        var localOffsets = new Vector3[n];
+        var widthList = new List<float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            Bounds b = BookBounds(loose[i]);
+            lengths[i] = b.size.z; widths[i] = b.size.x; thick[i] = Mathf.Max(0.004f, b.size.y);
+            localOffsets[i] = Quaternion.Inverse(loose[i].transform.rotation) * (b.center - loose[i].transform.position);
+            widthList.Add(b.size.x);
+        }
+        float sample = Mathf.Clamp(Percentile(widthList, 0.5f) * 0.6f, 0.2f, 0.5f);
+        var cells = BuildBandCells(sample, sample);
+        if (cells.Count == 0) { done(false); yield break; }
+
+        const float maxHeapHeight = 0.6f;
+        const float maxSlope = 0.62f;   // ~32 derece
+        const int NT = 9, NS = 5;
+        placedGrid.Clear();
+        var gridBounds = new List<Bounds>(n);
+        var rects = new List<LooseRect>(n);
+        var pa = new List<float>(n); var pb = new List<float>(n); var pd = new List<float>(n); var vth = new List<float>(n);
+        var order = new List<BookItem>(n);
+        var colliders = new List<Collider>(n);
+        var contacts = new List<List<Collider>>(n);
+        var floors = new List<float>(n);
+        var floorColliders = new List<Collider>(n);
+        var piles = new List<(Vector2 center, float floor, Collider floorCollider, int target, int count)>();
+        var cand = new List<int>(32);
+        var h = new float[NT, NS]; var owner = new int[NT, NS];
+        var ts = new float[NT]; var ss = new float[NS];
+        var hullT = new List<int>(NT);
+        int tilted = 0, forced = 0, onFloor = 0;
+
+        float TopAt(int i, Vector2 p)
+        {
+            var r = rects[i];
+            Vector2 d = p - r.center;
+            float t = Vector2.Dot(d, r.axis), s = Vector2.Dot(d, new Vector2(-r.axis.y, r.axis.x));
+            if (Mathf.Abs(t) > r.half.x || Mathf.Abs(s) > r.half.y) return float.NegativeInfinity;
+            return pa[i] + pb[i] * t + pd[i] * s + vth[i];
+        }
+
+        // Ust zarf (monoton zincir) uzerinde x=0'i kapsayan dogru parcasinin egimi.
+        float HullSlope(float[] xs, float[] ys, int count)
+        {
+            hullT.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                while (hullT.Count >= 2)
+                {
+                    int o = hullT[hullT.Count - 2], a = hullT[hullT.Count - 1];
+                    float cross = (xs[a] - xs[o]) * (ys[i] - ys[o]) - (ys[a] - ys[o]) * (xs[i] - xs[o]);
+                    if (cross >= 0f) hullT.RemoveAt(hullT.Count - 1); else break;
+                }
+                hullT.Add(i);
+            }
+            for (int j = 0; j + 1 < hullT.Count; j++)
+            {
+                int a = hullT[j], b = hullT[j + 1];
+                if (xs[a] <= 0f && xs[b] >= 0f)
+                {
+                    // Tam tepe noktasindaysa kitap rastgele bir yana devrilir.
+                    if (Mathf.Abs(xs[b]) < 1e-5f && j + 2 < hullT.Count && Random.value < 0.5f) { a = b; b = hullT[j + 2]; }
+                    else if (Mathf.Abs(xs[a]) < 1e-5f && j > 0 && Random.value < 0.5f) { b = a; a = hullT[j - 1]; }
+                    return (ys[b] - ys[a]) / Mathf.Max(1e-5f, xs[b] - xs[a]);
+                }
+            }
+            return 0f;
+        }
+
+        var profile = new float[Mathf.Max(NT, NS)];
+        var axisVals = new float[Mathf.Max(NT, NS)];
+
+        // Verilen ayak izi icin yukseklik orneklerini doldurur ve alt yuzey duzlemini (a + b*t + d*s) oturtur.
+        void Fit(Vector2 center, Vector2 axis, Vector2 side, Vector2 half, float floorY, out float a, out float b, out float d)
+        {
+            var probe = new LooseRect { center = center, axis = axis, half = half };
+            cand.Clear();
+            foreach (int i in GridQuery(RectBounds(probe, floorY)))
+                if (RectsOverlap(probe, rects[i])) cand.Add(i);
+            for (int it = 0; it < NT; it++) ts[it] = Mathf.Lerp(-half.x, half.x, it / (float)(NT - 1));
+            for (int is_ = 0; is_ < NS; is_++) ss[is_] = Mathf.Lerp(-half.y, half.y, is_ / (float)(NS - 1));
+            for (int it = 0; it < NT; it++)
+                for (int is_ = 0; is_ < NS; is_++)
+                {
+                    Vector2 p = center + axis * ts[it] + side * ss[is_];
+                    float best = floorY; int who = -1;
+                    foreach (int i in cand) { float v = TopAt(i, p); if (v > best) { best = v; who = i; } }
+                    h[it, is_] = best; owner[it, is_] = who;
+                }
+            // Boyuna egim: her kesitteki en yuksek noktanin ust zarfi.
+            for (int it = 0; it < NT; it++)
+            {
+                float m = float.NegativeInfinity;
+                for (int is_ = 0; is_ < NS; is_++) m = Mathf.Max(m, h[it, is_]);
+                profile[it] = m; axisVals[it] = ts[it];
+            }
+            b = HullSlope(axisVals, profile, NT);
+            // Enine egim: boyuna egim cikarildiktan sonra kalan profilin ust zarfi.
+            for (int is_ = 0; is_ < NS; is_++)
+            {
+                float m = float.NegativeInfinity;
+                for (int it = 0; it < NT; it++) m = Mathf.Max(m, h[it, is_] - b * ts[it]);
+                profile[is_] = m; axisVals[is_] = ss[is_];
+            }
+            d = HullSlope(axisVals, profile, NS);
+            // Duzlem tum orneklerin ve alttaki kitaplarin iceride kalan koselerinin USTUNDE: gomulme yok.
+            a = float.NegativeInfinity;
+            for (int it = 0; it < NT; it++)
+                for (int is_ = 0; is_ < NS; is_++) a = Mathf.Max(a, h[it, is_] - b * ts[it] - d * ss[is_]);
+            foreach (int i in cand)
+            {
+                var r = rects[i]; Vector2 rs = new Vector2(-r.axis.y, r.axis.x);
+                for (int q = 0; q < 4; q++)
+                {
+                    Vector2 c = r.center + r.axis * (q < 2 ? r.half.x - 0.002f : -r.half.x + 0.002f) + rs * ((q & 1) == 0 ? r.half.y - 0.002f : -r.half.y + 0.002f);
+                    Vector2 dd = c - center;
+                    float t = Vector2.Dot(dd, axis), s = Vector2.Dot(dd, side);
+                    if (Mathf.Abs(t) > half.x || Mathf.Abs(s) > half.y) continue;
+                    a = Mathf.Max(a, TopAt(i, c) - b * t - d * s);
+                }
+            }
+        }
+
+        bool Evaluate(int k, Vector2 center, float floorY, bool strict, out LooseRect rect, out float a, out float b, out float d, out float top,
+            float yawOverride = float.NaN)
+        {
+            float yaw = float.IsNaN(yawOverride) ? Random.Range(0f, 360f) : yawOverride;
+            Vector2 axis = new Vector2(Mathf.Sin(yaw * Mathf.Deg2Rad), Mathf.Cos(yaw * Mathf.Deg2Rad));
+            Vector2 side = new Vector2(-axis.y, axis.x);
+            Vector2 full = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f);
+            rect = new LooseRect { center = center, axis = axis, half = full };
+            a = b = d = top = 0f;
+            for (int q = 0; q < 4; q++)
+            {
+                Vector2 corner = center + axis * (q < 2 ? full.x : -full.x) + side * ((q & 1) == 0 ? full.y : -full.y);
+                Vector3 corner3 = new Vector3(corner.x, floorY + 0.5f, corner.y);
+                if (!InShelfBand(corner3, 0.02f) || !InsideAreaRelaxed(corner3, 1.2f)) return false;
+            }
+            // 1. tur tam boy; 2. tur egik kitabin GERCEK (kisalan) yatay izdusumuyle: kitabin uzanmadigi
+            // bir yerdeki yuksek kitap onu havaya kaldirmasin.
+            Fit(center, axis, side, full, floorY, out a, out b, out d);
+            if (Mathf.Abs(b) > maxSlope * 1.3f || Mathf.Abs(d) > maxSlope * 1.3f) return false;
+            Vector2 half = new Vector2(full.x / Mathf.Sqrt(1f + b * b), full.y / Mathf.Sqrt(1f + d * d));
+            Fit(center, axis, side, half, floorY, out a, out b, out d);
+            // Cok dik egim = tek kenara takilip havada duran kitap. Asla kirpilmaz, reddedilir.
+            if (Mathf.Abs(b) > maxSlope || Mathf.Abs(d) > maxSlope) return false;
+            a += 0.0015f;
+            Vector3 nrm = Vector3.Cross(new Vector3(side.x, d, side.y), new Vector3(axis.x, b, axis.y)).normalized;
+            float vt = thick[k] / Mathf.Max(0.5f, nrm.y);
+            top = a + Mathf.Abs(b) * half.x + Mathf.Abs(d) * half.y + vt;
+            if (strict && top - floorY > maxHeapHeight) return false;
+            rect.half = half;
+            rect.top = top;
+            return true;
+        }
+
+        void Commit(int k, LooseRect rect, float a, float b, float d, float floorY, Collider floorCollider)
+        {
+            Vector2 axis = rect.axis, side = new Vector2(-axis.y, axis.x);
+            // Temas noktalari: duzleme 3 mm'den yakin ornekler -> dayandigi kitaplar / zemin.
+            var touching = new List<Collider>(3);
+            bool floorTouch = false;
+            for (int it = 0; it < NT; it++)
+                for (int is_ = 0; is_ < NS; is_++)
+                {
+                    float gap = a - 0.0015f + b * ts[it] + d * ss[is_] - h[it, is_];
+                    if (gap > 0.003f) continue;
+                    int who = owner[it, is_];
+                    if (who < 0) floorTouch = true;
+                    else if (!touching.Contains(colliders[who])) touching.Add(colliders[who]);
+                }
+            if (floorTouch && floorCollider != null) touching.Add(floorCollider);
+            if (touching.Count == 0)
+            {
+                // Temas bir alt kitabin kosesinden geldiyse: en yakin ornegin sahibini destek say.
+                float bestGap = float.MaxValue; int who = -2;
+                for (int it = 0; it < NT; it++)
+                    for (int is_ = 0; is_ < NS; is_++)
+                    {
+                        float gap = a + b * ts[it] + d * ss[is_] - h[it, is_];
+                        if (gap < bestGap) { bestGap = gap; who = owner[it, is_]; }
+                    }
+                if (who >= 0) touching.Add(colliders[who]);
+                else if (who == -1 && floorCollider != null) touching.Add(floorCollider);
+            }
+            Vector3 T = new Vector3(axis.x, b, axis.y).normalized;
+            Vector3 N = Vector3.Cross(new Vector3(side.x, d, side.y), new Vector3(axis.x, b, axis.y)).normalized;
+            var book = loose[k];
+            Quaternion rot = book.GetAlignedRotation(N, T);
+            book.transform.rotation = rot;
+            Vector3 bottomCenter = new Vector3(rect.center.x, a, rect.center.y);
+            Vector3 boxCenter = bottomCenter + N * (thick[k] * 0.5f);
+            book.transform.position = boxCenter - rot * localOffsets[k];
+            rects.Add(rect);
+            pa.Add(a); pb.Add(b); pd.Add(d); vth.Add(thick[k] / Mathf.Max(0.5f, N.y));
+            GridAdd(gridBounds, RectBounds(rect, floorY));
+            order.Add(book);
+            colliders.Add(book.GetComponentInChildren<Collider>());
+            contacts.Add(touching);
+            floors.Add(floorY); floorColliders.Add(floorCollider);
+            if (Mathf.Abs(b) > 0.03f || Mathf.Abs(d) > 0.03f) tilted++;
+            if (touching.Count == 1 && floorTouch) onFloor++;
+        }
+
+        for (int k = 0; k < n; k++)
+        {
+            if (YieldForFrameBudget()) { ShopLoadingScreen.Progress(0.55f + 0.3f * k / n); yield return null; }
+            bool placedOk = false;
+            for (int attempt = 0; attempt < 18 && !placedOk; attempt++)
+            {
+                // Cogu kitap mevcut bir yiginin USTUNE/KENARINA savrulur (ic ice, egik, daginik);
+                // kalanlar seritte yeni bir yigin baslatir.
+                int pileIndex = -1;
+                if (piles.Count > 0 && Random.value < 0.78f)
+                {
+                    pileIndex = Random.Range(0, piles.Count);
+                    if (piles[pileIndex].count >= piles[pileIndex].target) pileIndex = -1;
+                }
+                Vector2 anchor; float floorY; Collider floorCollider;
+                if (pileIndex >= 0)
+                {
+                    var pile = piles[pileIndex];
+                    anchor = pile.center + Random.insideUnitCircle * (lengths[k] * 0.5f);
+                    floorY = pile.floor; floorCollider = pile.floorCollider;
+                }
+                else
+                {
+                    var cell = cells[Random.Range(0, cells.Count)];
+                    anchor = new Vector2(cell.point.x, cell.point.z) + Random.insideUnitCircle * sample * 0.5f;
+                    floorY = cell.point.y; floorCollider = cell.floor;
+                }
+                if (!Evaluate(k, anchor, floorY, true, out var rect, out float a, out float b, out float d, out _)) continue;
+                Commit(k, rect, a, b, d, floorY, floorCollider);
+                if (pileIndex >= 0) { var pile = piles[pileIndex]; pile.count++; piles[pileIndex] = pile; }
+                else piles.Add((anchor, floorY, floorCollider, Random.Range(6, 21), 1));
+                placedOk = true;
+            }
+            if (placedOk) continue;
+            // Yer kalmadiysa: birkac rastgele yigin noktasindan EN ALCAK sonucu veren secilir;
+            // fazla kitaplar tek kuleye degil tum yiginlara esit ve daginik yayilir.
+            for (int round = 0; round < 6 && !placedOk; round++)
+            {
+                float bestTop = float.MaxValue; LooseRect bestRect = default; float ba = 0, bb = 0, bd = 0, bFloor = 0; Collider bCol = null;
+                bool any = false;
+                for (int c = 0; c < 8; c++)
+                {
+                    int i = Random.Range(0, rects.Count);
+                    Vector2 anchor = rects[i].center + Random.insideUnitCircle * (lengths[k] * 0.5f);
+                    if (!Evaluate(k, anchor, floors[i], false, out var rect, out float a, out float b, out float d, out float top)) continue;
+                    if (top < bestTop)
+                    {
+                        // Evaluate'in ornek tamponlari son cagriya ait; secileni tekrar hesaplamak icin sakla.
+                        bestTop = top; bestRect = rect; ba = a; bb = b; bd = d; bFloor = floors[i]; bCol = floorColliders[i]; any = true;
+                    }
+                }
+                if (!any) continue;
+                // Temas bilgisi icin secilen yerlesimi ayni duzlemle yeniden ornekle.
+                RefreshSamples(bestRect, bFloor);
+                Commit(k, bestRect, ba, bb, bd, bFloor, bCol);
+                forced++;
+                placedOk = true;
+            }
+            // Son care: alcak bir kitabin tam ustune, onunla ayni yonde (egimi de ayni, tam oturur).
+            for (int t = 0; t < 200 && !placedOk; t++)
+            {
+                int i = -1; float low = float.MaxValue;
+                for (int c = 0; c < 12; c++) { int j = Random.Range(0, rects.Count); if (rects[j].top < low) { low = rects[j].top; i = j; } }
+                if (i < 0) break;
+                float yaw = Mathf.Atan2(rects[i].axis.x, rects[i].axis.y) * Mathf.Rad2Deg + (Random.value < 0.5f ? 0f : 180f);
+                if (!Evaluate(k, rects[i].center + Random.insideUnitCircle * 0.02f, floors[i], false, out var rect, out float a, out float b, out float d, out _, yaw)) continue;
+                Commit(k, rect, a, b, d, floors[i], floorColliders[i]);
+                forced++;
+                placedOk = true;
+            }
+        }
+
+        void RefreshSamples(LooseRect rect, float floorY)
+        {
+            Vector2 axis = rect.axis, side = new Vector2(-axis.y, axis.x);
+            cand.Clear();
+            foreach (int i in GridQuery(RectBounds(rect, floorY)))
+                if (RectsOverlap(rect, rects[i])) cand.Add(i);
+            for (int it = 0; it < NT; it++) ts[it] = Mathf.Lerp(-rect.half.x, rect.half.x, it / (float)(NT - 1));
+            for (int is_ = 0; is_ < NS; is_++) ss[is_] = Mathf.Lerp(-rect.half.y, rect.half.y, is_ / (float)(NS - 1));
+            for (int it = 0; it < NT; it++)
+                for (int is_ = 0; is_ < NS; is_++)
+                {
+                    Vector2 p = rect.center + axis * ts[it] + side * ss[is_];
+                    float best = floorY; int who = -1;
+                    foreach (int i in cand) { float v = TopAt(i, p); if (v > best) { best = v; who = i; } }
+                    h[it, is_] = best; owner[it, is_] = who;
+                }
+        }
+
+        Physics.SyncTransforms();
+        int frozen = 0;
+        for (int i = 0; i < order.Count; i++)
+        {
+            if (YieldForFrameBudget()) { ShopLoadingScreen.Progress(0.85f); yield return null; }
+            if (order[i].InitializeSpawnSupports(contacts[i])) frozen++;
+            else if (order[i].FreezeWhereResting(null)) frozen++;
+        }
+        placedGrid.Clear();
+        Debug.Log($"BookSpawner: {order.Count}/{n} kitap {piles.Count} daginik yigina savruldu ({tilted} egik, {onFloor} yalniz zeminde, " +
+                  $"{forced} yedek); {frozen} kitap yerinde donmus.");
+        done(true);
+    }
+
     private IEnumerator SeparateInitialBooks(List<BookItem> books)
     {
         bool handled = false;
         if (heapLayoutMode)
         {
-            var heaps = PlaceBooksAsHeaps(books, ok => handled = ok);
+            var heaps = PlaceBooksAsMessyHeaps(books, ok => handled = ok);
             while (heaps.MoveNext()) yield return heaps.Current;
             if (handled) yield break;
         }

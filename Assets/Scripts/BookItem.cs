@@ -102,6 +102,36 @@ public class BookItem : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// Yerlesim tarafindan hesaplanmis birden cok temas (egik kitap: bir ucu kitapta, bir ucu yerde).
+    /// Geometri yerlesimde garanti edildigi icin mesafe testi yapilmaz; destekler donmus/kinematik olmali.
+    /// Desteklerden biri kipirdarsa kitap cozulur ve dusar.
+    /// </summary>
+    public bool InitializeSpawnSupports(System.Collections.Generic.IReadOnlyList<Collider> supports)
+    {
+        if (body == null || supports == null || supports.Count == 0 || IsHeld || currentSlot != null) return false;
+        foreach (var support in supports)
+        {
+            if (support == null || support.isTrigger || !support.enabled) return false;
+            var below = support.GetComponentInParent<BookItem>();
+            if (below != null && !below.frozenAtRest) return false;
+            if (support.attachedRigidbody != null && !support.attachedRigidbody.isKinematic) return false;
+        }
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        restSupports.Clear();
+        foreach (var support in supports)
+            restSupports.Add(new RestSupport { collider = support, position = support.transform.position,
+                rotation = support.transform.rotation, scale = support.transform.lossyScale });
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        return true;
+    }
+
     public bool IsFrozenAtRest => frozenAtRest;
 
     private static readonly Collider[] freezeHits = new Collider[32];

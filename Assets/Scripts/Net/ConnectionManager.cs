@@ -257,6 +257,30 @@ public class ConnectionManager : MonoBehaviour
 
     private bool StartPreparedSession(bool host, string startingMessage)
     {
+        if (!host) return StartPreparedSessionNow(false, startingMessage);
+        // Play Solo / oda kurma: NGO host baslatma, oyuncu olusturma ve raf kaydi ayni karede
+        // calisip menuyu saniyelerce dondurmus gibi gosteriyordu. Once acilis ekranini cizdir,
+        // agir isi bir sonraki karede baslat; takilma olsa bile oyuncu yukleme ekranini gorur.
+        ShopLoadingScreen.Show();
+        State = SessionState.StartingHost;
+        attemptStarted = Time.realtimeSinceStartup;
+        SetStatus(startingMessage);
+        StartCoroutine(StartHostAfterPaint(startingMessage));
+        return true;
+    }
+
+    private System.Collections.IEnumerator StartHostAfterPaint(string startingMessage)
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+        if (State != SessionState.StartingHost) { ShopLoadingScreen.Hide(); yield break; }
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        if (!StartPreparedSessionNow(true, startingMessage)) ShopLoadingScreen.Hide();
+        Debug.Log($"[Baglanti] Host baslatma {clock.ElapsedMilliseconds} ms surdu (yukleme ekrani arkasinda).");
+    }
+
+    private bool StartPreparedSessionNow(bool host, string startingMessage)
+    {
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
