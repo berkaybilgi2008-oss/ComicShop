@@ -37,7 +37,7 @@ public static class ComicShopDesktopBuild
         }
 
         string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-        string folder = Path.Combine(desktop, FolderName);
+        string folder = Path.Combine(ChooseOutputRoot(desktop), FolderName);
         string productName = string.IsNullOrWhiteSpace(PlayerSettings.productName) ? "ComicShop" : PlayerSettings.productName;
         string exe = Path.Combine(folder, productName + ".exe");
         Directory.CreateDirectory(folder);
@@ -66,6 +66,32 @@ public static class ComicShopDesktopBuild
         Debug.Log($"[ComicShop Build] TAMAM: {exe}  ({summary.totalSize / (1024f * 1024f):0} MB, {summary.totalTime.TotalMinutes:0.0} dk)" +
                   (linked ? $"\nMasaustu kisayolu: {shortcut}" : ""));
         EditorUtility.RevealInFinder(exe);
+    }
+
+    // Masaustu diski doluysa (Unity "Low disk space" uyarisi) oyunu en bos diske kur;
+    // masaustune yine de calistirilabilir kisayol konur.
+    static string ChooseOutputRoot(string desktop)
+    {
+        const long needed = 3L * 1024 * 1024 * 1024;
+        try
+        {
+            var desktopDrive = new DriveInfo(Path.GetPathRoot(desktop));
+            if (desktopDrive.AvailableFreeSpace >= needed) return desktop;
+            DriveInfo best = DriveInfo.GetDrives()
+                .Where(d => d.IsReady && d.DriveType == DriveType.Fixed)
+                .OrderByDescending(d => d.AvailableFreeSpace).FirstOrDefault();
+            if (best != null && best.AvailableFreeSpace > desktopDrive.AvailableFreeSpace)
+            {
+                Debug.LogWarning($"[ComicShop Build] {desktopDrive.Name} diskinde yer az " +
+                    $"({desktopDrive.AvailableFreeSpace / (1024f * 1024f * 1024f):0.0} GB); oyun {best.Name} diskine kuruluyor, masaustune kisayol konacak.");
+                return best.RootDirectory.FullName;
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("[ComicShop Build] Disk alani okunamadi: " + exception.Message);
+        }
+        return desktop;
     }
 
     // Windows Script Host ile masaustu kisayolu; basarisiz olursa build yine gecerlidir.

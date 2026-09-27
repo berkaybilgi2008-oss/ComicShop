@@ -107,11 +107,18 @@ public sealed partial class ShopFrontEnd
         {
             ComicSlider(sheet,Loc.T("settings.fov"),150,55,105,p.fov,v=>{p.fov=v;p.fovChosen=true;});
             ComicToggle(sheet,"VSync",231,p.vsync,v=>p.vsync=v);
-            ComicButton(sheet,Loc.T("settings.fps",p.fps),30,311,382,52,()=>{p.fps=p.fps<60?60:p.fps<120?120:p.fps<144?144:p.fps<240?240:30;ShopSettings.Apply();Build();},false,22);
-            ComicButton(sheet,Screen.width+" × "+Screen.height,435,311,382,52,CycleResolution,false,22);
-            ComicButton(sheet,Screen.fullScreenMode==FullScreenMode.Windowed?Loc.T("settings.windowed"):Loc.T("settings.borderless"),30,384,787,52,
-                ()=>PreviewDisplay(Screen.width,Screen.height,Screen.fullScreenMode==FullScreenMode.Windowed?1:0),false,24);
-            ComicText(sheet,Application.isEditor?Loc.T("settings.display_note_editor"):Loc.T("settings.display_note"),32,462,782,44,18);
+            ComicButton(sheet,Loc.T("settings.fps",p.fps),30,300,250,48,()=>{p.fps=p.fps<60?60:p.fps<120?120:p.fps<144?144:p.fps<240?240:30;ShopSettings.Apply();Build();},false,20);
+            ComicButton(sheet,Screen.width+" × "+Screen.height,295,300,250,48,CycleResolution,false,20);
+            ComicButton(sheet,Screen.fullScreenMode==FullScreenMode.Windowed?Loc.T("settings.windowed"):Loc.T("settings.borderless"),560,300,257,48,
+                ()=>PreviewDisplay(Screen.width,Screen.height,Screen.fullScreenMode==FullScreenMode.Windowed?1:0),false,17);
+            // Grafik kalitesi: Dusuk / Orta / Yuksek / Cok Yuksek.
+            ComicText(sheet,Loc.T("settings.gfx.title"),30,362,788,30,22,true);
+            for(int i=0;i<GraphicsQuality.LocKeys.Length;i++)
+            {
+                int level=i;
+                ComicButton(sheet,Loc.T(GraphicsQuality.LocKeys[i]),30+i*198,398,190,48,()=>{p.graphics=level;ShopSettings.Apply();ShopSettings.Save();Build();},p.graphics==i,19);
+            }
+            ComicText(sheet,Application.isEditor?Loc.T("settings.display_note_editor"):Loc.T("settings.display_note"),32,468,782,44,18);
         }
         else if(tab==2)
         {

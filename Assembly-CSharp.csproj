@@ -83,6 +83,7 @@
     <Compile Include="Assets\Scripts\BookItem.cs" />
     <Compile Include="Assets\Scripts\GameStats.cs" />
     <Compile Include="Assets\Scripts\Net\SessionBackgroundCamera.cs" />
+    <Compile Include="Assets\Scripts\Polish\GraphicsQuality.cs" />
     <Compile Include="Assets\Scripts\BrandCatalog.cs" />
     <Compile Include="Assets\Scripts\Polish\LocTable.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
@@ -142,6 +143,7 @@
     <Compile Include="Assets\ComicShopToon\Runtime\ToonCameraSetup.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicPreferences.cs" />
     <Compile Include="Assets\ComicShopToon\Runtime\ToonGlobals.cs" />
+    <Compile Include="Assets\Scripts\KnockdownHeadCamera.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
     <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastBookCarry.cs" />

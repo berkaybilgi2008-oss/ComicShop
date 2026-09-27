@@ -127,7 +127,10 @@ public sealed class ToastBookCarry : MonoBehaviour
         // Give throw windup/release and its blend-out exclusive control of the arms.
         if ((inventory && inventory.IsThrowPoseActive) || throwBlend > 0f ||
             Time.unscaledTime < remotePoseUntil) return;
-        float amount = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f, 2f, animator.GetFloat(Speed)));
+        // Speed: 0 = dur, 1 = yurume (4.5 m/s, oyunda zaten kosu temposu), 2 = sprint.
+        // Dirsekler hareket baslar baslamaz bukulmeye baslar, yurume hizinda tam bukuk olur;
+        // eskiden yalnizca Shift sprintinde devreye giriyordu.
+        float amount = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.2f, 0.9f, animator.GetFloat(Speed)));
         if (amount <= 0f) return;
         if (!carryingBook)
             BendRunningElbow(upperArm, forearm, hand, amount, ref runRightBase, ref runRightApplied);

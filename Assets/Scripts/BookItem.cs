@@ -247,7 +247,12 @@ public class BookItem : MonoBehaviour
     public static IReadOnlyCollection<BookItem> Active => active;
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetActive() => active.Clear();
-    void OnEnable() => active.Add(this);
+    void OnEnable()
+    {
+        active.Add(this);
+        // Dusuk/Orta grafikte yerdeki binlerce kitap golge dusurmez (istemcide de).
+        if (!GraphicsQuality.BooksCastShadows) GraphicsQuality.ApplyToBook(this);
+    }
     void OnDisable() => active.Remove(this);
 
     void Awake()

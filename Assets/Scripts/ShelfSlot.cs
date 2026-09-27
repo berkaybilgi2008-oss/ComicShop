@@ -234,6 +234,24 @@ public class ShelfSlot : MonoBehaviour
         return false;
     }
 
+    /// <summary>
+    /// Her kitap turunun tum kopyalari tek raf gozune girer. Kopya sayisi goz kapasitesini
+    /// asarsa (orn. 20 kopya, 10'luk goz) kapasite kopya sayisina cikarilir ve kitaplar ayni
+    /// goz genisligine sigacak sekilde daha sik dizilir. Tum oyuncularda ayni sahne
+    /// verisinden hesaplanir; ag uzerinden ayri bir ayar gonderilmez.
+    /// </summary>
+    public static void MatchCapacityToCopies(int copies)
+    {
+        if (copies < 1) return;
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (slot == null || slot.capacity >= copies) continue;
+            slot.bookSpacing = Mathf.Max(0.001f, slot.bookSpacing * slot.capacity / copies);
+            slot.capacity = copies;
+            slot.EnsureArray();
+        }
+    }
+
     void EnsureArray()
     {
         capacity = Mathf.Max(1, capacity);

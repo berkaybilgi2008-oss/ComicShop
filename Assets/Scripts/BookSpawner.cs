@@ -29,6 +29,16 @@ public class BookSpawner : MonoBehaviour
              "kapatmayi dene: kitaplar golge dusurmez ama golge almaya devam eder.")]
     public bool booksCastShadows = true;
 
+    [Header("Raf Onu Yerlesimi")]
+    [Tooltip("Acikken yerdeki kitaplar ve kuleler koridorlarin ortasina degil, kitapliklarin " +
+             "onune (uzun yuzlerine bitisik bir seride) toplanir. Kitapliklarin arasindaki gecitler " +
+             "ve koridorun ortasi bos kalir.")]
+    public bool gatherInFrontOfShelves = true;
+    [Tooltip("Kitaplik yuzunden itibaren kitaplarin dizilecegi seridin genisligi (metre).")]
+    [Min(0.3f)] public float shelfFrontBand = 1.4f;
+    [Tooltip("Kitaplik yuzu ile ilk kitap arasinda birakilan bosluk (metre).")]
+    [Min(0f)] public float shelfFrontClearance = 0.1f;
+
     [Header("Test")]
     [Tooltip("BookData listesi bosken kullanilacak test kitap turu sayisi. Normal oyunda Setup ALL Book Models tarafindan doldurulan bookTypes kullanilir.")]
     [Min(1)]
@@ -50,12 +60,111 @@ public class BookSpawner : MonoBehaviour
     private bool YieldForFrameBudget()
     {
         double now = Time.realtimeSinceStartupAsDouble;
-        if (now - frameBudgetStarted < 0.008) return false;
+        // Yukleme ekrani sadece dusen kitaplari gizler; her karede daha fazla is yapip
+        // ekrani kisa tut (ilerleme cubugu yine akici gorunur).
+        if (now - frameBudgetStarted < 0.03) return false;
         frameBudgetStarted = now;
         return true;
     }
     private bool sessionSpawned;
     private readonly List<GameObject> sessionBooks = new List<GameObject>();
+
+    // Tum oyuncularda (host ve istemci) sahne yuklenince calisir: raf gozleri kopya sayisini alsin.
+    void Awake() => ShelfSlot.MatchCapacityToCopies(copiesPerBook);
+
+    // ---------------- Raf onu seridi ----------------
+    private struct ShelfFootprint { public Vector2 min, max; public bool longAlongX; }
+    private readonly List<ShelfFootprint> shelfFootprints = new List<ShelfFootprint>();
+
+    private void BuildShelfFootprints()
+    {
+        shelfFootprints.Clear();
+        if (!gatherInFrontOfShelves) return;
+        var roots = new HashSet<Transform>();
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+            if (slot != null && slot.gameObject.scene == gameObject.scene) roots.Add(slot.transform.root);
+        foreach (var root in roots)
+        {
+            Bounds bounds = default;
+            bool any = false;
+            foreach (var col in root.GetComponentsInChildren<Collider>())
+            {
+                if (!col.enabled || col.isTrigger || col.GetComponentInParent<BookItem>() != null) continue;
+                if (!any) { bounds = col.bounds; any = true; } else bounds.Encapsulate(col.bounds);
+            }
+            if (!any)
+                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
+                {
+                    if (!any) { bounds = renderer.bounds; any = true; } else bounds.Encapsulate(renderer.bounds);
+                }
+            if (!any || bounds.size.x < 0.05f || bounds.size.z < 0.05f) continue;
+            shelfFootprints.Add(new ShelfFootprint
+            {
+                min = new Vector2(bounds.min.x, bounds.min.z),
+                max = new Vector2(bounds.max.x, bounds.max.z),
+                longAlongX = bounds.size.x >= bounds.size.z
+            });
+        }
+    }
+
+    // Nokta bir kitapligin UZUN yuzunun onundeki seritte mi? Kitaplik uclarindaki gecitler haric.
+    private bool InShelfBand(Vector3 point, float radius)
+    {
+        if (shelfFootprints.Count == 0) return true;
+        Vector2 p = new Vector2(point.x, point.z);
+        bool inBand = false;
+        foreach (var f in shelfFootprints)
+        {
+            // Hicbir kitapligin icine ya da dibine girme.
+            float gap = shelfFrontClearance + radius;
+            if (p.x > f.min.x - gap && p.x < f.max.x + gap && p.y > f.min.y - gap && p.y < f.max.y + gap)
+            {
+                bool alongInside = f.longAlongX ? p.x > f.min.x && p.x < f.max.x : p.y > f.min.y && p.y < f.max.y;
+                if (!alongInside) return false; // uc kismi: gecit
+                float across = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
+                if (across < gap) return false;
+            }
+            float along = f.longAlongX ? p.x : p.y;
+            float alongMin = (f.longAlongX ? f.min.x : f.min.y) + radius + 0.1f;
+            float alongMax = (f.longAlongX ? f.max.x : f.max.y) - radius - 0.1f;
+            if (along < alongMin || along > alongMax) continue;
+            float distance = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
+            if (distance >= shelfFrontClearance + radius && distance <= shelfFrontBand) inBand = true;
+        }
+        return inBand;
+    }
+
+    // ---------------- Yerlesim icin kaba izgara (binlerce kitapta O(n^2) tarama olmasin) ----------------
+    private const float GridCell = 0.5f;
+    private readonly Dictionary<long, List<int>> placedGrid = new Dictionary<long, List<int>>();
+    private static long CellKey(int x, int z) => ((long)x << 32) ^ (uint)z;
+    private void GridAdd(List<Bounds> placed, Bounds bounds)
+    {
+        int index = placed.Count;
+        placed.Add(bounds);
+        int x0 = Mathf.FloorToInt(bounds.min.x / GridCell), x1 = Mathf.FloorToInt(bounds.max.x / GridCell);
+        int z0 = Mathf.FloorToInt(bounds.min.z / GridCell), z1 = Mathf.FloorToInt(bounds.max.z / GridCell);
+        for (int x = x0; x <= x1; x++)
+            for (int z = z0; z <= z1; z++)
+            {
+                long key = CellKey(x, z);
+                if (!placedGrid.TryGetValue(key, out var list)) placedGrid.Add(key, list = new List<int>(4));
+                list.Add(index);
+            }
+    }
+    private readonly HashSet<int> gridSeen = new HashSet<int>();
+    private readonly List<int> gridResult = new List<int>();
+    private List<int> GridQuery(Bounds area)
+    {
+        gridSeen.Clear(); gridResult.Clear();
+        int x0 = Mathf.FloorToInt(area.min.x / GridCell), x1 = Mathf.FloorToInt(area.max.x / GridCell);
+        int z0 = Mathf.FloorToInt(area.min.z / GridCell), z1 = Mathf.FloorToInt(area.max.z / GridCell);
+        for (int x = x0; x <= x1; x++)
+            for (int z = z0; z <= z1; z++)
+                if (placedGrid.TryGetValue(CellKey(x, z), out var list))
+                    foreach (int i in list) if (gridSeen.Add(i)) gridResult.Add(i);
+        return gridResult;
+    }
 
     IEnumerator Start()
     {
@@ -162,12 +271,14 @@ public class BookSpawner : MonoBehaviour
             ShopLoadingScreen.Settling(Mathf.Max(settled * 0.95f, elapsed / Mathf.Max(1f, maxSettleSeconds)));
             if (moving == 0) { if (quietSince < 0f) quietSince = Time.unscaledTime; }
             else quietSince = -1f;
-            if ((quietSince >= 0f && Time.unscaledTime - quietSince >= 0.6f && elapsed >= 1f) || elapsed >= maxSettleSeconds)
+            // Kitaplar artik yerinde donmus basliyor; sessizlik kisa surede gelir.
+            if ((quietSince >= 0f && Time.unscaledTime - quietSince >= 0.2f && elapsed >= 0.3f) ||
+                elapsed >= Mathf.Min(maxSettleSeconds, 4f))
                 break;
             yield return null;
         }
         ShopLoadingScreen.Settling(1f);
-        yield return new WaitForSecondsRealtime(0.35f); // Dolan cubuk kisa bir an tam gorunsun.
+        yield return new WaitForSecondsRealtime(0.1f); // Dolan cubuk kisa bir an tam gorunsun.
     }
 
     private void InitializeStats()
@@ -218,6 +329,7 @@ public class BookSpawner : MonoBehaviour
         }
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
+        BuildShelfFootprints();
         sessionBooks.Clear();
         {
             // One guaranteed book per assigned area, remaining books weighted by usable area.
@@ -331,12 +443,16 @@ public class BookSpawner : MonoBehaviour
             Mathf.Abs(p.z) + radius / Mathf.Max(0.0001f, Mathf.Abs(scale.z)) <= Mathf.Abs(depth) * 0.5f;
     }
 
+    private static readonly Collider[] overlapBuffer = new Collider[64];
+    private static readonly RaycastHit[] groundBuffer = new RaycastHit[64];
     private static bool Ground(Vector3 start, out RaycastHit ground)
     {
         ground = default;
         float nearest = float.PositiveInfinity;
-        foreach (var hit in Physics.RaycastAll(start, Vector3.down, 30f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        int count = Physics.RaycastNonAlloc(start, Vector3.down, groundBuffer, 30f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        for (int h = 0; h < count; h++)
         {
+            var hit = groundBuffer[h];
             if (hit.collider.GetComponentInParent<BookItem>() != null) continue;
             if (hit.distance >= nearest) continue;
             nearest = hit.distance;
@@ -401,7 +517,7 @@ public class BookSpawner : MonoBehaviour
             Vector3 basePoint = default;
             for (int attempt = 0; attempt < 128; attempt++)
             {
-                Vector3 candidate = SampleSpawnPosition();
+                Vector3 candidate = SampleSpawnPosition(radius);
                 if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
                 candidate.y = floor.point.y;
                 bool clear = true;
@@ -472,16 +588,17 @@ public class BookSpawner : MonoBehaviour
     private IEnumerator SeparateInitialBooks(List<BookItem> books)
     {
         Physics.SyncTransforms();
+        placedGrid.Clear();
         var placed = new List<Bounds>(books.Count);
         // Towers stay where they were authored; reserve their physical volume first.
-        var towerBounds = new List<Bounds>();
+        int towerCount = 0;
         foreach (var book in books)
-            if (spawnedTowerBooks.Contains(book))
-            {
-                Bounds bounds = BookBounds(book);
-                placed.Add(bounds);
-                towerBounds.Add(bounds);
-            }
+            if (spawnedTowerBooks.Contains(book)) { GridAdd(placed, BookBounds(book)); towerCount++; }
+        var placedBooks = new List<BookItem>(books.Count);
+        for (int i = 0; i < towerCount; i++) placedBooks.Add(null); // towers already have support
+        // Each scattered book remembers what it rests on so it can start frozen (no 3000-body settle).
+        var restOrder = new List<BookItem>(books.Count);
+        var restSupport = new List<Collider>(books.Count);
         int unresolved = 0, processed = 0;
         foreach (var book in books)
         {
@@ -495,47 +612,70 @@ public class BookSpawner : MonoBehaviour
             bool found = false;
             for (int attempt = 0; attempt < 128; attempt++)
             {
-                Vector3 candidate = SampleSpawnPosition();
-                if (!InsideArea(candidate, radius) || !Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
-                Bounds test = new Bounds(new Vector3(candidate.x, floor.point.y + original.extents.y + 0.003f, candidate.z), original.size);
-                bool towerOverlap = false;
-                foreach (var tower in towerBounds)
+                Vector3 candidate = SampleSpawnPosition(radius);
+                if (!InsideArea(candidate, radius)) continue;
+                // Ucuz 2B doluluk kontrolu once: pahali zemin isini dolu noktalar icin atma.
+                Bounds flat = new Bounds(new Vector3(candidate.x, 0f, candidate.z), new Vector3(original.size.x, 1000f, original.size.z));
+                Bounds near = flat; near.Expand(new Vector3(0.12f, 0f, 0.12f));
+                bool towerOverlap = false, occupied = false;
+                foreach (int i in GridQuery(near))
                 {
-                    if (Mathf.Abs(test.center.x - tower.center.x) < test.extents.x + tower.extents.x + 0.06f &&
-                        Mathf.Abs(test.center.z - tower.center.z) < test.extents.z + tower.extents.z + 0.06f)
+                    Bounds other = placed[i];
+                    bool overlapX = Mathf.Abs(flat.center.x - other.center.x) < flat.extents.x + other.extents.x;
+                    bool overlapZ = Mathf.Abs(flat.center.z - other.center.z) < flat.extents.z + other.extents.z;
+                    if (i < towerCount &&
+                        Mathf.Abs(flat.center.x - other.center.x) < flat.extents.x + other.extents.x + 0.06f &&
+                        Mathf.Abs(flat.center.z - other.center.z) < flat.extents.z + other.extents.z + 0.06f)
                     { towerOverlap = true; break; }
+                    if (overlapX && overlapZ) occupied = true;
                 }
                 if (towerOverlap) continue;
-                bool occupied = false;
-                foreach (var other in placed)
-                    if (test.Intersects(other)) { occupied = true; break; }
-                if (occupied && attempt < 96) continue;
+                // Yogun seritte cok deneme yapmadan kisa katmanlar olusur (raf onu yigini).
+                if (occupied && attempt < 24) continue;
+                if (!Ground(candidate + Vector3.up * 0.1f, out var floor)) continue;
+                Bounds test = new Bounds(new Vector3(candidate.x, floor.point.y + original.extents.y + 0.003f, candidate.z), original.size);
                 // Dense areas may use shallow layers, never a new accidental tower.
+                int restingOn = -1;
                 bool raised;
+                var nearby = new List<int>(GridQuery(near));
                 do
                 {
                     raised = false;
-                    foreach (var other in placed)
+                    foreach (int i in nearby)
                     {
+                        Bounds other = placed[i];
                         if (!test.Intersects(other)) continue;
                         test.center = new Vector3(test.center.x, other.max.y + test.extents.y + 0.003f, test.center.z);
+                        restingOn = i;
                         raised = true;
                     }
                 } while (raised);
                 if (test.min.y - floor.point.y > 0.25f) continue;
                 bool blocked = false;
-                foreach (var col in Physics.OverlapBox(test.center, test.extents, Quaternion.identity,
-                    Physics.AllLayers, QueryTriggerInteraction.Ignore))
-                    if (col.GetComponentInParent<BookItem>() == null) { blocked = true; break; }
+                int overlapCount = Physics.OverlapBoxNonAlloc(test.center, test.extents, overlapBuffer, Quaternion.identity,
+                    Physics.AllLayers, QueryTriggerInteraction.Ignore);
+                for (int o = 0; o < overlapCount; o++)
+                    if (overlapBuffer[o].GetComponentInParent<BookItem>() == null) { blocked = true; break; }
                 if (blocked) continue;
                 book.transform.position = test.center - offset;
-                placed.Add(test);
+                GridAdd(placed, test);
+                placedBooks.Add(book);
+                BookItem below = restingOn >= 0 ? placedBooks[restingOn] : null;
+                restOrder.Add(book);
+                restSupport.Add(restingOn < 0 ? floor.collider
+                    : below != null ? below.GetComponentInChildren<Collider>() : null);
                 found = true;
                 break;
             }
-            if (!found) { placed.Add(original); unresolved++; }
+            if (!found) { GridAdd(placed, original); placedBooks.Add(book); unresolved++; }
         }
         Physics.SyncTransforms();
+        // Lower books were placed first, so each support is frozen before the book above it.
+        int frozen = 0;
+        for (int i = 0; i < restOrder.Count; i++)
+            if (restSupport[i] != null && restOrder[i].InitializeSpawnSupport(restSupport[i])) frozen++;
+        placedGrid.Clear();
+        Debug.Log($"BookSpawner: {frozen}/{restOrder.Count} daginik kitap yerinde donmus basliyor (acilista toplu fizik yok).");
         if (unresolved > 0) Debug.LogWarning($"BookSpawner: {unresolved} kitap icin cakismasiz yer bulunamadi. Alan cok dar veya zemin eksik; alan/adet ayarini kontrol et.", this);
     }
 
@@ -549,14 +689,19 @@ public class BookSpawner : MonoBehaviour
         return positions;
     }
 
-    public Vector3 SampleSpawnPosition()
+    public Vector3 SampleSpawnPosition() => SampleSpawnPosition(0.15f);
+
+    public Vector3 SampleSpawnPosition(float radius)
     {
         if (corridorAreas != null && corridorAreas.Length > 0)
         {
+            bool useBand = gatherInFrontOfShelves && shelfFootprints.Count > 0;
+            Vector3 fallback = Vector3.zero;
+            bool hasFallback = false;
             float total = 0;
             foreach (var zone in corridorAreas) total += ZoneWeight(zone);
             if (total <= 0) throw new System.InvalidOperationException("BookSpawner: corridor areas have no usable space. Fix their Size/Scale; legacy area was not used.");
-            for (int attempt = 0; attempt < 256; attempt++)
+            for (int attempt = 0; attempt < (useBand ? 2048 : 256); attempt++)
             {
                 float choice = Random.value * total;
                 BoxCollider selected = null;
@@ -577,8 +722,12 @@ public class BookSpawner : MonoBehaviour
                     if (Mathf.Abs(p.x) <= zone.size.x * 0.5f - corridorEdgePadding / Mathf.Abs(scale.x) &&
                         Mathf.Abs(p.z) <= zone.size.z * 0.5f - corridorEdgePadding / Mathf.Abs(scale.z)) coverage++;
                 }
-                if (Random.value < 1f / Mathf.Max(1, coverage)) return point;
+                if (Random.value >= 1f / Mathf.Max(1, coverage)) continue;
+                if (!useBand) return point;
+                if (!hasFallback) { fallback = point; hasFallback = true; }
+                if (InShelfBand(point, radius)) return point;
             }
+            if (hasFallback) return fallback; // Seritte yer yoksa koridor icinde bir nokta.
             throw new System.InvalidOperationException("Could not sample corridor union.");
         }
         Transform area = v16SpawnArea != null ? v16SpawnArea : transform;

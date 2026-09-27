@@ -30,6 +30,8 @@ public class PlayerKnockdown : MonoBehaviour
         movement = GetComponent<PlayerController>();
         headHitAnimation = GetComponent<HeadHitKnockdownAnimation>();
         if (headHitAnimation == null) headHitAnimation = gameObject.AddComponent<HeadHitKnockdownAnimation>();
+        // Yerdeyken kamera kafaya kilitli kalsin (kendi yatan govdeni disaridan gorme).
+        if (GetComponent<KnockdownHeadCamera>() == null) gameObject.AddComponent<KnockdownHeadCamera>();
         Camera camera = GetComponentInChildren<Camera>(true);
         view = camera != null ? camera.transform : null;
         if (view != null) viewPosition = view.localPosition;
