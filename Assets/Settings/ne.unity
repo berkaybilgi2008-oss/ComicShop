@@ -19936,7 +19936,7 @@ GameObject:
   - component: {fileID: 461702792}
   - component: {fileID: 461702791}
   m_Layer: 0
-  m_Name: Sunset Window 1
+  m_Name: Exterior Sunset Sun
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -19950,8 +19950,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 461702789}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.021465318, y: 0.9770712, z: -0.17436504, w: 0.12028297}
-  m_LocalPosition: {x: 38.271893, y: 3.5983195, z: 36.304783}
+  m_LocalRotation: {x: 0.019125903, y: 0.97620815, z: -0.19315289, w: 0.09666365}
+  m_LocalPosition: {x: 36.7, y: 14.3, z: 58.3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -19969,7 +19969,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
-  m_UsePipelineSettings: 1
+  m_UsePipelineSettings: 0
   m_AdditionalLightsShadowResolutionTier: 2
   m_CustomShadowLayers: 0
   m_LightCookieSize: {x: 1, y: 1}
@@ -19997,18 +19997,18 @@ Light:
   serializedVersion: 13
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 180
-  m_Range: 30
-  m_SpotAngle: 65
-  m_InnerSpotAngle: 35
+  m_Intensity: 17015.625
+  m_Range: 77.974
+  m_SpotAngle: 60
+  m_InnerSpotAngle: 48
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
     m_Type: 1
     m_Resolution: -1
-    m_CustomResolution: 1024
+    m_CustomResolution: 2048
     m_Strength: 1
-    m_Bias: 0.04
-    m_NormalBias: 0.06
+    m_Bias: 0.015
+    m_NormalBias: 0.015
     m_NearPlane: 0.1
     m_CullingMatrixOverride:
       e00: 1
@@ -20040,11 +20040,11 @@ Light:
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
-  m_ColorTemperature: 2600
+  m_ColorTemperature: 2900
   m_UseColorTemperature: 1
   m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
   m_UseBoundingSphereOverride: 0
-  m_UseViewFrustumForShadowCasterCull: 1
+  m_UseViewFrustumForShadowCasterCull: 0
   m_ForceVisible: 0
   m_ShapeRadius: 0.025
   m_ShadowAngle: 0
@@ -23351,9 +23351,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 534509688}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.021465318, y: 0.9770712, z: -0.17436504, w: 0.12028297}
-  m_LocalPosition: {x: 39.295933, y: 2.041779, z: 32.208622}
-  m_LocalScale: {x: 6, y: 6, z: 9}
+  m_LocalRotation: {x: 0.019125903, y: 0.97620815, z: -0.19315289, w: 0.09666365}
+  m_LocalPosition: {x: 42.206177, y: 1.1424003, z: 30.884605}
+  m_LocalScale: {x: 5, y: 5, z: 12}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 345280500}
@@ -60055,7 +60055,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1408583551
 Transform:
   m_ObjectHideFlags: 0
@@ -72988,7 +72988,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1714862168
 Transform:
   m_ObjectHideFlags: 0
