@@ -118,7 +118,8 @@ public sealed partial class ShopFrontEnd
                 int level=i;
                 ComicButton(sheet,Loc.T(GraphicsQuality.LocKeys[i]),30+i*198,398,190,48,()=>{p.graphics=level;ShopSettings.Apply();ShopSettings.Save();Build();},p.graphics==i,19);
             }
-            ComicText(sheet,Application.isEditor?Loc.T("settings.display_note_editor"):Loc.T("settings.display_note"),32,468,782,44,18);
+            // Gercekci fizik: lambalar sallanir, atilan kitap yiginlari dagitir (guclu sistemler icin).
+            ComicToggle(sheet,Loc.T("settings.physics"),458,p.realisticPhysics,v=>{p.realisticPhysics=v;ShopSettings.Save();});
         }
         else if(tab==2)
         {

@@ -115,6 +115,7 @@
     <Compile Include="Assets\Scripts\ShelfLogoBinding.cs" />
     <Compile Include="Assets\Scripts\GameplayPhysics.cs" />
     <Compile Include="Assets\Scripts\Net\NetworkPlayerSetup.cs" />
+    <Compile Include="Assets\Scripts\Polish\RealisticPhysics.cs" />
     <Compile Include="Assets\ToastRanger\Unity\FirstPersonThrowView.cs" />
     <Compile Include="Assets\Scripts\ComicImpactEffect.cs" />
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicPauseMenu.cs" />

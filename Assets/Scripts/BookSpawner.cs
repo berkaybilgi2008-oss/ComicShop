@@ -36,7 +36,7 @@ public class BookSpawner : MonoBehaviour
     public bool gatherInFrontOfShelves = true;
     [Tooltip("Kitaplik yuzunden itibaren kitaplarin dizilecegi seridin genisligi (metre).")]
     // Yeni ad: sahnede kayitli eski serit genisligi (1.4 / 3.5 / 3.8) yeni degeri ezmesin.
-    [Min(0.3f)] public float bookAreaDepth = 4.5f;
+    [Min(0.3f)] public float bookAreaDepthMeters = 4.45f;
     [Tooltip("Kitaplik yuzu ile ilk kitap arasinda birakilan bosluk (metre).")]
     [Min(0f)] public float shelfFrontClearance = 0.1f;
 
@@ -170,7 +170,7 @@ public class BookSpawner : MonoBehaviour
             float alongMax = (f.longAlongX ? f.max.x : f.max.y) - radius - 0.1f;
             if (along < alongMin || along > alongMax) continue;
             float distance = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
-            if (distance >= shelfFrontClearance + radius && distance <= bookAreaDepth) inBand = true;
+            if (distance >= shelfFrontClearance + radius && distance <= bookAreaDepthMeters - radius) inBand = true;
         }
         if (!inBand) return false;
         // Kitaplik sirasinin uclari (kitapliklar arasi gecit, sira sonu, arka raflarin onundeki
@@ -183,7 +183,7 @@ public class BookSpawner : MonoBehaviour
             float beyond = along < gMin ? gMin - along : along > gMax ? along - gMax : -1f;
             if (beyond < 0f || beyond > shelfEndPassage + radius) continue;
             float across = g.longAlongX ? Mathf.Max(g.min.y - p.y, p.y - g.max.y) : Mathf.Max(g.min.x - p.x, p.x - g.max.x);
-            if (across <= bookAreaDepth) return false;
+            if (across <= bookAreaDepthMeters) return false;
         }
         return true;
     }
@@ -280,18 +280,18 @@ public class BookSpawner : MonoBehaviour
                 while (settle.MoveNext()) yield return settle.Current;
                 if (dropWalls != null)
                 {
-                    // Dusen kitaplar alttan uste donar (her kat ~0.5 sn); donma durunca duvarlar kalkar.
-                    float began = Time.unscaledTime, stableSince = began;
-                    int last = -1;
-                    while (Time.unscaledTime - began < 3.5f)
+                    // Dusus bitti: her kitap oldugu yerde, oldugu egimle donar (yiginlar artik
+                    // kendi kendine ziplamaz). Duvarlar destek sayilmaz; sonra kaldirilir.
+                    yield return new WaitForFixedUpdate();
+                    int frozen = 0, loose = 0;
+                    Transform ignore = dropWalls.transform;
+                    foreach (var go in sessionBooks)
                     {
-                        int loose = 0;
-                        foreach (var go in sessionBooks)
-                            if (go != null && go.TryGetComponent<Rigidbody>(out var rb) && !rb.isKinematic) loose++;
-                        if (loose != last) { last = loose; stableSince = Time.unscaledTime; }
-                        else if (Time.unscaledTime - stableSince > 0.8f) break;
-                        yield return null;
+                        if (go == null || !go.TryGetComponent<BookItem>(out var item)) continue;
+                        if (item.FreezeWhereResting(ignore)) frozen++;
+                        else if (go.TryGetComponent<Rigidbody>(out var rb) && !rb.isKinematic) loose++;
                     }
+                    Debug.Log($"BookSpawner: dusus sonrasi {frozen} kitap yerinde donduruldu, {loose} kitap serbest.");
                     EndDrop();
                 }
             }
@@ -706,7 +706,7 @@ public class BookSpawner : MonoBehaviour
                 for (int row = 0; ; row++)
                 {
                     float across = shelfFrontClearance + acrossSpacing * 0.5f + row * acrossSpacing;
-                    if (across > bookAreaDepth - acrossSpacing * 0.25f) break;
+                    if (across > bookAreaDepthMeters - acrossSpacing * 0.25f) break;
                     // Satirlar yarim hucre kaydirilir: duz izgara gorunmesin.
                     float shift = (row & 1) == 1 ? alongSpacing * 0.5f : 0f;
                     for (float along = a0 + alongSpacing * 0.5f + shift; along <= a1 - alongSpacing * 0.5f + 0.001f; along += alongSpacing)
@@ -790,14 +790,14 @@ public class BookSpawner : MonoBehaviour
             for (int side = -1; side <= 1; side += 2)
             {
                 float face = side < 0 ? (f.longAlongX ? f.min.y : f.min.x) : (f.longAlongX ? f.max.y : f.max.x);
-                float midAcross = face + side * bookAreaDepth * 0.5f;
+                float midAcross = face + side * bookAreaDepthMeters * 0.5f;
                 Vector3 probe = f.longAlongX ? new Vector3((a0 + a1) * 0.5f, startY, midAcross) : new Vector3(midAcross, startY, (a0 + a1) * 0.5f);
                 if (!InsideAreaRelaxed(probe, 0f) || !Ground(probe, out var floor)) continue;
                 float y = floor.point.y + height * 0.5f;
                 // (along merkez, across merkez, along boy, across boy)
-                AddDropWall(f.longAlongX, (a0 + a1) * 0.5f, face + side * (bookAreaDepth + thick * 0.5f), a1 - a0 + 2f * thick, thick, y, height);
-                AddDropWall(f.longAlongX, a0 - thick * 0.5f, midAcross, thick, bookAreaDepth, y, height);
-                AddDropWall(f.longAlongX, a1 + thick * 0.5f, midAcross, thick, bookAreaDepth, y, height);
+                AddDropWall(f.longAlongX, (a0 + a1) * 0.5f, face + side * (bookAreaDepthMeters + thick * 0.5f), a1 - a0 + 2f * thick, thick, y, height);
+                AddDropWall(f.longAlongX, a0 - thick * 0.5f, midAcross, thick, bookAreaDepthMeters, y, height);
+                AddDropWall(f.longAlongX, a1 + thick * 0.5f, midAcross, thick, bookAreaDepthMeters, y, height);
             }
         }
     }

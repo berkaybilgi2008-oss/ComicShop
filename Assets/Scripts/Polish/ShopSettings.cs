@@ -14,6 +14,8 @@ public static class ShopSettings
         public bool fovChosen, invertY, vsync = true, hints = true;
         public int fps = 120, width, height, windowMode = 1;
         public int graphics = GraphicsQuality.High;
+        // Gercekci fizik (lamba sallanmasi, atilan kitabin yigini dagitmasi). Varsayilan kapali: dusuk sistemleri etkilemez.
+        public bool realisticPhysics;
         public int[] keys = DefaultKeys();
     }
     static Preferences current;
