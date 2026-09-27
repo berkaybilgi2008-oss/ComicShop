@@ -457,9 +457,14 @@ public class BookRecallMachine : MonoBehaviour
     ///   - Kayip kalan kitabi belirli sure sonra DONDURUR (bosuna fizik hesabi olmasin).
     ///   - Birkac saniye kayip kalan kitabi dukkandaki kitap dogus alanina geri getirir.
     /// </summary>
+    private readonly System.Collections.Generic.List<BookItem> scanBuffer = new System.Collections.Generic.List<BookItem>();
+
     private void ScanLostBooks()
     {
-        BookItem[] books = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+        // Binlerce kitapta her 3 sn'de FindObjectsByType yerine kayitli aktif kitap listesi.
+        scanBuffer.Clear();
+        scanBuffer.AddRange(BookItem.Active);
+        var books = scanBuffer;
         int recovered = 0;
         int frozen = 0;
         staleBooks.Clear();
@@ -687,4 +692,4 @@ public class BookRecallMachine : MonoBehaviour
         Gizmos.DrawSphere(OutputPosition, 0.06f);
 
     }
-}
+}

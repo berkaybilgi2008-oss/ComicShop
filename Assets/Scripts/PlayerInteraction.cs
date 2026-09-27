@@ -83,7 +83,7 @@ public class PlayerInteraction : MonoBehaviour
             1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
 
     [Header("Etkilesim")]
-    public float interactRange = 5f;
+    public float interactRange = 3f;
     public LayerMask interactMask = ~0;
 
     [Header("Yerlestirme Guvenligi / Debug")]
@@ -133,8 +133,9 @@ public class PlayerInteraction : MonoBehaviour
 
         interactMask |= 1 << 0;
 
-        // Prefab'ta eski 3 m kayitli olsa da menzil kisalmasin; sunucu dogrulamasi da ayni degeri kullanir.
-        interactRange = Mathf.Max(interactRange, GameplayPhysics.MinInteractRange);
+        // Menzil artik zorla 5 m'ye cikarilmiyor: prefab'taki Interact Range (3 m) gecerli.
+        // Sunucu dogrulamasi da ayni degeri (+0.5 m tolerans) kullanir.
+        if (interactRange <= 0f) interactRange = GameplayPhysics.DefaultInteractRange;
         maxPlacementDistance = Mathf.Max(maxPlacementDistance, interactRange + 2f);
 
         // Multiplayer: her oyuncu KENDI nisangahini kullanmali. Sahne genelinde
@@ -305,6 +306,8 @@ public class PlayerInteraction : MonoBehaviour
         if (lookedSlot != null && ActiveHeldBook != null)
         {
             if (lookedSlot.PublisherID < 0) return Loc.T("hint.logo_missing");
+            if (BrandConfig.IsPlacementDisabled(ActiveHeldBook.brandID))
+                return Loc.T("hint.publisher_disabled", BrandConfig.GetBrandName(ActiveHeldBook.brandID));
             if (!lookedSlot.IsAvailable) return Loc.T("hint.slot_full");
             if (ActiveHeldBook.brandID != lookedSlot.PublisherID) return Loc.T("hint.this_shelf", BrandConfig.GetBrandName(lookedSlot.PublisherID));
             if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
@@ -969,6 +972,8 @@ public class PlayerInteraction : MonoBehaviour
         if (!lookedSlot.Matches(book))
         {
             placementFeedback = lookedSlot.PublisherID < 0 ? Loc.T("hint.logo_missing") :
+                BrandConfig.IsPlacementDisabled(book.brandID)
+                    ? Loc.T("hint.publisher_disabled", BrandConfig.GetBrandName(book.brandID)) :
                 !lookedSlot.IsAvailable ? Loc.T("hint.slot_full") :
                 book.brandID != lookedSlot.PublisherID ? Loc.T("hint.wrong_publisher") :
                 Loc.T("hint.reserved");

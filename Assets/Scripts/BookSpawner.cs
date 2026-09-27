@@ -24,6 +24,11 @@ public class BookSpawner : MonoBehaviour
     [Min(1)]
     public int copiesPerBook = 10;
 
+    [Header("Performans")]
+    [Tooltip("Yerdeki binlerce kitabin her biri golge isiklarinda yeniden cizilir. Oyun kasiyorsa " +
+             "kapatmayi dene: kitaplar golge dusurmez ama golge almaya devam eder.")]
+    public bool booksCastShadows = true;
+
     [Header("Test")]
     [Tooltip("BookData listesi bosken kullanilacak test kitap turu sayisi. Normal oyunda Setup ALL Book Models tarafindan doldurulan bookTypes kullanilir.")]
     [Min(1)]
@@ -175,9 +180,25 @@ public class BookSpawner : MonoBehaviour
         for (int index = 0; index < bookTypeCount; index++)
         {
             var data = bookTypes != null && index < bookTypes.Length ? bookTypes[index] : null;
-            ids.Add(data != null ? data.BookID : index);
+            int id = data != null ? data.BookID : index;
+            int brand = data != null ? data.BrandID : BrandConfig.GetBrandForBookID(id);
+            // Devre disi yayincilarin kitaplari spawn olur ama tamamlanma hedefine sayilmaz;
+            // aksi halde rafa konamadiklari icin tur hic bitmezdi.
+            if (BrandConfig.IsPlacementDisabled(brand)) continue;
+            ids.Add(id);
         }
-        GameStats.Initialize(ids, copiesPerBook);
+        // Her kitap turu tek raf gozune girer; goz kapasitesinden fazla kopya (orn. 20 kopya,
+        // 10'luk goz) hic yerlestirilemez. Hedef kapasiteyle sinirlanir, fazlasi gorsel kalir.
+        int target = copiesPerBook;
+        int slotCapacity = 0;
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+            if (slot != null) slotCapacity = Mathf.Max(slotCapacity, slot.capacity);
+        if (slotCapacity > 0 && target > slotCapacity)
+        {
+            Debug.Log($"BookSpawner: {copiesPerBook} kopya spawn ediliyor; raf gozu {slotCapacity} kitap aldigi icin tamamlanma hedefi {slotCapacity}.");
+            target = slotCapacity;
+        }
+        GameStats.Initialize(ids, target);
     }
 
     IEnumerator SpawnBooks(int bookTypeCount)
@@ -254,6 +275,9 @@ public class BookSpawner : MonoBehaviour
         // Kitaplar runtime'da burada olusturuldugu icin AfterSceneLoad callback'i
         // bu nesneleri henuz goremez. Toon efektini spawn aninda uyguluyoruz.
         BookToonEffect.ApplyToBook(book);
+        if (!booksCastShadows)
+            foreach (var renderer in book.GetComponentsInChildren<Renderer>(true))
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         // Start broad-face down with a random heading. An edge-first spawn plus
         // an impulse was making every book spin violently on session startup.

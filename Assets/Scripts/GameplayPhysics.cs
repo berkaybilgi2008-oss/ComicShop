@@ -33,8 +33,9 @@ public static class GameplayPhysics
             && (hit.point - point).sqrMagnitude <= tolerance * tolerance;
     }
 
-    // Etkilesim menzili (metre). Prefab'ta daha kucuk kayitli olsa bile bu degerin altina inmez.
-    public const float MinInteractRange = 5f;
+    // Varsayilan etkilesim menzili (metre). 5 m fazla uzundu; 3 m'ye indirildi.
+    // Oyuncu ayni degeri hem yerelde hem sunucu dogrulamasinda kullanir.
+    public const float DefaultInteractRange = 3f;
     // Hedefin hemen onundeki ince parcalar (raf dudagi, cita, cam) engel sayilmaz.
     public const float ObstacleTolerance = 0.25f;
 

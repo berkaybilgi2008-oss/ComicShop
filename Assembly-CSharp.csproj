@@ -148,6 +148,7 @@
     <Compile Include="Assets\ComicShopMenu\Scripts\InputCompat.cs" />
     <Compile Include="Assets\Scripts\BookDisplayName.cs" />
     <Compile Include="Assets\Scripts\CharacterBookCarryBridge.cs" />
+    <Compile Include="Assets\ComicShopV16\Runtime\ShopBookContainment.cs" />
     <Compile Include="Assets\Scripts\BrandConfig.cs" />
     <Compile Include="Assets\Scripts\BookEdgeLines.cs" />
     <Compile Include="Assets\Scripts\Polish\HudShape.cs" />

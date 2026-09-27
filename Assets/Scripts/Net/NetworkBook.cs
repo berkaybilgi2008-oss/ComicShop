@@ -11,21 +11,44 @@ public class NetworkBook : NetworkBehaviour
     private static readonly HashSet<NetworkBook> spawnedBooks = new HashSet<NetworkBook>();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    private static void ResetBookRegistry() => spawnedBooks.Clear();
+    private static void ResetBookRegistry() { spawnedBooks.Clear(); holderVersion++; }
+
+    // Uzak oyuncu gorselleri her karede birkac kez "kimin elinde kac kitap var" diye soruyor.
+    // Binlerce kitapta her soru tum listeyi taramasin: sonuc, bir kitabin sahibi/atis durumu
+    // degisene kadar onbellekte tutulur (degisiklik aninda gecersiz olur, RPC kontrolleri de dogru kalir).
+    private static int holderVersion, cachedHolderVersion = -1;
+    private static readonly Dictionary<ulong, int> heldCounts = new Dictionary<ulong, int>();
+    private static readonly Dictionary<ulong, NetworkBook> throwingBooks = new Dictionary<ulong, NetworkBook>();
+
+    private static void EnsureHolderCache()
+    {
+        if (cachedHolderVersion == holderVersion) return;
+        cachedHolderVersion = holderVersion;
+        heldCounts.Clear();
+        throwingBooks.Clear();
+        foreach (var book in spawnedBooks)
+        {
+            if (book == null || !book.IsSpawned) continue;
+            var value = book.state.Value;
+            if (value.Holder == NoHolder) continue;
+            heldCounts.TryGetValue(value.Holder, out int count);
+            heldCounts[value.Holder] = count + 1;
+            if (value.Throwing && !throwingBooks.ContainsKey(value.Holder)) throwingBooks.Add(value.Holder, book);
+        }
+    }
 
     public static int CountHeldBy(ulong playerId)
     {
         if (playerId == NoHolder) return 0;
-        int count = 0;
-        foreach (var book in spawnedBooks)
-            if (book != null && book.IsSpawned && book.Holder == playerId) count++;
-        return count;
+        EnsureHolderCache();
+        return heldCounts.TryGetValue(playerId, out int count) ? count : 0;
     }
     public static BookItem FindThrowingBook(ulong holder, out bool leftHand)
     {
-        foreach (var book in spawnedBooks)
-            if (book != null && book.IsSpawned && book.Holder == holder && book.state.Value.Throwing)
-            { leftHand = book.state.Value.LeftHand; return book.item; }
+        EnsureHolderCache();
+        if (throwingBooks.TryGetValue(holder, out var book) && book != null && book.IsSpawned &&
+            book.state.Value.Holder == holder && book.state.Value.Throwing)
+        { leftHand = book.state.Value.LeftHand; return book.item; }
         leftHand = true;
         return null;
     }
@@ -106,6 +129,7 @@ public class NetworkBook : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         spawnedBooks.Add(this);
+        holderVersion++;
         hasState = false;
         IsPlacementAnimating = false;
         state.OnValueChanged += ApplyState;
@@ -116,6 +140,7 @@ public class NetworkBook : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         spawnedBooks.Remove(this);
+        holderVersion++;
         hasState = false;
         IsPlacementAnimating = false;
         state.OnValueChanged -= ApplyState;
@@ -130,6 +155,8 @@ public class NetworkBook : NetworkBehaviour
     {
         // The slot is committed immediately by the host; the visible book still travels
         // from its current hand pose. Late joiners receive the final pose without replay.
+        if (previous.Holder != current.Holder || previous.Throwing != current.Throwing ||
+            previous.LeftHand != current.LeftHand) holderVersion++;
         bool animatePlacement = hasState && current.Slot != 0 && previous.Slot != current.Slot && current.PlacementDuration > 0f;
         Vector3 startPosition = transform.position;
         Quaternion startRotation = transform.rotation;
@@ -138,7 +165,11 @@ public class NetworkBook : NetworkBehaviour
             IsPlacementAnimating = false;
         item.bookID = current.BookId;
         item.brandID = current.BrandId;
-        bool changedHolder = item.IsHeld != (current.Holder != NoHolder) || previous.Holder != current.Holder;
+        // Ilk uygulamada 'previous' bos (Holder=0) gelir; bunu el degisimi saymak spawn kulelerindeki
+        // kitaplara SetHeld(false) cagirip "destekli donmus" bilgisini siliyordu. Kitaplar kinematic
+        // kaliyor ama alttaki kitap alininca kimse onlari uyandirmiyordu (havada asili kule).
+        bool changedHolder = item.IsHeld != (current.Holder != NoHolder) ||
+            (hasState && previous.Holder != current.Holder);
         if (item.currentSlot != null && item.currentSlot.NetworkKey != current.Slot)
             item.currentSlot.RemoveBook(item);
         if (boundPlayer != null && !HeldByLocal)
@@ -257,7 +288,16 @@ public class NetworkBook : NetworkBehaviour
         if (IsServer && Time.unscaledTime >= nextSync)
         {
             nextSync = Time.unscaledTime + 1f / (state.Value.Throwing || state.Value.Flight ? 30f : 15f);
-            PublishPose();
+            // Binlerce kitabin cogu yerde donmus durur: hareket etmeyen, elde olmayan kitap icin
+            // her 1/15 sn'de durum paketi kurup karsilastirmaya gerek yok.
+            bool resting = body != null && body.isKinematic && state.Value.Kinematic &&
+                state.Value.Holder == NoHolder && !state.Value.Throwing && !state.Value.Flight &&
+                !transform.hasChanged;
+            if (!resting)
+            {
+                PublishPose();
+                transform.hasChanged = false;
+            }
         }
         if (HeldByLocal && !IsServer && Time.unscaledTime >= nextHeldPose)
         {
@@ -351,7 +391,9 @@ public class NetworkBook : NetworkBehaviour
         if (Holder != rpc.Receive.SenderClientId) { Reject(player, "reject.pending"); return; }
         if (player.GetComponent<NetworkPlayerSetup>().IsDown) return;
         if (!slot.Matches(item))
-        { Reject(player, slot.PublisherID < 0 ? "hint.logo_missing" : !slot.IsAvailable ? "hint.slot_full" : item.brandID != slot.PublisherID
+        { Reject(player, slot.PublisherID < 0 ? "hint.logo_missing" :
+            BrandConfig.IsPlacementDisabled(item.brandID) ? Loc.Key("hint.publisher_disabled", BrandConfig.GetBrandName(item.brandID)) :
+            !slot.IsAvailable ? "hint.slot_full" : item.brandID != slot.PublisherID
             ? Loc.Key("hint.this_shelf", BrandConfig.GetBrandName(slot.PublisherID)) : "hint.reserved"); return; }
         Vector3 eye = player.playerCamera != null ? player.playerCamera.transform.position : player.transform.position;
         if (!slot.CanInteract(player.transform, eye, player.interactRange + 0.5f))

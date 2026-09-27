@@ -22,8 +22,23 @@ public sealed class ShelfLogoBinding : MonoBehaviour
     public int PublisherID => isActiveAndEnabled && ReadLogo() == resolvedTexture
         ? resolvedPublisher : -1;
 
+    // Sahnede Logo Renderer alani bos kalmis (ornegin RAF (8)/(18)) ama kitapligin altinda
+    // tek bir flama/logo paneli varsa onu kullan; birden fazla aday varsa tahmin etme.
+    Renderer FindSingleFlag()
+    {
+        Renderer found = null;
+        foreach (var candidate in GetComponentsInChildren<Renderer>(true))
+        {
+            if (candidate == null || !candidate.name.StartsWith("ComicShop_PublisherFlag")) continue;
+            if (found != null) return null;
+            found = candidate;
+        }
+        return found;
+    }
+
     public Texture ReadLogo()
     {
+        if (logoRenderer == null && Application.isPlaying) logoRenderer = FindSingleFlag();
         if (logoRenderer == null || !logoRenderer.enabled ||
             !logoRenderer.gameObject.activeInHierarchy ||
             !logoRenderer.transform.IsChildOf(transform)) return null;

@@ -204,28 +204,27 @@ public sealed class FirstPersonThrowView : MonoBehaviour
                 if (index < 0 || index >= sourceBones.Length || !sourceBones[index]) continue;
                 Transform bone = sourceBones[index];
                 armVertex[i] = bone == lower || bone.IsChildOf(lower);
-                // Match the normal owner-camera arms-only view, retaining only the
-                // opposite forearm here. The throwing arm has its own view mesh.
-                hideVertex[i] = !FirstPersonHead.IsViewArmBone(bone, rig) ||
+                // Normal birinci sahis gorunumuyle ayni govde (kafa/boyun gizli); atis kolu
+                // kendi kamera mesh'iyle cizildigi icin dunyadaki kopyasi gizlenir.
+                hideVertex[i] = FirstPersonHead.IsHiddenHeadBone(bone, head) ||
                     bone == upper || bone.IsChildOf(upper);
             }
-            Mesh armMesh = Instantiate(original), bodyMesh = Instantiate(original);
+            Mesh armMesh = Instantiate(original);
+            // Omuz ve boyunda acilan delikler kapatilir (asagi bakinca govdenin ici gorunmez).
+            Mesh bodyMesh = FirstPersonMeshCut.Cut(original, hideVertex);
             meshes.Add(armMesh); meshes.Add(bodyMesh);
             int kept = 0;
             for (int sub = 0; sub < original.subMeshCount; sub++)
             {
                 int[] triangles = original.GetTriangles(sub);
-                var armTriangles = new List<int>(); var bodyTriangles = new List<int>();
+                var armTriangles = new List<int>();
                 for (int t = 0; t < triangles.Length; t += 3)
                 {
                     int x = triangles[t], y = triangles[t + 1], z = triangles[t + 2];
                     if ((armVertex[x] ? 1 : 0) + (armVertex[y] ? 1 : 0) + (armVertex[z] ? 1 : 0) >= 2)
                     { armTriangles.Add(x); armTriangles.Add(y); armTriangles.Add(z); kept++; }
-                    if (!hideVertex[x] && !hideVertex[y] && !hideVertex[z])
-                    { bodyTriangles.Add(x); bodyTriangles.Add(y); bodyTriangles.Add(z); }
                 }
                 armMesh.SetTriangles(armTriangles, sub);
-                bodyMesh.SetTriangles(bodyTriangles, sub);
             }
             if (kept == 0) continue;
             var go = new GameObject(source.name + "_ViewArm");

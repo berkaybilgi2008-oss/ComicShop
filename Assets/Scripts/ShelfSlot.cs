@@ -263,6 +263,8 @@ public class ShelfSlot : MonoBehaviour
         int publisher = PublisherID;
         if (publisher < 0 || book == null || book.brandID != publisher || !IsAvailable)
             return false;
+        if (BrandConfig.IsPlacementDisabled(book.brandID))
+            return false;
 
         if (IsClaimed)
             return book.bookID == ownerBookID;

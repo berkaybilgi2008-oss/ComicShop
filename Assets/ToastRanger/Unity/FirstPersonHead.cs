@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// Owner-camera view uses forearms/hands only: removing just the head exposes the
-// torso's open neck. Full character meshes remain visible to other cameras/players.
-// Mesh and renderer changes are restored after rendering; no bone scale changes.
+// Gercek birinci sahis: sahibinin kamerasi karakterin gozunden bakar ve kendi
+// govdesini, kollarini, bacaklarini gorur; yalnizca kafa (ve boyun) gizlenir.
+// Kafa kaldirilinca govdede acilan kucuk boyun deligi calisma zamaninda kapatilir,
+// asagi bakinca govdenin ici gorunmez. Diger oyuncular/kameralar karakteri eksiksiz
+// gorur. Mesh ve renderer degisiklikleri cizimden sonra geri alinir; kemik olcegi degismez.
 [DefaultExecutionOrder(210)]
 [DisallowMultipleComponent]
 public sealed class FirstPersonHead : MonoBehaviour
@@ -82,11 +84,13 @@ public sealed class FirstPersonHead : MonoBehaviour
         if (!built) Build();
     }
 
-    internal static bool IsViewArmBone(Transform bone, ToastBookCarry carry)
+    /// <summary>Birinci sahis kamerasinda gizlenen kemik: kafa, kafanin altindakiler ve boyun.</summary>
+    internal static bool IsHiddenHeadBone(Transform bone, Transform head)
     {
-        if (!bone || !carry) return false;
-        return (carry.forearm && (bone == carry.forearm || bone.IsChildOf(carry.forearm))) ||
-            (carry.leftForearm && (bone == carry.leftForearm || bone.IsChildOf(carry.leftForearm)));
+        if (!bone) return false;
+        if (head && (bone == head || bone.IsChildOf(head))) return true;
+        string name = bone.name;
+        return name == "Neck" || name.EndsWith(":Neck");
     }
 
     void Build()
@@ -101,9 +105,10 @@ public sealed class FirstPersonHead : MonoBehaviour
             if (!original) continue;
             if (!original.isReadable)
             {
-                // Camera-scoped fallback; never shrink bones seen by a rear camera.
+                // Okunamayan mesh kesilemez; kafa kameranin onunu kapatmasin diye bu parca
+                // yalnizca sahibinin kamerasinda tamamen gizlenir (diger oyuncular gorur).
                 attached.Add(skin);
-                Debug.LogWarning("FirstPersonHead: enable Read/Write on the character mesh to show first-person arms.", this);
+                Debug.LogWarning("FirstPersonHead: karakter mesh'inde Read/Write kapali; govde birinci sahiste gorunmez.", this);
                 continue;
             }
             var weights = original.boneWeights;
@@ -119,29 +124,16 @@ public sealed class FirstPersonHead : MonoBehaviour
                 if (w.weight2 > largest) { index = w.boneIndex2; largest = w.weight2; }
                 if (w.weight3 > largest) index = w.boneIndex3;
                 if (index < 0 || index >= bones.Length || !bones[index]) continue;
-                if (!IsViewArmBone(bones[index], rig)) { hide[i] = true; any = true; }
+                if (IsHiddenHeadBone(bones[index], head)) { hide[i] = true; any = true; }
             }
             if (!any) continue;
-            Mesh headless = Instantiate(original);
+            Mesh headless = FirstPersonMeshCut.Cut(original, hide);
             headless.name = original.name + "_FirstPerson";
-            for (int sub = 0; sub < original.subMeshCount; sub++)
-            {
-                int[] triangles = original.GetTriangles(sub);
-                var keep = new List<int>(triangles.Length);
-                for (int t = 0; t < triangles.Length; t += 3)
-                {
-                    int a = triangles[t], b = triangles[t + 1], c = triangles[t + 2];
-                    if (hide[a] || hide[b] || hide[c]) continue;
-                    keep.Add(a); keep.Add(b); keep.Add(c);
-                }
-                headless.SetTriangles(keep, sub);
-            }
             owned.Add(headless);
             swaps.Add(new Swap { renderer = skin, original = original, headless = headless });
         }
         foreach (var renderer in head.GetComponentsInChildren<Renderer>(true))
             if (!(renderer is SkinnedMeshRenderer) && !attached.Contains(renderer)) attached.Add(renderer);
-
     }
 
     void Begin(Camera camera)
@@ -173,4 +165,96 @@ public sealed class FirstPersonHead : MonoBehaviour
         applied = false;
         renderingCamera = null;
     }
+}
+
+/// <summary>
+/// Gizlenen kemiklere ait ucgenleri cikarir ve bu yuzden govdede acilan yeni
+/// delikleri (boyun, omuz) ucgen yelpazesiyle kapatir. Kapak, komsu ucgenin
+/// yonunu takip eder; ters normal ya da gorunen ic yuzey olusmaz.
+/// </summary>
+internal static class FirstPersonMeshCut
+{
+    struct Edge { public int from, to, submesh; }
+
+    public static Mesh Cut(Mesh original, bool[] hide)
+    {
+        Mesh result = Object.Instantiate(original);
+        var vertices = original.vertices;
+        // Ayni konumdaki (UV/normal dikisi) kopya kose noktalarini tek noktada birlestir.
+        var weld = new int[vertices.Length];
+        var lookup = new Dictionary<Vector3Int, int>(vertices.Length);
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            Vector3 v = vertices[i] * 10000f;
+            var key = new Vector3Int(Mathf.RoundToInt(v.x), Mathf.RoundToInt(v.y), Mathf.RoundToInt(v.z));
+            if (!lookup.TryGetValue(key, out int id)) lookup.Add(key, id = i);
+            weld[i] = id;
+        }
+        var before = new Dictionary<long, int>();
+        var after = new Dictionary<long, int>();
+        var keptEdges = new Dictionary<long, Edge>();
+        var kept = new List<int>[original.subMeshCount];
+        for (int sub = 0; sub < original.subMeshCount; sub++)
+        {
+            int[] triangles = original.GetTriangles(sub);
+            kept[sub] = new List<int>(triangles.Length);
+            for (int t = 0; t < triangles.Length; t += 3)
+            {
+                int a = triangles[t], b = triangles[t + 1], c = triangles[t + 2];
+                bool removed = hide[a] || hide[b] || hide[c];
+                for (int e = 0; e < 3; e++)
+                {
+                    int from = e == 0 ? a : e == 1 ? b : c;
+                    int to = e == 0 ? b : e == 1 ? c : a;
+                    long key = Key(weld[from], weld[to]);
+                    before.TryGetValue(key, out int n); before[key] = n + 1;
+                    if (removed) continue;
+                    after.TryGetValue(key, out int m); after[key] = m + 1;
+                    keptEdges[key] = new Edge { from = from, to = to, submesh = sub };
+                }
+                if (!removed) { kept[sub].Add(a); kept[sub].Add(b); kept[sub].Add(c); }
+            }
+        }
+        // Yeni acilan kenarlar: once iki ucgen paylasiyordu, simdi tek ucgen kaldi.
+        // Kapak kenari, kalan ucgenin kenarinin tersidir (to -> from).
+        var outgoing = new Dictionary<int, Edge>();
+        var broken = new HashSet<int>();
+        foreach (var pair in after)
+        {
+            if (pair.Value != 1 || !before.TryGetValue(pair.Key, out int count) || count < 2) continue;
+            Edge edge = keptEdges[pair.Key];
+            var cap = new Edge { from = edge.to, to = edge.from, submesh = edge.submesh };
+            int start = weld[cap.from];
+            if (outgoing.ContainsKey(start)) broken.Add(start);
+            else outgoing.Add(start, cap);
+        }
+        var used = new HashSet<int>();
+        var loop = new List<int>();
+        foreach (var pair in outgoing)
+        {
+            if (used.Contains(pair.Key)) continue;
+            loop.Clear();
+            int submesh = pair.Value.submesh;
+            int current = pair.Key;
+            bool closed = false;
+            while (loop.Count <= outgoing.Count)
+            {
+                if (broken.Contains(current) || !outgoing.TryGetValue(current, out Edge edge) || !used.Add(current)) break;
+                loop.Add(edge.from);
+                current = weld[edge.to];
+                if (current == pair.Key) { closed = true; break; }
+            }
+            if (!closed || loop.Count < 3) continue;
+            for (int i = 1; i + 1 < loop.Count; i++)
+            {
+                kept[submesh].Add(loop[0]);
+                kept[submesh].Add(loop[i]);
+                kept[submesh].Add(loop[i + 1]);
+            }
+        }
+        for (int sub = 0; sub < kept.Length; sub++) result.SetTriangles(kept[sub], sub);
+        return result;
+    }
+
+    static long Key(int a, int b) => a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
 }

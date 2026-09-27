@@ -12,6 +12,9 @@ public class BrandCatalog : ScriptableObject
         public int bookCount;
         [Tooltip("Raf tabelasinda kullanilan logo dokusu.")]
         public Texture2D logoTexture;
+        [Tooltip("Acikken bu yayincinin kitaplari spawn olur ama hicbir rafa yerlestirilemez " +
+                 "ve tamamlanma sayacina dahil edilmez (gecici olarak devre disi).")]
+        public bool placementDisabled;
     }
 
     public Entry[] brands = Array.Empty<Entry>();
@@ -41,6 +44,14 @@ public class BrandCatalog : ScriptableObject
             match = brand.brandID;
         }
         return match;
+    }
+
+    public bool IsPlacementDisabled(int brandID)
+    {
+        if (brands == null) return false;
+        foreach (var brand in brands)
+            if (brand != null && brand.brandID == brandID) return brand.placementDisabled;
+        return false;
     }
 
     public string GetBrandName(int brandID)

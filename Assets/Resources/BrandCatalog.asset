@@ -33,6 +33,7 @@ MonoBehaviour:
     brandName: ECLIPSE
     bookCount: 3
     logoTexture: {fileID: 0}
+    placementDisabled: 1
   - brandID: 5
     brandName: EMBERLINE
     bookCount: 15
@@ -81,3 +82,12 @@ MonoBehaviour:
     brandName: VERIDIAN
     bookCount: 15
     logoTexture: {fileID: 0}
+    placementDisabled: 1
+  - brandID: 17
+    brandName: ORBITAL
+    bookCount: 0
+    logoTexture: {fileID: 2800000, guid: 2e6c9915408a6994dac8ae0c4f0d460e, type: 3}
+  - brandID: 18
+    brandName: GUARDIAN
+    bookCount: 0
+    logoTexture: {fileID: 2800000, guid: 497461ca55487d04d8c6f5b3858db7b3, type: 3}

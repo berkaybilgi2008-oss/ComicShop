@@ -259,6 +259,7 @@ public static class ComicShopBookSetup
                 brandID = brand.BrandID,
                 brandName = brand.Name,
                 logoTexture = catalog.brands?.FirstOrDefault(x => x != null && x.brandID == brand.BrandID)?.logoTexture,
+                placementDisabled = catalog.brands?.FirstOrDefault(x => x != null && x.brandID == brand.BrandID)?.placementDisabled ?? false,
                 bookCount = generatedForBrand
             });
         }
@@ -277,6 +278,7 @@ public static class ComicShopBookSetup
                     brandID = old.brandID,
                     brandName = old.brandName,
                     logoTexture = old.logoTexture,
+                    placementDisabled = old.placementDisabled,
                     bookCount = 0
                 });
             }
