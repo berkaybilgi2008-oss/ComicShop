@@ -44,6 +44,17 @@ public sealed class FirstPersonThrowView : MonoBehaviour
         foreach (Transform bone in GetComponentsInChildren<Transform>(true))
             if (bone.name == "Head") { head = bone; break; }
     }
+    // Ilk Q atisinda kol mesh'i kesilip kopyalaniyordu: oyuna ilk girince atista belirgin takilma.
+    // Yerel oyuncuda bu is oyun basinda, sessizce yapilir (gorseller kapali kalir).
+    System.Collections.IEnumerator Start()
+    {
+        for (int i = 0; i < 900 && !IsLocal(); i++) yield return null;
+        yield return new WaitForSeconds(0.75f);
+        if (!IsLocal() || visualRoot) yield break;
+        left = inventory.throwHand == PlayerInteraction.ThrowHand.Left;
+        BuildArm();
+    }
+
     void OnEnable()
     {
         RenderPipelineManager.beginCameraRendering += BeginSRP;

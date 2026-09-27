@@ -52,6 +52,11 @@ public class BookSpawner : MonoBehaviour
     [Tooltip("Acikken daginik kitaplar kendi alanlarina (gecici gorunmez duvarlarla cevrili) rastgele " +
              "egimle birakilir ve acilis ekrani sirasinda fizikle devrilip dagilir: gercek karmasa, ic ice gecme yok.")]
     public bool dropLooseBooks = true;
+    [Tooltip("Acikken kule yok: kitaplar fotograftaki gibi YIGINLAR halinde (ortasi yuksek, kenarlari alcak, " +
+             "kitaplar hafif kaymis/donmus) dizilir. Fizik dususu yok; yerlesim aninda biter, her kitap yerinde donmus baslar.")]
+    public bool heapLayoutMode = true;
+    [Tooltip("Bir yigin sutununun en fazla kitap sayisi.")]
+    [Min(2)] public int heapMaxColumnBooks = 14;
     [Tooltip("Kucuk kulelerin en fazla kitap sayisi (6..bu deger).")]
     [Min(2)] public int smallTowerMaxBooks = 10;
     [Tooltip("Buyuk kulelerin en fazla kitap sayisi (14..bu deger).")]
@@ -198,7 +203,7 @@ public class BookSpawner : MonoBehaviour
         double now = Time.realtimeSinceStartupAsDouble;
         // Yukleme ekrani sadece dusen kitaplari gizler; her karede daha fazla is yapip
         // ekrani kisa tut (ilerleme cubugu yine akici gorunur).
-        if (now - frameBudgetStarted < 0.09) return false;
+        if (now - frameBudgetStarted < 0.05) return false;
         frameBudgetStarted = now;
         return true;
     }
@@ -512,8 +517,12 @@ public class BookSpawner : MonoBehaviour
             var books = new List<BookItem>(sessionBooks.Count);
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
             spawnedTowerBooks.Clear();
-            var towers = ArrangeTowers(books);
-            while (towers.MoveNext()) yield return towers.Current;
+            towerSites.Clear();
+            if (!heapLayoutMode)
+            {
+                var towers = ArrangeTowers(books);
+                while (towers.MoveNext()) yield return towers.Current;
+            }
             ShopLoadingScreen.Progress(0.55f);
             var scattered = SeparateInitialBooks(books);
             while (scattered.MoveNext()) yield return scattered.Current;
@@ -789,12 +798,12 @@ public class BookSpawner : MonoBehaviour
     private List<BandCell> BuildBandCells(float alongSpacing, float acrossSpacing)
     {
         var cells = new List<BandCell>();
-        var taken = new HashSet<long>();
+        var taken = new Dictionary<long, List<Vector2>>();
         int cellTotal = 0, cellBand = 0, cellArea = 0, cellTower = 0, cellGround = 0, cellBlocked = 0;
         float startY = spawnHeight;
         foreach (var zone in corridorAreas)
             if (zone != null && zone.gameObject.activeInHierarchy) { startY = zone.transform.position.y + spawnHeight; break; }
-        float dedupe = Mathf.Min(alongSpacing, acrossSpacing) * 0.8f;
+        float dedupe = Mathf.Max(alongSpacing, acrossSpacing);
         const float probe = 0.12f;
         foreach (var f in shelfFootprints)
         {
@@ -818,8 +827,22 @@ public class BookSpawner : MonoBehaviour
                         // Koridor kutulari raf onlerine tam uzanmiyor; hucre kutunun biraz disina
                         // tasabilir (zemin + engel kontrolu yine de duvar/raf icini eler).
                         if (!InsideAreaRelaxed(p, 1.2f)) { cellArea++; continue; }
-                        long key = CellKey(Mathf.FloorToInt(p.x / dedupe), Mathf.FloorToInt(p.z / dedupe));
-                        if (taken.Contains(key)) continue;
+                        // Sirt sirta kitapliklarin seritleri ayni yeri iki kez uretir (2 cm kaymis): yakin
+                        // hucreyi mesafeyle ele (eski kova karsilastirmasi sinirda kaciriyordu ve ust uste
+                        // binen sutunlar kitaplari yerlestiremiyordu).
+                        int gx = Mathf.FloorToInt(p.x / dedupe), gz = Mathf.FloorToInt(p.z / dedupe);
+                        long key = CellKey(gx, gz);
+                        bool duplicate = false;
+                        for (int dx = -1; dx <= 1 && !duplicate; dx++)
+                            for (int dz = -1; dz <= 1 && !duplicate; dz++)
+                                if (taken.TryGetValue(CellKey(gx + dx, gz + dz), out var list))
+                                    foreach (var q in list)
+                                    {
+                                        float ax = Mathf.Abs(q.x - p.x), az = Mathf.Abs(q.y - p.z);
+                                        float needX = f.longAlongX ? alongSpacing : acrossSpacing, needZ = f.longAlongX ? acrossSpacing : alongSpacing;
+                                        if (ax < needX * 0.98f && az < needZ * 0.98f) { duplicate = true; break; }
+                                    }
+                        if (duplicate) continue;
                         bool nearTower = false;
                         foreach (var t in towerSites)
                             if (new Vector2(p.x - t.x, p.z - t.z).magnitude < t.w + Mathf.Max(alongSpacing, acrossSpacing) * 0.5f)
@@ -837,7 +860,8 @@ public class BookSpawner : MonoBehaviour
                             { blocked = true; break; }
                         if (!blocked) blocked = NearProp(new Vector3(p.x, floor.point.y, p.z), half, floor.collider);
                         if (blocked) { cellBlocked++; continue; }
-                        taken.Add(key);
+                        if (!taken.TryGetValue(key, out var bucket)) taken[key] = bucket = new List<Vector2>(2);
+                        bucket.Add(new Vector2(p.x, p.z));
                         cells.Add(new BandCell { point = new Vector3(p.x, floor.point.y, p.z), floor = floor.collider, axisYaw = axisYaw });
                     }
                 }
@@ -1240,9 +1264,212 @@ public class BookSpawner : MonoBehaviour
         done(true);
     }
 
+    /// <summary>
+    /// Kitaplari gercek bir kitap yigini gibi dizer (referans fotograf): seritte rastgele "tepe"
+    /// merkezleri secilir; her sutunun yuksekligi yakindaki tepelere gore belirlenir (ortasi yuksek,
+    /// kenarlara dogru alcalan, duzensiz). Sutundaki her kitap bir alttakinin tam ustunde, hafif
+    /// kaymis ve donmus durur; ic ice gecme yok, havada kalan yok, hepsi yerinde donmus baslar.
+    /// </summary>
+    private IEnumerator PlaceBooksAsHeaps(List<BookItem> books, System.Action<bool> done)
+    {
+        var loose = new List<BookItem>(books.Count);
+        foreach (var book in books) if (!spawnedTowerBooks.Contains(book)) loose.Add(book);
+        if (loose.Count == 0 || shelfFootprints.Count == 0 || !gatherInFrontOfShelves) { done(false); yield break; }
+
+        foreach (var book in loose) book.transform.rotation = book.GetAlignedRotation(Vector3.up, Vector3.forward);
+        Physics.SyncTransforms();
+        int n = loose.Count;
+        var lengths = new float[n]; var widths = new float[n]; var heights = new float[n];
+        var offsets = new Vector3[n];
+        var lengthList = new List<float>(n); var widthList = new List<float>(n);
+        for (int i = 0; i < n; i++)
+        {
+            Bounds b = BookBounds(loose[i]);
+            lengths[i] = b.size.z; widths[i] = b.size.x; heights[i] = b.size.y;
+            offsets[i] = b.center - loose[i].transform.position;
+            lengthList.Add(b.size.z); widthList.Add(b.size.x);
+        }
+        const float yawJitter = 13f, shiftJitter = 0.035f;
+        float sin = Mathf.Sin(yawJitter * Mathf.Deg2Rad), cos = Mathf.Cos(yawJitter * Mathf.Deg2Rad);
+        float bigL = Percentile(lengthList, 0.95f), bigW = Percentile(widthList, 0.95f);
+        float alongSpacing = bigL * cos + bigW * sin + 2f * shiftJitter + 0.02f;
+        float acrossSpacing = bigW * cos + bigL * sin + 2f * shiftJitter + 0.02f;
+        var cells = BuildBandCells(alongSpacing, acrossSpacing);
+        if (cells.Count == 0) { done(false); yield break; }
+
+        // Yukseklik alani: rastgele tepeler (ortasi yuksek), her hucreye biraz duzensizlik.
+        int heapCount = Mathf.Max(1, cells.Count / 9);
+        var centers = new List<Vector4>(heapCount); // x, z, yaricap, genlik
+        for (int h = 0; h < heapCount; h++)
+        {
+            var c = cells[Random.Range(0, cells.Count)];
+            centers.Add(new Vector4(c.point.x, c.point.z, Random.Range(0.9f, 1.7f), Random.Range(0.55f, 1f)));
+        }
+        var field = new float[cells.Count];
+        for (int i = 0; i < cells.Count; i++)
+        {
+            float f = 0f;
+            foreach (var h in centers)
+            {
+                float d = new Vector2(cells[i].point.x - h.x, cells[i].point.z - h.y).magnitude / h.z;
+                if (d < 1f) f += h.w * (1f - d * d);
+            }
+            field[i] = f * Random.Range(0.75f, 1.15f);
+        }
+        int cap = Mathf.Max(2, heapMaxColumnBooks);
+        // Toplam kitap sayisini tutturan olcek (ikili arama).
+        float lo = 0f, hi = 400f;
+        for (int iter = 0; iter < 40; iter++)
+        {
+            float mid = (lo + hi) * 0.5f;
+            int total = 0;
+            foreach (float f in field) total += Mathf.Min(cap, Mathf.RoundToInt(f * mid));
+            if (total < n) lo = mid; else hi = mid;
+        }
+        var target = new int[cells.Count];
+        int assigned = 0;
+        for (int i = 0; i < cells.Count; i++) { target[i] = Mathf.Min(cap, Mathf.RoundToInt(field[i] * hi)); assigned += target[i]; }
+        // Artan/eksik kitaplari rastgele sutunlara dagit (bos hucreye degil, var olan yiginlara).
+        var order = new List<int>(cells.Count);
+        for (int i = 0; i < cells.Count; i++) order.Add(i);
+        while (assigned < n)
+        {
+            int i = order[Random.Range(0, order.Count)];
+            if ((target[i] == 0 && Random.value < 0.7f) || (target[i] >= cap && Random.value < 0.95f)) continue;
+            target[i]++; assigned++;
+        }
+        while (assigned > n)
+        {
+            int i = order[Random.Range(0, order.Count)];
+            if (target[i] == 0) continue;
+            target[i]--; assigned--;
+        }
+
+        // Kitaplari sutunlara ver: buyuk kitaplar alta.
+        var bookOrder = new List<int>(n);
+        for (int i = 0; i < n; i++) bookOrder.Add(i);
+        for (int i = n - 1; i > 0; i--) { int j = Random.Range(0, i + 1); (bookOrder[i], bookOrder[j]) = (bookOrder[j], bookOrder[i]); }
+
+        placedGrid.Clear();
+        var gridBounds = new List<Bounds>(n);
+        var rects = new List<LooseRect>(n);
+        var restOrder = new List<BookItem>(n);
+        var restSupport = new List<Collider>(n);
+        var spare = new List<int>();
+        var columnTops = new List<int>(); // her sutunun en ustteki kitabinin rect indeksi
+        int cursor = 0, skipped = 0, processed = 0;
+        for (int ci = 0; ci < cells.Count; ci++)
+        {
+            if (target[ci] == 0) continue;
+            var cell = cells[ci];
+            var column = bookOrder.GetRange(cursor, Mathf.Min(target[ci], n - cursor));
+            cursor += column.Count;
+            column.Sort((a, b) => (lengths[b] * widths[b]).CompareTo(lengths[a] * widths[a]));
+            float flipBase = Random.value < 0.5f ? 0f : 180f;
+            int below = -1;
+            foreach (int k in column)
+            {
+                processed++;
+                if (YieldForFrameBudget()) { ShopLoadingScreen.Progress(0.55f + 0.3f * processed / n); yield return null; }
+                bool placedOk = false;
+                for (int attempt = 0; attempt < 4 && !placedOk; attempt++)
+                {
+                    float jitterScale = attempt == 0 ? 1f : attempt == 1 ? 0.5f : 0f;
+                    float yaw = cell.axisYaw + flipBase + (Random.value < 0.25f ? 180f : 0f) + Random.Range(-yawJitter, yawJitter) * jitterScale;
+                    Vector2 shift = Random.insideUnitCircle * shiftJitter * jitterScale;
+                    Vector2 center = new Vector2(cell.point.x, cell.point.z) + shift;
+                    Vector2 axis = new Vector2(Mathf.Sin(yaw * Mathf.Deg2Rad), Mathf.Cos(yaw * Mathf.Deg2Rad));
+                    var rect = new LooseRect { center = center, axis = axis, half = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f) };
+                    float top = cell.point.y;
+                    int support = -1;
+                    foreach (int i in GridQuery(RectBounds(rect, cell.point.y)))
+                    {
+                        if (!RectsOverlap(rect, rects[i])) continue;
+                        if (rects[i].top > top) { top = rects[i].top; support = i; }
+                    }
+                    // Ustune bindigi kitap bu sutunun bir alttaki kitabi olmali ve ortasini tasimali.
+                    if (support >= 0 && (support != below || !RectContains(rects[support], center, 0.03f))) continue;
+                    if (support < 0 && below >= 0) continue;
+                    rect.top = top + heights[k];
+                    rect.book = restOrder.Count;
+                    Quaternion spin = Quaternion.Euler(0f, yaw, 0f);
+                    var book = loose[k];
+                    book.transform.rotation = book.GetAlignedRotation(Vector3.up, spin * Vector3.forward);
+                    book.transform.position = new Vector3(center.x, top + heights[k] * 0.5f + 0.0015f, center.y) - spin * offsets[k];
+                    rects.Add(rect);
+                    GridAdd(gridBounds, RectBounds(rect, top));
+                    restOrder.Add(book);
+                    restSupport.Add(support >= 0 ? restOrder[rects[support].book].GetComponentInChildren<Collider>() : cell.floor);
+                    below = rects.Count - 1;
+                    placedOk = true;
+                }
+                if (!placedOk) { spare.Add(k); skipped++; }
+            }
+            if (below >= 0) columnTops.Add(below);
+        }
+        // Sigmayanlar: rastgele secilen alcak sutunlarin EN USTUNE (hic kitap disarida/havada kalmaz).
+        foreach (int k in spare)
+        {
+            if (columnTops.Count == 0) break;
+            int pick = -1;
+            float yaw = 0f;
+            Vector2 axis = Vector2.up;
+            for (int t = 0; t < 40 && pick < 0; t++)
+            {
+                int c = Random.Range(0, columnTops.Count);
+                var top = rects[columnTops[c]];
+                float tryYaw = Mathf.Atan2(top.axis.x, top.axis.y) * Mathf.Rad2Deg + (t < 20 ? Random.Range(-yawJitter, yawJitter) : 0f);
+                Vector2 tryAxis = new Vector2(Mathf.Sin(tryYaw * Mathf.Deg2Rad), Mathf.Cos(tryYaw * Mathf.Deg2Rad));
+                var probe = new LooseRect { center = top.center, axis = tryAxis, half = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f) };
+                // Komsu sutun daha yuksekse ve bu kitap ona tasiyorsa ic ice girerdi: baska sutun sec.
+                bool clash = false;
+                foreach (int i in GridQuery(RectBounds(probe, top.top)))
+                    if (i != columnTops[c] && rects[i].top > top.top + 0.001f && RectsOverlap(probe, rects[i])) { clash = true; break; }
+                if (clash) continue;
+                pick = c; yaw = tryYaw; axis = tryAxis;
+            }
+            if (pick < 0)
+            {
+                // Hic uygun yer yoksa en alcak sutunun tam hizasinda.
+                pick = 0;
+                for (int c = 1; c < columnTops.Count; c++) if (rects[columnTops[c]].top < rects[columnTops[pick]].top) pick = c;
+                var lowest = rects[columnTops[pick]];
+                yaw = Mathf.Atan2(lowest.axis.x, lowest.axis.y) * Mathf.Rad2Deg; axis = lowest.axis;
+            }
+            var baseRect = rects[columnTops[pick]];
+            var rect = new LooseRect { center = baseRect.center, axis = axis, half = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f),
+                top = baseRect.top + heights[k], book = restOrder.Count };
+            Quaternion spin = Quaternion.Euler(0f, yaw, 0f);
+            var book = loose[k];
+            book.transform.rotation = book.GetAlignedRotation(Vector3.up, spin * Vector3.forward);
+            book.transform.position = new Vector3(rect.center.x, baseRect.top + heights[k] * 0.5f + 0.0015f, rect.center.y) - spin * offsets[k];
+            rects.Add(rect);
+            GridAdd(gridBounds, RectBounds(rect, baseRect.top));
+            restOrder.Add(book);
+            restSupport.Add(restOrder[baseRect.book].GetComponentInChildren<Collider>());
+            columnTops[pick] = rects.Count - 1;
+        }
+        Physics.SyncTransforms();
+        int frozen = 0;
+        for (int i = 0; i < restOrder.Count; i++)
+            if (restSupport[i] != null && restOrder[i].InitializeSpawnSupport(restSupport[i])) frozen++;
+        placedGrid.Clear();
+        int columns = 0, tallest = 0;
+        foreach (int t in target) { if (t > 0) columns++; tallest = Mathf.Max(tallest, t); }
+        Debug.Log($"BookSpawner: {n} kitap {heapCount} yigin / {columns} sutun halinde dizildi (en yuksek sutun {tallest}, " +
+                  $"{skipped} yedek); {frozen} kitap yerinde donmus.");
+        done(true);
+    }
+
     private IEnumerator SeparateInitialBooks(List<BookItem> books)
     {
         bool handled = false;
+        if (heapLayoutMode)
+        {
+            var heaps = PlaceBooksAsHeaps(books, ok => handled = ok);
+            while (heaps.MoveNext()) yield return heaps.Current;
+            if (handled) yield break;
+        }
         var bandPlacement = PlaceBooksInBand(books, ok => handled = ok);
         while (bandPlacement.MoveNext()) yield return bandPlacement.Current;
         if (handled) yield break;

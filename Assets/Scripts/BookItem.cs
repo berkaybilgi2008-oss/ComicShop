@@ -174,7 +174,7 @@ public class BookItem : MonoBehaviour
         ReleaseBooksAbove();
         body.AddForceAtPosition(direction * Mathf.Min(speed * 0.22f, 6f), point, ForceMode.VelocityChange);
         // Cevredeki donmus kitaplar da cozulur ki darbe yigina yayilsin.
-        float radius = Mathf.Clamp(0.25f + speed * 0.015f, 0.3f, 0.9f);
+        float radius = Mathf.Clamp(0.2f + speed * 0.008f, 0.25f, 0.5f);
         int count = Physics.OverlapSphereNonAlloc(point, radius, impactHits, Physics.AllLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {

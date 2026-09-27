@@ -27,8 +27,9 @@ public sealed class PendantLampSwing : MonoBehaviour
         public Quaternion rest;
         public float length;      // pivot -> abajur alti
         public float radius;      // abajur yaricapi
-        public Vector2 angle;     // derece, dunya X/Z yonunde sapma
-        public Vector2 velocity;  // derece/sn
+        public Vector2 angle;     // radyan, dunya X/Z yonunde sapma
+        public Vector2 velocity;  // radyan/sn
+        public Collider body;     // gercekci fizikte kitaplarin sekecegi abajur carpisma govdesi
         public Vector3 Bottom => pivot.position + pivot.rotation * (Quaternion.Inverse(rest) * (Vector3.down * length));
     }
 
@@ -111,7 +112,17 @@ public sealed class PendantLampSwing : MonoBehaviour
                 if (new Vector2(p.x - at.x, p.z - at.z).magnitude < 0.3f && Mathf.Abs(p.y - at.y) < 1.5f)
                 { shaft.SetParent(pivot, true); used.Add(shaft); }
             }
-            lamps.Add(new Lamp { pivot = pivot, rest = pivot.rotation, length = Mathf.Max(0.3f, top - bottom), radius = Mathf.Clamp(radius, 0.12f, 0.6f) });
+            float lampLength = Mathf.Max(0.3f, top - bottom), lampRadius = Mathf.Clamp(radius, 0.12f, 0.6f);
+            // Gercekci fizik acikken firlatilan kitap abajurdan seksin: kinematik govde + kapsul.
+            var hitBody = new GameObject("Lamp Hit Body");
+            hitBody.transform.SetParent(pivot, false);
+            hitBody.transform.localPosition = Vector3.down * (lampLength * 0.5f);
+            var rb = hitBody.AddComponent<Rigidbody>();
+            rb.isKinematic = true; rb.useGravity = false;
+            var capsule = hitBody.AddComponent<CapsuleCollider>();
+            capsule.direction = 1; capsule.height = lampLength; capsule.radius = lampRadius * 0.85f;
+            capsule.enabled = false;
+            lamps.Add(new Lamp { pivot = pivot, rest = pivot.rotation, length = lampLength, radius = lampRadius, body = capsule });
         }
     }
 
@@ -139,22 +150,26 @@ public sealed class PendantLampSwing : MonoBehaviour
     {
         if (lamps.Count == 0) return;
         float dt = Time.fixedDeltaTime;
-        if (RealisticPhysics.Enabled) DetectHits(dt);
+        bool enabledNow = RealisticPhysics.Enabled;
+        if (enabledNow) DetectHits(dt);
         else if (lastPositions.Count > 0) lastPositions.Clear();
 
         foreach (var lamp in lamps)
         {
             if (lamp.pivot == null) continue;
-            if (lamp.angle.sqrMagnitude < 0.0001f && lamp.velocity.sqrMagnitude < 0.0001f) continue;
-            // Sonumlu sarkac: w'' = -(g/L) * aci - c * w'
-            float stiffness = 9.81f / lamp.length;
-            lamp.velocity += (-stiffness * lamp.angle - 0.9f * lamp.velocity) * dt;
+            if (lamp.body != null && lamp.body.enabled != enabledNow) lamp.body.enabled = enabledNow;
+            if (lamp.angle.sqrMagnitude < 1e-8f && lamp.velocity.sqrMagnitude < 1e-8f) continue;
+            // Gercek sarkac: a = -(g/L) sin(aci) - c*w. Hafif hava/baglanti surtunmesi: uzun sallanir,
+            // yavasca soner; eskiden guclu sonum + aci siniri lambayi "kendini durduruyor" gibi yapiyordu.
+            float magnitude = lamp.angle.magnitude;
+            Vector2 restoring = magnitude > 1e-6f ? lamp.angle / magnitude * Mathf.Sin(magnitude) : Vector2.zero;
+            lamp.velocity += (-(9.81f / lamp.length) * restoring - 0.16f * lamp.velocity) * dt;
             lamp.angle += lamp.velocity * dt;
-            if (lamp.angle.magnitude > 38f) { lamp.angle = lamp.angle.normalized * 38f; lamp.velocity *= 0.5f; }
-            if (lamp.angle.sqrMagnitude < 0.0004f && lamp.velocity.sqrMagnitude < 0.0004f)
+            if (lamp.angle.magnitude > 1.1f) lamp.angle = lamp.angle.normalized * 1.1f; // yalnizca guvenlik siniri
+            if (lamp.angle.sqrMagnitude < 1e-7f && lamp.velocity.sqrMagnitude < 1e-6f)
             { lamp.angle = Vector2.zero; lamp.velocity = Vector2.zero; lamp.pivot.rotation = lamp.rest; continue; }
             Vector3 lean = new Vector3(lamp.angle.x, 0f, lamp.angle.y);
-            Quaternion swing = Quaternion.AngleAxis(lean.magnitude, Vector3.Cross(Vector3.down, lean.normalized));
+            Quaternion swing = Quaternion.AngleAxis(lean.magnitude * Mathf.Rad2Deg, Vector3.Cross(Vector3.down, lean.normalized));
             lamp.pivot.rotation = swing * lamp.rest;
         }
     }
@@ -174,7 +189,8 @@ public sealed class PendantLampSwing : MonoBehaviour
             {
                 var lamp = lamps[i];
                 if (lamp.pivot == null) continue;
-                float distance = SegmentDistance(before, now, lamp.pivot.position, lamp.Bottom);
+                Vector3 top = lamp.pivot.position, bottom = lamp.Bottom;
+                float distance = SegmentDistance(before, now, top, bottom);
                 // Kitabin merkezi degil KENARI lambaya degince sayilir: kitabin yari boyu eklenir
                 // (eskiden yalnizca merkez 0.2 m'ye girince sayiliyordu, cogu isabet kaciyordu).
                 if (distance > lamp.radius + BookReach(book)) continue;
@@ -183,7 +199,9 @@ public sealed class PendantLampSwing : MonoBehaviour
                 recentHits[key] = Time.time;
                 Vector2 push = new Vector2(move.x, move.z);
                 if (push.sqrMagnitude < 0.000001f) continue;
-                lamp.velocity += push.normalized * Mathf.Min(speed * 7f, 200f);
+                // Momentum aktarimi: darbe lambanin alt ucuna ne kadar yakinsa o kadar sallar.
+                float along = Mathf.Clamp01(Vector3.Dot(((before + now) * 0.5f) - top, (bottom - top).normalized) / lamp.length);
+                lamp.velocity += push.normalized * Mathf.Min(speed * 0.085f, 2.1f) * Mathf.Lerp(0.45f, 1f, along);
             }
         }
         if (recentHits.Count > 512) recentHits.Clear();
