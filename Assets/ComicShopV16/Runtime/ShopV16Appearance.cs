@@ -18,7 +18,10 @@ namespace ComicShopV16
         {
             light.enabled = true;
             light.type = sun ? LightType.Directional : pendant ? LightType.Spot : LightType.Point;
+#if UNITY_EDITOR
+            // Editor-only API; oyun (build) derlemesinde yoktur.
             light.lightmapBakeType = LightmapBakeType.Realtime;
+#endif
             light.useColorTemperature = false;
             light.color = neon ? new Color(1f, .3f, .5f) : sun
                 ? new Color(1f, .96f, .86f) : new Color(1f, .81f, .60f);
