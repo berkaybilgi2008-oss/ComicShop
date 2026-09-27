@@ -85,6 +85,7 @@
     <Compile Include="Assets\Editor\ChargedThrowRegressionChecks.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonOutlineSetup.cs" />
     <Compile Include="Assets\Editor\ComicShopRafSetup.cs" />
+    <Compile Include="Assets\Editor\ComicShopDesktopBuild.cs" />
     <Compile Include="Assets\ComicShopFix15\Editor\ComicSpawnShelfFix15.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\CreateToonPresets.cs" />
     <Compile Include="Assets\Editor\MultiplayerRegressionChecks.cs" />

@@ -18,6 +18,8 @@ public class ConnectionManager : MonoBehaviour
     public ConnectionRoute connectionRoute = ConnectionRoute.InternetRelay;
     public string address = "127.0.0.1";
     public ushort port = 7777;
+    // Oturumda gercekten kullanilan port: 7777'yi baska bir program tutuyorsa bos olan bir sonraki.
+    private ushort activePort = 7777;
     public string relayJoinCode = "";
     public bool showDebugUI = true;
     [Min(1f)] public float connectionTimeout = 15f;
@@ -192,11 +194,25 @@ public class ConnectionManager : MonoBehaviour
         }
         try
         {
+            // 7777 bu bilgisayarda baska bir program (ya da asili kalmis eski bir oyun) tarafindan
+            // tutuluyorsa oda kurulamiyordu ("Server failed to bind"). Host bos portu kendisi bulur;
+            // katilan taraf "ip:port" yazarak o porta baglanabilir.
+            string target = address.Trim();
+            activePort = port;
+            if (host) activePort = FindFreeUdpPort(port);
+            else
+            {
+                int colon = target.LastIndexOf(':');
+                if (colon > 0 && ushort.TryParse(target.Substring(colon + 1), out ushort parsed) && parsed > 0)
+                { activePort = parsed; target = target.Substring(0, colon); }
+            }
+            if (host && activePort != port)
+                Debug.LogWarning($"[Baglanti] Port {port} baska bir program tarafindan kullaniliyor; oda {activePort} portunda aciliyor.");
             // Remote address and server listen address are distinct UTP settings.
-            transport.SetConnectionData(host ? "127.0.0.1" : address.Trim(), port,
+            transport.SetConnectionData(host ? "127.0.0.1" : target, activePort,
                 host ? "0.0.0.0" : null);
             return StartPreparedSession(host,
-                host ? Loc.T("net.hosting_local", port) : Loc.T("net.joining_local", address, port));
+                host ? Loc.T("net.hosting_local", activePort) : Loc.T("net.joining_local", target, activePort));
         }
         catch (Exception exception)
         {
@@ -204,6 +220,24 @@ public class ConnectionManager : MonoBehaviour
             StopWithStatus(Loc.T("net.conn_error", exception.Message));
             return false;
         }
+    }
+
+    private static ushort FindFreeUdpPort(ushort preferred)
+    {
+        for (int candidate = preferred; candidate < preferred + 50 && candidate <= 65535; candidate++)
+            if (UdpPortFree(candidate)) return (ushort)candidate;
+        return preferred;
+    }
+
+    private static bool UdpPortFree(int candidate)
+    {
+        try
+        {
+            using (var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, candidate)))
+                return true;
+        }
+        catch (System.Net.Sockets.SocketException) { return false; }
+        catch (Exception) { return true; }
     }
 
     private bool ValidateStart()
@@ -355,7 +389,7 @@ public class ConnectionManager : MonoBehaviour
             if (connectionRoute == ConnectionRoute.InternetRelay)
                 SetStatus(networkManager.IsHost ? Loc.T("net.online_open", relayJoinCode) : Loc.T("net.online_joined"));
             else
-                SetStatus(networkManager.IsHost ? Loc.T("net.local_open", port) : Loc.T("net.local_joined"));
+                SetStatus(networkManager.IsHost ? Loc.T("net.local_open", activePort) : Loc.T("net.local_joined"));
         }
         else if (networkManager.IsServer) SetStatus(Loc.T("net.player_joined", id));
     }
@@ -381,7 +415,7 @@ public class ConnectionManager : MonoBehaviour
 
     private void HandleTransportFailure() => StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
         ? Loc.T("net.relay_error")
-        : Loc.T("net.net_error", port));
+        : Loc.T("net.net_error", activePort));
 
     public static void SetCursor(bool gameplay)
     {

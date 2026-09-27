@@ -144,6 +144,7 @@
     <Compile Include="Assets\ComicShopMenu\Scripts\ComicPreferences.cs" />
     <Compile Include="Assets\ComicShopToon\Runtime\ToonGlobals.cs" />
     <Compile Include="Assets\Scripts\KnockdownHeadCamera.cs" />
+    <Compile Include="Assets\ToastRanger\Unity\ToastHandFist.cs" />
     <Compile Include="Assets\Scripts\PlayerInteraction.cs" />
     <Compile Include="Assets\Scripts\YaratikGucu.cs" />
     <Compile Include="Assets\ToastRanger\Unity\ToastBookCarry.cs" />

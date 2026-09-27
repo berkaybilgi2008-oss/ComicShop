@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 /// Ayarlar > Goruntu: Dusuk / Orta / Yuksek / Cok Yuksek grafik secenegi.
 /// Proje URP varligi calisma zamaninda KOPYALANIR ve kopya degistirilir; boylece editorde
 /// Play sirasinda secilen seviye diskteki PC_RPAsset'e yazilmaz. "Yuksek" mevcut gorunumdur.
+/// Tum seviyelerde cel shading (cizgiler, sert bantlar, lamba golgeleri) ayni kalir.
 /// </summary>
 public static class GraphicsQuality
 {
@@ -19,6 +20,7 @@ public static class GraphicsQuality
     static float baseShadowDistance;
     static int baseCascades, baseMsaa;
     static float baseRenderScale;
+    static int baseMainShadowRes = 2048, baseAdditionalShadowRes = 2048;
     static readonly Dictionary<Light, LightShadows> lightShadows = new Dictionary<Light, LightShadows>();
     static bool hooked, applied;
 
@@ -59,44 +61,55 @@ public static class GraphicsQuality
             baseCascades = source.shadowCascadeCount;
             baseMsaa = source.msaaSampleCount;
             baseRenderScale = source.renderScale;
+            baseMainShadowRes = source.mainLightShadowmapResolution;
+            baseAdditionalShadowRes = source.additionalLightsShadowmapResolution;
             QualitySettings.renderPipeline = runtime;
             if (GraphicsSettings.defaultRenderPipeline == source) GraphicsSettings.defaultRenderPipeline = runtime;
         }
+        // Cel shading korunur: cozunurluk (renderScale) HER seviyede ayni kalir, cunku ekran-uzayi
+        // cizgi (ScreenSpaceOutline) ve sert isik bantlari piksel yogunluguna baglidir. Doku
+        // kalitesi (mip limit) de dusurulmez; renk/ramp bantlari bulaniklasmaz. Lamba golgeleri
+        // hic kapanmaz. Seviyeler yalnizca golge mesafesi/cozunurlugu, kenar yumusatma, anizotropik
+        // filtre, LOD ve yerdeki binlerce kitabin golge dusurmesi ile ayrisir.
+        runtime.renderScale = baseRenderScale;
+        QualitySettings.globalTextureMipmapLimit = 0;
         switch (Level)
         {
             case Low:
-                runtime.renderScale = baseRenderScale * 0.7f;
                 runtime.msaaSampleCount = 1;
-                runtime.shadowDistance = Mathf.Min(baseShadowDistance, 18f);
-                runtime.shadowCascadeCount = 1;
-                QualitySettings.globalTextureMipmapLimit = 1;
+                runtime.shadowDistance = Mathf.Min(baseShadowDistance, 25f);
+                runtime.shadowCascadeCount = Mathf.Min(2, Mathf.Max(1, baseCascades));
+                runtime.mainLightShadowmapResolution = Mathf.Min(baseMainShadowRes, 1024);
+                // Lamba golge atlasi kucultulmez: 20+ lamba golgesi 512'lik atlasa sigmayinca golgeler
+                // bulaniklasip cel bantlari bozuluyordu.
+                runtime.additionalLightsShadowmapResolution = baseAdditionalShadowRes;
                 QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
-                QualitySettings.lodBias = 0.5f;
+                QualitySettings.lodBias = 0.7f;
                 break;
             case Medium:
-                runtime.renderScale = baseRenderScale * 0.85f;
                 runtime.msaaSampleCount = 1;
-                runtime.shadowDistance = Mathf.Min(baseShadowDistance, 35f);
+                runtime.shadowDistance = Mathf.Min(baseShadowDistance, 40f);
                 runtime.shadowCascadeCount = Mathf.Min(2, Mathf.Max(1, baseCascades));
-                QualitySettings.globalTextureMipmapLimit = 0;
+                runtime.mainLightShadowmapResolution = baseMainShadowRes;
+                runtime.additionalLightsShadowmapResolution = baseAdditionalShadowRes;
                 QualitySettings.anisotropicFiltering = AnisotropicFiltering.Enable;
                 QualitySettings.lodBias = 1f;
                 break;
             case High:
-                runtime.renderScale = baseRenderScale;
                 runtime.msaaSampleCount = baseMsaa;
                 runtime.shadowDistance = baseShadowDistance;
                 runtime.shadowCascadeCount = baseCascades;
-                QualitySettings.globalTextureMipmapLimit = 0;
+                runtime.mainLightShadowmapResolution = baseMainShadowRes;
+                runtime.additionalLightsShadowmapResolution = baseAdditionalShadowRes;
                 QualitySettings.anisotropicFiltering = AnisotropicFiltering.Enable;
                 QualitySettings.lodBias = 1.5f;
                 break;
             default:
-                runtime.renderScale = baseRenderScale;
                 runtime.msaaSampleCount = 4;
-                runtime.shadowDistance = baseShadowDistance * 1.4f;
+                runtime.shadowDistance = baseShadowDistance * 1.35f;
                 runtime.shadowCascadeCount = 4;
-                QualitySettings.globalTextureMipmapLimit = 0;
+                runtime.mainLightShadowmapResolution = Mathf.Max(baseMainShadowRes, 4096);
+                runtime.additionalLightsShadowmapResolution = Mathf.Max(baseAdditionalShadowRes, 4096);
                 QualitySettings.anisotropicFiltering = AnisotropicFiltering.ForceEnable;
                 QualitySettings.lodBias = 2f;
                 break;
@@ -105,13 +118,14 @@ public static class GraphicsQuality
 
     static void ApplyScene()
     {
-        // Dusuk seviyede sadece gunes golge dusurur; lamba/spot golgeleri kapanir.
+        // Eski surumde Dusuk seviye lamba golgelerini kapatiyordu; cel gorunumu bozdugu icin artik
+        // tum isiklar sahnedeki orijinal golge ayarina geri doner.
         foreach (var light in Object.FindObjectsByType<Light>(FindObjectsSortMode.None))
         {
             if (light == null) continue;
             if (!lightShadows.TryGetValue(light, out var original))
                 lightShadows[light] = original = light.shadows;
-            light.shadows = Level == Low && light.type != LightType.Directional ? LightShadows.None : original;
+            light.shadows = original;
         }
         foreach (var book in BookItem.Active) ApplyToBook(book);
     }

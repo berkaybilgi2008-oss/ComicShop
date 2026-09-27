@@ -43,8 +43,13 @@ public sealed class ToastBookCarry : MonoBehaviour
     bool wasSendingThrow, remoteLeft;
     Quaternion remoteUpper, remoteLower, remoteHand;
     float blend;
-    Quaternion runRightBase, runLeftBase;
-    bool runRightApplied, runLeftApplied;
+    // Serbest kollar (kosu salinimi, dirsek, avuc iceri, yumruk).
+    struct ArmSave { public Quaternion upper, lower; public bool applied; }
+    ArmSave runRight, runLeft;
+    Transform leftThigh, leftShin, rightThigh, rightShin;
+    ToastHandFist.HandInfo rightPalm, leftPalm;
+    SkinnedMeshRenderer[] fistSkins;
+    float legAmplitude = 0.3f, twistRight, twistLeft, fistRight, fistLeft;
     static readonly int Speed = Animator.StringToHash("Speed");
     bool applied;
     Quaternion upperBase, lowerBase, handBase;
@@ -59,7 +64,23 @@ public sealed class ToastBookCarry : MonoBehaviour
             if (bone.name == "LeftUpperArm" && !leftUpperArm) leftUpperArm = bone;
             if (bone.name == "LeftForearm" && !leftForearm) leftForearm = bone;
             if (bone.name == "LeftHand" && !leftHand) leftHand = bone;
+            if (bone.name == "LeftThigh") leftThigh = bone;
+            if (bone.name == "LeftShin") leftShin = bone;
+            if (bone.name == "RightThigh") rightThigh = bone;
+            if (bone.name == "RightShin") rightShin = bone;
         }
+        // Parmak kemigi yok: yumruk pozu mesh'e blend shape olarak eklenir. FirstPersonHead ve
+        // atis gorunumu mesh'i sonradan kopyaladigi icin once burada kurulmali.
+        var skins = GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        var fist = new System.Collections.Generic.List<SkinnedMeshRenderer>();
+        foreach (var skin in skins)
+        {
+            ToastHandFist.Install(skin, hand, leftHand, ref rightPalm, ref leftPalm);
+            if (skin.sharedMesh && (skin.sharedMesh.GetBlendShapeIndex(ToastHandFist.RightShape) >= 0 ||
+                                    skin.sharedMesh.GetBlendShapeIndex(ToastHandFist.LeftShape) >= 0))
+                fist.Add(skin);
+        }
+        fistSkins = fist.ToArray();
         leftWristRest = leftHand ? leftHand.localRotation : Quaternion.identity;
         rightWristRest = hand ? hand.localRotation : Quaternion.identity;
         if (!GetComponent<FirstPersonThrowView>())
@@ -121,50 +142,134 @@ public sealed class ToastBookCarry : MonoBehaviour
 
     void ApplyRunArms()
     {
-        if (!animator || !animator.enabled) return;
-        if (networkPlayer && networkPlayer.IsDown) return;
-        if (inventory && inventory.TryGetComponent<PlayerKnockdown>(out var down) && down.IsDown) return;
+        bool free = animator && animator.enabled;
+        if (free && networkPlayer && networkPlayer.IsDown) free = false;
+        if (free && inventory && inventory.TryGetComponent<PlayerKnockdown>(out var down) && down.IsDown) free = false;
         // Give throw windup/release and its blend-out exclusive control of the arms.
-        if ((inventory && inventory.IsThrowPoseActive) || throwBlend > 0f ||
-            Time.unscaledTime < remotePoseUntil) return;
+        if (free && ((inventory && inventory.IsThrowPoseActive) || throwBlend > 0f ||
+            Time.unscaledTime < remotePoseUntil)) free = false;
+
+        float speed = free ? animator.GetFloat(Speed) : 0f;
         // Speed: 0 = dur, 1 = yurume (4.5 m/s, oyunda zaten kosu temposu), 2 = sprint.
-        // Dirsekler hareket baslar baslamaz bukulmeye baslar, yurume hizinda tam bukuk olur;
-        // eskiden yalnizca Shift sprintinde devreye giriyordu.
-        float amount = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.2f, 0.9f, animator.GetFloat(Speed)));
-        if (amount <= 0f) return;
-        if (!carryingBook)
-            BendRunningElbow(upperArm, forearm, hand, amount, ref runRightBase, ref runRightApplied);
-        BendRunningElbow(leftUpperArm, leftForearm, leftHand, amount, ref runLeftBase, ref runLeftApplied);
+        float amount = free ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.2f, 0.9f, speed)) : 0f;
+        float step = Time.deltaTime / 0.2f;
+        bool rightFree = free && !carryingBook;
+        twistRight = Mathf.MoveTowards(twistRight, rightFree ? 1f : 0f, step);
+        twistLeft = Mathf.MoveTowards(twistLeft, free ? 1f : 0f, step);
+        // Dururken gevsek el, kosarken yumruk. Kitap tutan sag el acik kalir.
+        fistRight = Mathf.MoveTowards(fistRight, rightFree ? Mathf.Lerp(0.35f, 0.95f, amount) : 0f, step);
+        fistLeft = Mathf.MoveTowards(fistLeft, free ? Mathf.Lerp(0.35f, 0.95f, amount) : 0f, step);
+        ApplyFistWeights();
+        if (!free) return;
+
+        // Kol salinimi bacaklardan: sol bacak ondeyken sag kol onde (karsi faz).
+        float phase = 0f;
+        if (leftThigh && leftShin && rightThigh && rightShin)
+        {
+            Vector3 fwd = transform.forward;
+            phase = Vector3.Dot((leftShin.position - leftThigh.position).normalized, fwd)
+                  - Vector3.Dot((rightShin.position - rightThigh.position).normalized, fwd);
+            legAmplitude = Mathf.Max(Mathf.Abs(phase), legAmplitude - Time.deltaTime * 0.6f, 0.12f);
+            phase = Mathf.Clamp(phase / legAmplitude, -1f, 1f);
+        }
+        float swingAmplitude = Mathf.Lerp(30f, 40f, Mathf.InverseLerp(1f, 2f, speed));
+        PoseFreeArm(upperArm, forearm, hand, rightPalm, phase, swingAmplitude,
+            rightFree ? amount : 0f, twistRight, ref runRight);
+        PoseFreeArm(leftUpperArm, leftForearm, leftHand, leftPalm, -phase, swingAmplitude,
+            amount, twistLeft, ref runLeft);
     }
 
-    void BendRunningElbow(Transform upper, Transform lower, Transform wrist, float amount,
-        ref Quaternion saved, ref bool changed)
+    void ApplyFistWeights()
     {
-        if (!upper || !lower || !wrist) return;
-        Vector3 upperDirection = lower.position - upper.position;
-        Vector3 lowerDirection = wrist.position - lower.position;
-        if (upperDirection.sqrMagnitude < 0.000001f || lowerDirection.sqrMagnitude < 0.000001f) return;
-        upperDirection.Normalize();
-        // Use the existing shoulder swing as the phase, keeping the legs and arms
-        // in sync without a second animation clock. Bend forward, never sideways.
-        Vector3 bend = Vector3.ProjectOnPlane(transform.forward, upperDirection);
-        if (bend.sqrMagnitude < 0.000001f) return;
-        bend.Normalize();
-        float swing = Mathf.Clamp(Vector3.Dot(upperDirection, transform.forward), -1f, 1f);
-        float flex = (90f + 10f * swing) * Mathf.Deg2Rad;
-        Vector3 direction = upperDirection * Mathf.Cos(flex) + bend * Mathf.Sin(flex);
-        saved = lower.localRotation;
-        Quaternion target = Quaternion.FromToRotation(lowerDirection, direction) * lower.rotation;
-        lower.rotation = Quaternion.Slerp(lower.rotation, target, amount);
-        // Only rotate the elbow: bone lengths and the animated wrist alignment stay intact.
-        changed = true;
+        if (fistSkins == null) return;
+        foreach (var skin in fistSkins)
+        {
+            if (!skin || !skin.sharedMesh) continue;
+            int r = skin.sharedMesh.GetBlendShapeIndex(ToastHandFist.RightShape);
+            int l = skin.sharedMesh.GetBlendShapeIndex(ToastHandFist.LeftShape);
+            if (r >= 0) skin.SetBlendShapeWeight(r, fistRight * 100f);
+            if (l >= 0) skin.SetBlendShapeWeight(l, fistLeft * 100f);
+        }
+    }
+
+    /// <summary>
+    /// Anatomik kosu kolu: omuzdan one/arkaya salinim (bacaklarla karsi fazda), dirsek ~90
+    /// derece (onde daha bukuk, arkada daha acik), on kol hafif iceri, avuc govdeye bakar.
+    /// Dururken yalnizca avuc iceri doner (kollar animasyondaki gibi kalir).
+    /// </summary>
+    void PoseFreeArm(Transform upper, Transform lower, Transform wrist, ToastHandFist.HandInfo palm,
+        float phase, float swingAmplitude, float amount, float twist, ref ArmSave save)
+    {
+        if (!upper || !lower || !wrist || (amount <= 0f && twist <= 0f)) return;
+        save.upper = upper.localRotation;
+        save.lower = lower.localRotation;
+        save.applied = true;
+
+        Vector3 up = transform.up, fwd = transform.forward;
+        Vector3 outward = Vector3.ProjectOnPlane(upper.position - transform.position, up);
+        outward = Vector3.ProjectOnPlane(outward, fwd);
+        if (outward.sqrMagnitude < 0.000001f) return;
+        outward.Normalize();
+
+        if (amount > 0f)
+        {
+            // Ust kol: asagidan one/arkaya aci; hafif disa acik ki govdeye girmesin.
+            float swing = (-10f + swingAmplitude * phase) * Mathf.Deg2Rad;
+            Vector3 upperTarget = (-up * Mathf.Cos(swing) + fwd * Mathf.Sin(swing) + outward * 0.16f).normalized;
+            Vector3 upperNow = lower.position - upper.position;
+            if (upperNow.sqrMagnitude > 0.000001f)
+            {
+                Quaternion target = Quaternion.FromToRotation(upperNow, upperTarget) * upper.rotation;
+                upper.rotation = Quaternion.Slerp(upper.rotation, target, amount);
+            }
+
+            Vector3 upperDirection = (lower.position - upper.position).normalized;
+            Vector3 lowerNow = wrist.position - lower.position;
+            Vector3 inward = fwd * Mathf.Cos(15f * Mathf.Deg2Rad) - outward * Mathf.Sin(15f * Mathf.Deg2Rad);
+            Vector3 bend = Vector3.ProjectOnPlane(inward, upperDirection);
+            if (bend.sqrMagnitude > 0.000001f && lowerNow.sqrMagnitude > 0.000001f)
+            {
+                bend.Normalize();
+                // Dirsek bukumu: onde ~105, arkada ~75 derece (0 = duz kol).
+                float flex = (90f + 15f * phase) * Mathf.Deg2Rad;
+                Vector3 direction = upperDirection * Mathf.Cos(flex) + bend * Mathf.Sin(flex);
+                Quaternion target = Quaternion.FromToRotation(lowerNow, direction) * lower.rotation;
+                lower.rotation = Quaternion.Slerp(lower.rotation, target, amount);
+            }
+        }
+
+        // Avuc iceri (govdeye) bakar: on kol kendi ekseni etrafinda doner (pronasyon/supinasyon),
+        // bilek kirilmaz. Yumruk kosarken dogal gorunur, dururken el bacaga bakar.
+        if (palm.valid && twist > 0f)
+        {
+            Vector3 axis = wrist.position - lower.position;
+            if (axis.sqrMagnitude > 0.000001f)
+            {
+                axis.Normalize();
+                Vector3 current = Vector3.ProjectOnPlane(wrist.rotation * palm.palmLocal, axis);
+                Vector3 desired = Vector3.ProjectOnPlane(-outward, axis);
+                if (current.sqrMagnitude > 0.0001f && desired.sqrMagnitude > 0.0001f)
+                {
+                    float angle = Mathf.Clamp(Vector3.SignedAngle(current, desired, axis), -110f, 110f);
+                    lower.rotation = Quaternion.AngleAxis(angle * twist, axis) * lower.rotation;
+                }
+            }
+        }
     }
 
     void RestoreRunArms()
     {
-        if (runRightApplied && forearm) forearm.localRotation = runRightBase;
-        if (runLeftApplied && leftForearm) leftForearm.localRotation = runLeftBase;
-        runRightApplied = runLeftApplied = false;
+        if (runRight.applied)
+        {
+            if (upperArm) upperArm.localRotation = runRight.upper;
+            if (forearm) forearm.localRotation = runRight.lower;
+        }
+        if (runLeft.applied)
+        {
+            if (leftUpperArm) leftUpperArm.localRotation = runLeft.upper;
+            if (leftForearm) leftForearm.localRotation = runLeft.lower;
+        }
+        runRight.applied = runLeft.applied = false;
     }
 
     public void ReceiveThrowPose(Quaternion upper, Quaternion lower, Quaternion wrist, bool left, bool active)
