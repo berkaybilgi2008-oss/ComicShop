@@ -66,9 +66,9 @@ public class BookSpawner : MonoBehaviour
     [Tooltip("Kuleler arasinda birakilan en az bosluk (metre); kuleler serit boyunca dengeli dagilir.")]
     [Min(0.1f)] public float towerGapMeters = 1.1f;
     [Tooltip("Kitaplik uclarinda (karsi koridora gecis, raf sirasi sonu) bos birakilan gecit uzunlugu (metre).")]
-    [Min(0f)] public float shelfEndPassage = 1.6f;
+    [Min(0f)] public float endPassageMeters = 1.0f;
     [Tooltip("Tezgah/masa gibi engellerin cevresinde bos birakilan gecis payi (metre).")]
-    [Min(0f)] public float propClearance = 1.1f;
+    [Min(0f)] public float propClearanceMeters = 0.6f;
     [Tooltip("Daginik kitaplarin bir kismi yandaki kitaba yaslanir (egik durur).")]
     [Range(0f, 1f)] public float bookLeanChance = 0.85f;
     // Daginik yiginlarin en fazla yuksekligi: kuleye donusmesin.
@@ -214,7 +214,7 @@ public class BookSpawner : MonoBehaviour
     void Awake() => ShelfSlot.MatchCapacityToCopies(copiesPerBook);
 
     // ---------------- Raf onu seridi ----------------
-    private struct ShelfFootprint { public Vector2 min, max; public bool longAlongX; }
+    private struct ShelfFootprint { public Vector2 min, max; public bool longAlongX; public bool passMin, passMax; public float minY; }
     private readonly List<ShelfFootprint> shelfFootprints = new List<ShelfFootprint>();
     private readonly HashSet<Collider> shelfColliders = new HashSet<Collider>();
     // Koridorlari olusturan kitapliklarin yonu (cogunluk). Ters yondeki kitapliklarin (orn. arka
@@ -249,16 +249,55 @@ public class BookSpawner : MonoBehaviour
             {
                 min = new Vector2(bounds.min.x, bounds.min.z),
                 max = new Vector2(bounds.max.x, bounds.max.z),
-                longAlongX = bounds.size.x >= bounds.size.z
+                longAlongX = bounds.size.x >= bounds.size.z,
+                minY = bounds.min.y
             });
         }
         int alongX = 0;
         foreach (var f in shelfFootprints) if (f.longAlongX) alongX++;
         dominantAlongX = alongX * 2 > shelfFootprints.Count;
+        // Kitaplik ucundaki aralik GERCEK bir gecit mi (karsi koridora yurunebiliyor mu)? Duvar kenarindaki
+        // yan yana kitapliklarin arasi duvara cikar: orasi gecit degil, yigin kesintisiz devam eder.
+        int passages = 0;
+        for (int i = 0; i < shelfFootprints.Count; i++)
+        {
+            var f = shelfFootprints[i];
+            f.passMin = IsPassage(f, true);
+            f.passMax = IsPassage(f, false);
+            if (f.passMin) passages++;
+            if (f.passMax) passages++;
+            shelfFootprints[i] = f;
+        }
+        Debug.Log($"BookSpawner: {shelfFootprints.Count} kitaplik, {passages} gercek uc gecidi (digerlerinde yigin kesintisiz).");
+    }
+
+    private static readonly RaycastHit[] passageHits = new RaycastHit[32];
+    private bool IsPassage(ShelfFootprint f, bool atMin)
+    {
+        float along = atMin ? (f.longAlongX ? f.min.x : f.min.y) - 0.35f : (f.longAlongX ? f.max.x : f.max.y) + 0.35f;
+        float acrossMin = f.longAlongX ? f.min.y : f.min.x, acrossMax = f.longAlongX ? f.max.y : f.max.x;
+        float length = acrossMax - acrossMin + 1.6f;
+        Vector3 dir = f.longAlongX ? Vector3.forward : Vector3.right;
+        float probeY = float.NaN;
+        // Tavandan degil kitaplik tabaninin biraz ustunden asagi: zemini bul.
+        Vector3 groundProbe = f.longAlongX ? new Vector3(along, f.minY + 1.0f, acrossMin - 0.8f) : new Vector3(acrossMin - 0.8f, f.minY + 1.0f, along);
+        if (Ground(groundProbe, out var floor)) probeY = floor.point.y;
+        if (float.IsNaN(probeY)) probeY = f.minY;
+        // Iki yonden de (tek yuzlu duvar mesh'leri arkadan gorunmez) ve iki yukseklikte tara.
+        foreach (float h in new[] { 0.5f, 1.2f })
+            for (int d = 0; d < 2; d++)
+            {
+                float fromAcross = d == 0 ? acrossMin - 0.8f : acrossMax + 0.8f;
+                Vector3 start = f.longAlongX ? new Vector3(along, probeY + h, fromAcross) : new Vector3(fromAcross, probeY + h, along);
+                int n = Physics.RaycastNonAlloc(start, d == 0 ? dir : -dir, passageHits, length, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+                for (int k = 0; k < n; k++)
+                    if (passageHits[k].collider != null && passageHits[k].collider.GetComponentInParent<BookItem>() == null) return false;
+            }
+        return true;
     }
 
     // Nokta bir kitapligin UZUN yuzunun onundeki seritte mi? Kitaplik uclarindaki gecitler haric.
-    private bool InShelfBand(Vector3 point, float radius)
+    private bool InShelfBand(Vector3 point, float radius, float spill = 0f, float depthSpill = float.NaN)
     {
         if (shelfFootprints.Count == 0) return true;
         Vector2 p = new Vector2(point.x, point.z);
@@ -276,11 +315,12 @@ public class BookSpawner : MonoBehaviour
             }
             if (f.longAlongX != dominantAlongX) continue; // capraz gecide bakan kitaplik: serit yok
             float along = f.longAlongX ? p.x : p.y;
-            float alongMin = (f.longAlongX ? f.min.x : f.min.y) + radius + 0.1f;
-            float alongMax = (f.longAlongX ? f.max.x : f.max.y) - radius - 0.1f;
+            // Gecit olmayan uc (duvar kenarinda yan yana kitapliklar): serit komsu kitapliginkine ulasir.
+            float alongMin = (f.longAlongX ? f.min.x : f.min.y) + radius + 0.1f - spill - (f.passMin ? 0f : 0.9f);
+            float alongMax = (f.longAlongX ? f.max.x : f.max.y) - radius - 0.1f + spill + (f.passMax ? 0f : 0.9f);
             if (along < alongMin || along > alongMax) continue;
             float distance = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
-            if (distance >= shelfFrontClearance + radius && distance <= bookAreaDepthMeters - radius) inBand = true;
+            if (distance >= shelfFrontClearance + radius && distance <= bookAreaDepthMeters - radius + (float.IsNaN(depthSpill) ? spill : depthSpill)) inBand = true;
         }
         if (!inBand) return false;
         // Kitaplik sirasinin uclari (kitapliklar arasi gecit, sira sonu, arka raflarin onundeki
@@ -291,9 +331,10 @@ public class BookSpawner : MonoBehaviour
             float along = g.longAlongX ? p.x : p.y;
             float gMin = g.longAlongX ? g.min.x : g.min.y, gMax = g.longAlongX ? g.max.x : g.max.y;
             float beyond = along < gMin ? gMin - along : along > gMax ? along - gMax : -1f;
-            if (beyond < 0f || beyond > shelfEndPassage + radius) continue;
+            if (beyond < 0f || beyond > endPassageMeters + radius - spill) continue;
+            if (along < gMin ? !g.passMin : !g.passMax) continue; // gecit degil: bos birakma
             float across = g.longAlongX ? Mathf.Max(g.min.y - p.y, p.y - g.max.y) : Mathf.Max(g.min.x - p.x, p.x - g.max.x);
-            if (across <= bookAreaDepthMeters) return false;
+            if (across <= bookAreaDepthMeters + spill) return false;
         }
         return true;
     }
@@ -600,6 +641,30 @@ public class BookSpawner : MonoBehaviour
 
     }
 
+    private static Bounds BookVisualBounds(BookItem book)
+    {
+        Bounds result = default;
+        bool found = false;
+        if (book.coverRenderer != null && book.coverRenderer.enabled)
+        {
+            // Kapak ile ayni nesnedeki / altindaki ana mesh'ler (dis cizgi kopyalari haric).
+            foreach (var r in book.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled || r is ParticleSystemRenderer || r.name.IndexOf("outline", System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (!found) { result = r.bounds; found = true; } else result.Encapsulate(r.bounds);
+            }
+        }
+        else
+        {
+            foreach (var r in book.GetComponentsInChildren<MeshRenderer>())
+            {
+                if (!r.enabled || r.name.IndexOf("outline", System.StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                if (!found) { result = r.bounds; found = true; } else result.Encapsulate(r.bounds);
+            }
+        }
+        return found ? result : BookBounds(book);
+    }
+
     private static Bounds BookBounds(BookItem book)
     {
         Bounds result = new Bounds(book.transform.position, Vector3.zero);
@@ -805,7 +870,7 @@ public class BookSpawner : MonoBehaviour
     }
 
     // ---------------- Seritte dengeli yerlesim ----------------
-    private struct BandCell { public Vector3 point; public Collider floor; public float axisYaw; }
+    private struct BandCell { public Vector3 point; public Collider floor; public float axisYaw; public float across; public Vector2 outward; }
 
     /// <summary>
     /// Raf onu seridini kitap boyutunda hucrelere boler (uzun kenar rafa paralel). Her hucre gercek
@@ -826,6 +891,8 @@ public class BookSpawner : MonoBehaviour
         {
             if (f.longAlongX != dominantAlongX) continue;
             float a0 = f.longAlongX ? f.min.x : f.min.y, a1 = f.longAlongX ? f.max.x : f.max.y;
+            if (!f.passMin) a0 -= 0.9f;
+            if (!f.passMax) a1 += 0.9f;
             float axisYaw = f.longAlongX ? 90f : 0f;
             for (int side = -1; side <= 1; side += 2)
                 for (int row = 0; ; row++)
@@ -879,7 +946,8 @@ public class BookSpawner : MonoBehaviour
                         if (blocked) { cellBlocked++; continue; }
                         if (!taken.TryGetValue(key, out var bucket)) taken[key] = bucket = new List<Vector2>(2);
                         bucket.Add(new Vector2(p.x, p.z));
-                        cells.Add(new BandCell { point = new Vector3(p.x, floor.point.y, p.z), floor = floor.collider, axisYaw = axisYaw });
+                        cells.Add(new BandCell { point = new Vector3(p.x, floor.point.y, p.z), floor = floor.collider, axisYaw = axisYaw, across = across,
+                            outward = f.longAlongX ? new Vector2(0f, side) : new Vector2(side, 0f) });
                     }
                 }
         }
@@ -895,7 +963,7 @@ public class BookSpawner : MonoBehaviour
     private bool NearProp(Vector3 floorPoint, Vector3 half, Collider floor)
     {
         int count = Physics.OverlapBoxNonAlloc(floorPoint + Vector3.up * 0.6f,
-            new Vector3(half.x + propClearance, 0.45f, half.z + propClearance), overlapBuffer, Quaternion.identity,
+            new Vector3(half.x + propClearanceMeters, 0.45f, half.z + propClearanceMeters), overlapBuffer, Quaternion.identity,
             Physics.AllLayers, QueryTriggerInteraction.Ignore);
         for (int o = 0; o < count; o++)
         {
@@ -1649,8 +1717,15 @@ public class BookSpawner : MonoBehaviour
         var widthList = new List<float>(n);
         for (int i = 0; i < n; i++)
         {
-            Bounds b = BookBounds(loose[i]);
-            lengths[i] = b.size.z; widths[i] = b.size.x; thick[i] = Mathf.Max(0.004f, b.size.y);
+            // Gorunen kapak/sayfa olcusu: carpisma kutusu kitaptan kalin/genis olursa yiginda
+            // kitaplar arasinda bosluk kalip havada gibi duruyordu.
+            Bounds b = BookVisualBounds(loose[i]);
+            if (i == 0)
+            {
+                Bounds c = BookBounds(loose[i]);
+                Debug.Log($"BookSpawner: kitap olcusu gorsel {b.size.x:0.000}x{b.size.y:0.000}x{b.size.z:0.000}, carpisma {c.size.x:0.000}x{c.size.y:0.000}x{c.size.z:0.000} m");
+            }
+            lengths[i] = b.size.z; widths[i] = b.size.x; thick[i] = Mathf.Max(0.003f, b.size.y);
             localOffsets[i] = Quaternion.Inverse(loose[i].transform.rotation) * (b.center - loose[i].transform.position);
             widthList.Add(b.size.x);
         }
@@ -1659,7 +1734,7 @@ public class BookSpawner : MonoBehaviour
         if (cells.Count == 0) { done(false); yield break; }
 
         const float maxHeapHeight = 0.4f;   // yigin/kule degil: alana savrulmus karmasa
-        const float maxSlope = 0.62f;   // ~32 derece
+        const float maxSlope = 0.5f;    // ~27 derece: dik duvar gibi duran kitap olmasin
         const int NT = 9, NS = 5;
         placedGrid.Clear();
         var gridBounds = new List<Bounds>(n);
@@ -1715,10 +1790,12 @@ public class BookSpawner : MonoBehaviour
         }
 
         var profile = new float[Mathf.Max(NT, NS)];
+        var ct = new float[NT * NS + 256]; var cs = new float[NT * NS + 256]; var ch = new float[NT * NS + 256];
+        int cn = 0;
         var axisVals = new float[Mathf.Max(NT, NS)];
 
         // Verilen ayak izi icin yukseklik orneklerini doldurur ve alt yuzey duzlemini (a + b*t + d*s) oturtur.
-        void Fit(Vector2 center, Vector2 axis, Vector2 side, Vector2 half, float floorY, out float a, out float b, out float d)
+        void Fit(Vector2 center, Vector2 axis, Vector2 side, Vector2 half, float floorY, out float a, out float b, out float d, int levels = 4)
         {
             var probe = new LooseRect { center = center, axis = axis, half = half };
             cand.Clear();
@@ -1734,38 +1811,49 @@ public class BookSpawner : MonoBehaviour
                     foreach (int i in cand) { float v = TopAt(i, p); if (v > best) { best = v; who = i; } }
                     h[it, is_] = best; owner[it, is_] = who;
                 }
-            // Boyuna egim: her kesitteki en yuksek noktanin ust zarfi.
+            // Kitap yukaridan birakilmis gibi: alt yuzey duzlemi (a + b*t + d*s) HER noktanin ustunde
+            // kalirken merkezi olabildigince ALCAGA iner (en dusuk potansiyel enerji). Bu, dayandigi
+            // 2-3 noktaya tam oturan, altinda gereksiz bosluk kalmayan dogal egimi verir.
+            cn = 0;
             for (int it = 0; it < NT; it++)
-            {
-                float m = float.NegativeInfinity;
-                for (int is_ = 0; is_ < NS; is_++) m = Mathf.Max(m, h[it, is_]);
-                profile[it] = m; axisVals[it] = ts[it];
-            }
-            b = HullSlope(axisVals, profile, NT);
-            // Enine egim: boyuna egim cikarildiktan sonra kalan profilin ust zarfi.
-            for (int is_ = 0; is_ < NS; is_++)
-            {
-                float m = float.NegativeInfinity;
-                for (int it = 0; it < NT; it++) m = Mathf.Max(m, h[it, is_] - b * ts[it]);
-                profile[is_] = m; axisVals[is_] = ss[is_];
-            }
-            d = HullSlope(axisVals, profile, NS);
-            // Duzlem tum orneklerin ve alttaki kitaplarin iceride kalan koselerinin USTUNDE: gomulme yok.
-            a = float.NegativeInfinity;
-            for (int it = 0; it < NT; it++)
-                for (int is_ = 0; is_ < NS; is_++) a = Mathf.Max(a, h[it, is_] - b * ts[it] - d * ss[is_]);
+                for (int is_ = 0; is_ < NS; is_++) { ct[cn] = ts[it]; cs[cn] = ss[is_]; ch[cn] = h[it, is_]; cn++; }
             foreach (int i in cand)
             {
                 var r = rects[i]; Vector2 rs = new Vector2(-r.axis.y, r.axis.x);
-                for (int q = 0; q < 4; q++)
+                for (int q = 0; q < 4 && cn < ct.Length; q++)
                 {
                     Vector2 c = r.center + r.axis * (q < 2 ? r.half.x - 0.002f : -r.half.x + 0.002f) + rs * ((q & 1) == 0 ? r.half.y - 0.002f : -r.half.y + 0.002f);
                     Vector2 dd = c - center;
                     float t = Vector2.Dot(dd, axis), s = Vector2.Dot(dd, side);
                     if (Mathf.Abs(t) > half.x || Mathf.Abs(s) > half.y) continue;
-                    a = Mathf.Max(a, TopAt(i, c) - b * t - d * s);
+                    ct[cn] = t; cs[cn] = s; ch[cn] = TopAt(i, c); cn++;
                 }
             }
+            if (cand.Count == 0) { a = floorY; b = 0f; d = 0f; return; } // bos zemin: duz yatar
+            float Lift(float bb, float dd2)
+            {
+                float m = float.NegativeInfinity;
+                for (int j = 0; j < cn; j++) { float v = ch[j] - bb * ct[j] - dd2 * cs[j]; if (v > m) m = v; }
+                return m;
+            }
+            // Dis bukey (max of linear) fonksiyon: kabadan inceye izgara aramasi yeterli ve kararlı.
+            float lim = maxSlope * 1.15f, bestB = 0f, bestD = 0f, bestA = Lift(0f, 0f);
+            float stepSize = lim / 3f;
+            for (int level = 0; level < levels; level++)
+            {
+                float cb = bestB, cd = bestD;
+                for (int ib = -3; ib <= 3; ib++)
+                    for (int id = -3; id <= 3; id++)
+                    {
+                        float tb = Mathf.Clamp(cb + ib * stepSize, -lim, lim), td = Mathf.Clamp(cd + id * stepSize, -lim, lim);
+                        float v = Lift(tb, td);
+                        // Esitlikte daha duz olan: duz zeminde kitap boşuna egilmesin.
+                        if (v + 0.0004f * (Mathf.Abs(tb) + Mathf.Abs(td)) < bestA + 0.0004f * (Mathf.Abs(bestB) + Mathf.Abs(bestD)) - 1e-6f)
+                        { bestA = v; bestB = tb; bestD = td; }
+                    }
+                stepSize *= 0.3f;
+            }
+            b = bestB; d = bestD; a = bestA;
         }
 
         bool Evaluate(int k, Vector2 center, float floorY, bool strict, out LooseRect rect, out float a, out float b, out float d, out float top,
@@ -1777,15 +1865,21 @@ public class BookSpawner : MonoBehaviour
             Vector2 full = new Vector2(lengths[k] * 0.5f, widths[k] * 0.5f);
             rect = new LooseRect { center = center, axis = axis, half = full };
             a = b = d = top = 0f;
+            // Kenarlar cetvelle cizilmis gibi durmasin: kitap merkezi alanda kalir, koseleri
+            // rastgele biraz (en cok ~45 cm) yola / gecide sarkabilir. Kitapliklarin icine asla girmez.
+            if (!InShelfBand(new Vector3(center.x, floorY + 0.5f, center.y), 0.02f)) return false;
+            // Cogu kitap az sarkar; ara sira biri yola daha cok tasar (gercek dokulmus yigin kenari).
+            float spill = Random.value < 0.14f ? Random.Range(0.3f, 0.6f) : Random.value * Random.value * 0.35f;
             for (int q = 0; q < 4; q++)
             {
                 Vector2 corner = center + axis * (q < 2 ? full.x : -full.x) + side * ((q & 1) == 0 ? full.y : -full.y);
                 Vector3 corner3 = new Vector3(corner.x, floorY + 0.5f, corner.y);
-                if (!InShelfBand(corner3, 0.02f) || !InsideAreaRelaxed(corner3, 1.2f)) return false;
+                // -0.07: kitaplar rafin dibine ~3 cm'e kadar yaslanabilir (rafin icine girmez).
+                if (!InShelfBand(corner3, -0.07f, spill) || !InsideAreaRelaxed(corner3, 1.2f)) return false;
             }
             // 1. tur tam boy; 2. tur egik kitabin GERCEK (kisalan) yatay izdusumuyle: kitabin uzanmadigi
             // bir yerdeki yuksek kitap onu havaya kaldirmasin.
-            Fit(center, axis, side, full, floorY, out a, out b, out d);
+            Fit(center, axis, side, full, floorY, out a, out b, out d, 2);
             if (Mathf.Abs(b) > maxSlope * 1.3f || Mathf.Abs(d) > maxSlope * 1.3f) return false;
             Vector2 half = new Vector2(full.x / Mathf.Sqrt(1f + b * b), full.y / Mathf.Sqrt(1f + d * d));
             Fit(center, axis, side, half, floorY, out a, out b, out d);
@@ -1853,34 +1947,33 @@ public class BookSpawner : MonoBehaviour
         {
             if (YieldForFrameBudget()) { ShopLoadingScreen.Progress(0.55f + 0.3f * k / n); yield return null; }
             bool placedOk = false;
-            for (int attempt = 0; attempt < 18 && !placedOk; attempt++)
+            // Kitap alanin rastgele bir noktasina "kusulur"; birkac rastgele noktadan en ALCAKTA
+            // kalan secilir. Boylece bir yerde tepe/kule birikmez, alan esit ama karmakarisik dolar.
             {
-                int pileIndex = -1;
-                // Yigin toplama YOK: her kitap alanin rastgele bir noktasina "kusulur"; neye denk gelirse
-                // (yer, baska kitap, iki kitabin arasi) onun ustune egik/duz duser. Sonuc: karmakarisik hali.
-                if (piles.Count > 0 && Random.value < 0f)
+                float bestScore = float.MaxValue; LooseRect bestRect = default; float ba = 0, bb = 0, bd = 0, bFloor = 0; Collider bCol = null;
+                int valid = 0;
+                for (int attempt = 0; attempt < 14 && valid < 5; attempt++)
                 {
-                    pileIndex = Random.Range(0, piles.Count);
-                    if (piles[pileIndex].count >= piles[pileIndex].target) pileIndex = -1;
-                }
-                Vector2 anchor; float floorY; Collider floorCollider;
-                if (pileIndex >= 0)
-                {
-                    var pile = piles[pileIndex];
-                    anchor = pile.center + Random.insideUnitCircle * (lengths[k] * 0.5f);
-                    floorY = pile.floor; floorCollider = pile.floorCollider;
-                }
-                else
-                {
+                    // Dogal dokulme: kitaplar rafin dibinde daha yogun, yola dogru seyrelir.
                     var cell = cells[Random.Range(0, cells.Count)];
-                    anchor = new Vector2(cell.point.x, cell.point.z) + Random.insideUnitCircle * sample * 0.7f;
-                    floorY = cell.point.y; floorCollider = cell.floor;
+                    for (int pick = 0; pick < 6; pick++)
+                    {
+                        float w = 0.3f + Mathf.Exp(-cell.across / 1.5f);
+                        if (Random.value * 1.3f < w) break;
+                        cell = cells[Random.Range(0, cells.Count)];
+                    }
+                    Vector2 anchor = new Vector2(cell.point.x, cell.point.z) + Random.insideUnitCircle * sample * 0.7f;
+                    if (!Evaluate(k, anchor, cell.point.y, false, out var rect, out float a, out float b, out float d, out float top)) continue;
+                    valid++;
+                    float score = top - cell.point.y + Random.value * 0.06f;
+                    if (score < bestScore) { bestScore = score; bestRect = rect; ba = a; bb = b; bd = d; bFloor = cell.point.y; bCol = cell.floor; }
                 }
-                if (!Evaluate(k, anchor, floorY, true, out var rect, out float a, out float b, out float d, out _)) continue;
-                Commit(k, rect, a, b, d, floorY, floorCollider);
-                if (pileIndex >= 0) { var pile = piles[pileIndex]; pile.count++; piles[pileIndex] = pile; }
-                else piles.Add((anchor, floorY, floorCollider, Random.Range(6, 21), 1));
-                placedOk = true;
+                if (valid > 0)
+                {
+                    RefreshSamples(bestRect, bFloor);
+                    Commit(k, bestRect, ba, bb, bd, bFloor, bCol);
+                    placedOk = true;
+                }
             }
             if (placedOk) continue;
             // Yer kalmadiysa: birkac rastgele yigin noktasindan EN ALCAK sonucu veren secilir;
@@ -1889,7 +1982,7 @@ public class BookSpawner : MonoBehaviour
             {
                 float bestTop = float.MaxValue; LooseRect bestRect = default; float ba = 0, bb = 0, bd = 0, bFloor = 0; Collider bCol = null;
                 bool any = false;
-                for (int c = 0; c < 8; c++)
+                for (int c = 0; c < 4; c++)
                 {
                     int i = Random.Range(0, rects.Count);
                     Vector2 anchor = rects[i].center + Random.insideUnitCircle * (lengths[k] * 0.5f);
@@ -1953,12 +2046,271 @@ public class BookSpawner : MonoBehaviour
         done(true);
     }
 
+    /// <summary>
+    /// GERCEK atis: kitaplar alanlarinin ustunden rastgele donerek, rastgele hizla yere firlatilir ve
+    /// acilis ekraninin arkasinda hizlandirilmis GERCEK fizikle duser, carpar, kayar, birbirine yaslanir.
+    /// Dalgalar halinde (her dalga oncekilerin ustune) atilir; duran kitaplar alttan uste yerinde
+    /// donar. Alanin cok disina (yurume yolunun ortasina, kitapligin icine) savrulan kitap tekrar atilir;
+    /// kenardan biraz tasmak serbest. Duzenli karmasa yok: sonuc tamamen fizigin sonucu.
+    /// </summary>
+    private IEnumerator PlaceBooksByThrowing(List<BookItem> books, System.Action<bool> done)
+    {
+        var loose = new List<BookItem>(books.Count);
+        foreach (var book in books) if (!spawnedTowerBooks.Contains(book)) loose.Add(book);
+        if (loose.Count == 0 || shelfFootprints.Count == 0 || !gatherInFrontOfShelves) { done(false); yield break; }
+        var widthList = new List<float>(loose.Count);
+        foreach (var book in loose) { book.transform.rotation = book.GetAlignedRotation(Vector3.up, Vector3.forward); }
+        Physics.SyncTransforms();
+        foreach (var book in loose) widthList.Add(BookVisualBounds(book).size.x);
+        float sample = Mathf.Clamp(Percentile(widthList, 0.5f) * 0.6f, 0.2f, 0.5f);
+        var cells = BuildBandCells(sample, sample);
+        if (cells.Count == 0) { done(false); yield break; }
+
+        // Kaba yukseklik haritasi: yeni dalga, onceki dalgalarin ustunden (ic ice baslamadan) atilir.
+        const float hmCell = 0.3f;
+        var heightMap = new Dictionary<long, float>();
+        float TopNear(Vector3 p, float radius)
+        {
+            float top = float.NegativeInfinity;
+            int x0 = Mathf.FloorToInt((p.x - radius) / hmCell), x1 = Mathf.FloorToInt((p.x + radius) / hmCell);
+            int z0 = Mathf.FloorToInt((p.z - radius) / hmCell), z1 = Mathf.FloorToInt((p.z + radius) / hmCell);
+            for (int x = x0; x <= x1; x++)
+                for (int z = z0; z <= z1; z++)
+                    if (heightMap.TryGetValue(CellKey(x, z), out float v) && v > top) top = v;
+            return top;
+        }
+        void MarkTop(Bounds b)
+        {
+            int x0 = Mathf.FloorToInt(b.min.x / hmCell), x1 = Mathf.FloorToInt(b.max.x / hmCell);
+            int z0 = Mathf.FloorToInt(b.min.z / hmCell), z1 = Mathf.FloorToInt(b.max.z / hmCell);
+            for (int x = x0; x <= x1; x++)
+                for (int z = z0; z <= z1; z++)
+                {
+                    long key = CellKey(x, z);
+                    if (!heightMap.TryGetValue(key, out float v) || b.max.y > v) heightMap[key] = b.max.y;
+                }
+        }
+
+        var bodies = new Dictionary<BookItem, Rigidbody>(loose.Count);
+        var saved = new Dictionary<Rigidbody, (CollisionDetectionMode mode, float dep, float lin, float ang, float sleep)>(loose.Count);
+        Vector3 parkBase = new Vector3(0f, -200f, 0f);
+        int parkIndex = 0;
+        void Park(BookItem book, Rigidbody body)
+        {
+            body.isKinematic = true;
+            body.detectCollisions = false;
+            book.transform.position = parkBase + new Vector3((parkIndex % 60) * 1.2f, 0f, (parkIndex / 60) * 1.2f);
+            parkIndex++;
+        }
+        foreach (var book in loose)
+        {
+            if (!book.TryGetComponent<Rigidbody>(out var body)) continue;
+            bodies[book] = body;
+            saved[body] = (body.collisionDetectionMode, body.maxDepenetrationVelocity, body.linearDamping, body.angularDamping, body.sleepThreshold);
+            Park(book, body);
+        }
+        Physics.SyncTransforms();
+
+        var queue = new List<BookItem>(bodies.Keys);
+        for (int i = queue.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); (queue[i], queue[j]) = (queue[j], queue[i]); }
+        var retries = new Dictionary<BookItem, int>();
+        var loose3 = new List<BookItem>();      // dusmus ama henuz donmamis
+        var waveList = new List<BookItem>(256);
+        var launchPoints = new List<Vector3>(256);
+        var floorOfBook = new Dictionary<BookItem, float>(loose.Count);
+        var previousMode = Physics.simulationMode;
+        LayoutInProgress = true;
+        const float step = 0.02f;
+        int waveSize = Mathf.Clamp(queue.Count / 20 + 1, 100, 180);
+        int frozenTotal = 0, rethrown = 0, waves = 0;
+        float simulatedTotal = 0f;
+        ShopLoadingScreen.Progress(0.6f);
+
+        bool Allowed(Vector3 c, float floorY)
+        {
+            if (c.y < floorY - 0.3f) return false; // zemini delmis
+            if (c.y > floorY + 1.2f) return false;  // kitaplik ustune / tavana / baska yere takilmis
+            var probe = new Vector3(c.x, floorY + 0.5f, c.z);
+            // Kitaplik uclarinda biraz tasma serbest; YOL tarafinda kitabin merkezi seridin en az 0.35 m icinde kalir.
+            return InShelfBand(probe, -0.07f, 0.4f, -0.35f) && InsideAreaRelaxed(probe, 1.2f);
+        }
+
+        try
+        {
+            Physics.simulationMode = SimulationMode.Script;
+            int cursor = 0;
+            while (cursor < queue.Count)
+            {
+                waves++;
+                waveList.Clear(); launchPoints.Clear();
+                int end = Mathf.Min(queue.Count, cursor + waveSize);
+                for (; cursor < end; cursor++)
+                {
+                    var book = queue[cursor];
+                    var body = bodies[book];
+                    // Rafin dibinde yogun, yola dogru seyrek. Atis noktasi ALCAK (tavana/kitaplik ustune
+                    // cikmaz); ayni dalgada havada baska kitapla cakisiyorsa baska nokta secilir.
+                    BandCell cell = default; Vector3 p = default;
+                    for (int tryPoint = 0; tryPoint < 10; tryPoint++)
+                    {
+                        cell = cells[Random.Range(0, cells.Count)];
+                        for (int pick = 0; pick < 6; pick++)
+                        {
+                            if (Random.value * 1.1f < 0.6f + 0.5f * Mathf.Exp(-cell.across / 1.5f)) break;
+                            cell = cells[Random.Range(0, cells.Count)];
+                        }
+                        Vector2 jitter = Random.insideUnitCircle * sample;
+                        // Yol tarafindaki kenardan en az ~0.7 m iceride birak.
+                        float over = cell.across + Vector2.Dot(jitter, cell.outward) - (bookAreaDepthMeters - 0.7f);
+                        if (over > 0f) jitter -= cell.outward * over;
+                        p = new Vector3(cell.point.x + jitter.x, 0f, cell.point.z + jitter.y);
+                        // Kel alan kalmasin: ikinci bir aday nokta daha alcaksa (bos zemin) oraya at.
+                        {
+                            var alt = cells[Random.Range(0, cells.Count)];
+                            Vector2 j2 = Random.insideUnitCircle * sample;
+                            float over2 = alt.across + Vector2.Dot(j2, alt.outward) - (bookAreaDepthMeters - 0.7f);
+                            if (over2 > 0f) j2 -= alt.outward * over2;
+                            Vector3 p2 = new Vector3(alt.point.x + j2.x, 0f, alt.point.z + j2.y);
+                            float h1 = Mathf.Max(cell.point.y, TopNear(p, 0.6f)) - cell.point.y;
+                            float h2 = Mathf.Max(alt.point.y, TopNear(p2, 0.6f)) - alt.point.y;
+                            if (h2 + 0.05f < h1) { cell = alt; p = p2; }
+                        }
+                        float below = Mathf.Max(cell.point.y, TopNear(p, 0.55f));
+                        p.y = Mathf.Min(below + 0.55f + Random.Range(0f, 0.5f), cell.point.y + 1.9f);
+                        bool clash = false;
+                        foreach (var q in launchPoints)
+                            if (Mathf.Abs(q.y - p.y) < 0.95f && (new Vector2(q.x - p.x, q.z - p.z)).sqrMagnitude < 0.95f) { clash = true; break; }
+                        if (!clash) break;
+                    }
+                    launchPoints.Add(p);
+                    floorOfBook[book] = cell.point.y;
+                    book.transform.rotation = Random.rotation;
+                    book.transform.position = p;
+                    body.isKinematic = false;
+                    body.detectCollisions = true;
+                    body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                    body.maxDepenetrationVelocity = 1.5f;
+                    body.linearDamping = 0.15f;
+                    body.angularDamping = 0.6f;
+                    body.sleepThreshold = Mathf.Max(saved[body].sleep, 0.04f);
+                    Vector2 throwDir = Random.insideUnitCircle.normalized * Random.Range(0.2f, 1.2f);
+                    // Seridin yol tarafindaki kitaplar yola dogru firlatilmaz (koridora tasmasin).
+                    float toWalk = Vector2.Dot(throwDir, cell.outward);
+                    if (toWalk > 0f && cell.across > bookAreaDepthMeters - 1.8f) throwDir -= cell.outward * toWalk * 1.3f;
+                    body.linearVelocity = new Vector3(throwDir.x, Random.Range(-0.5f, 0.8f), throwDir.y);
+                    body.angularVelocity = Random.insideUnitSphere * Random.Range(1f, 7f);
+                    body.WakeUp();
+                    waveList.Add(book);
+                }
+                Physics.SyncTransforms();
+                loose3.AddRange(waveList);
+
+                float simulated = 0f; int quiet = 0;
+                while (simulated < 3.2f)
+                {
+                    double began = Time.realtimeSinceStartupAsDouble;
+                    while (Time.realtimeSinceStartupAsDouble - began < 0.07 && simulated < 3.2f)
+                    {
+                        Physics.Simulate(step);
+                        simulated += step;
+                    }
+                    int moving = 0;
+                    foreach (var book in loose3)
+                    {
+                        var body = bodies[book];
+                        if (body.isKinematic || body.IsSleeping()) continue;
+                        if (body.linearVelocity.sqrMagnitude > 0.0025f || body.angularVelocity.sqrMagnitude > 0.03f) moving++;
+                    }
+                    ShopLoadingScreen.Progress(0.6f + 0.35f * Mathf.Clamp01((cursor - waveSize + waveSize * Mathf.Min(1f, simulated / 1.5f)) / (float)queue.Count));
+                    if (simulated >= 0.8f && moving <= Mathf.Max(1, loose3.Count / 60)) { if (++quiet >= 2) break; } else quiet = 0;
+                    yield return null;
+                }
+                simulatedTotal += simulated;
+
+                // Alanin cok disina savrulan / zemini delen: yeniden atilacak (en fazla 2 kez).
+                for (int i = loose3.Count - 1; i >= 0; i--)
+                {
+                    var book = loose3[i];
+                    var body = bodies[book];
+                    if (Allowed(body.worldCenterOfMass, floorOfBook[book])) continue;
+                    retries.TryGetValue(book, out int tries);
+                    if (tries >= 2 && body.worldCenterOfMass.y > floorOfBook[book] - 0.3f) continue; // biraksin, yolda bir kitap olsun
+                    retries[book] = tries + 1;
+                    Park(book, body);
+                    loose3.RemoveAt(i);
+                    if (tries < 4) { queue.Add(book); rethrown++; } // sonsuz dongu yok; kalan en sonda kurtarilir
+                }
+                Physics.SyncTransforms();
+                // Duranlar alttan uste donar; donanlarin ustu yukseklik haritasina yazilir.
+                loose3.Sort((a, b) => a.WorldCenter.y.CompareTo(b.WorldCenter.y));
+                for (int pass = 0; pass < 6; pass++)
+                {
+                    int changed = 0;
+                    for (int i = 0; i < loose3.Count; i++)
+                    {
+                        var book = loose3[i];
+                        if (!book.FreezeWhereResting(null)) continue;
+                        changed++;
+                        MarkTop(BookBounds(book));
+                    }
+                    frozenTotal += changed;
+                    loose3.RemoveAll(b => b.IsFrozenAtRest);
+                    if (changed == 0) break;
+                }
+                // Donmayanlar (hala kayan) da yuksekligi etkiler.
+                foreach (var book in loose3) MarkTop(BookBounds(book));
+            }
+        }
+        finally
+        {
+            Physics.simulationMode = previousMode;
+            foreach (var pair in saved)
+            {
+                var body = pair.Key;
+                if (body == null) continue;
+                body.collisionDetectionMode = pair.Value.mode;
+                body.maxDepenetrationVelocity = pair.Value.dep;
+                body.linearDamping = pair.Value.lin;
+                body.angularDamping = pair.Value.ang;
+                body.sleepThreshold = pair.Value.sleep;
+                if (!body.detectCollisions) { body.detectCollisions = true; }
+            }
+            LayoutInProgress = false;
+        }
+        // Park yerinde kalan (olmamali) kitap varsa: en yakin serbest hucrenin ustune birak.
+        int stranded = 0;
+        foreach (var pair in bodies)
+            if (pair.Key.WorldCenter.y < -100f || !pair.Value.detectCollisions)
+            {
+                var cell = cells[Random.Range(0, cells.Count)];
+                pair.Key.transform.position = new Vector3(cell.point.x, Mathf.Max(cell.point.y, TopNear(cell.point, 0.55f)) + 0.6f, cell.point.z);
+                pair.Value.isKinematic = false;
+                stranded++;
+            }
+        var machine = FindFirstObjectByType<BookRecallMachine>();
+        if (machine != null)
+        {
+            machine.RebuildPlayBounds();
+            int lostNow = 0; var sb = new System.Text.StringBuilder();
+            foreach (var pair in bodies)
+                if (machine.IsLost(pair.Key))
+                {
+                    if (lostNow < 4) sb.Append($" [{pair.Key.name} merkez {pair.Key.WorldCenter} kok {pair.Key.transform.position}]");
+                    lostNow++;
+                }
+            Debug.Log($"BookSpawner TANI: yerlesim sonrasi {lostNow} kitap 'kayip' sayiliyor; alan {machine.PlayBounds.min}..{machine.PlayBounds.max}{sb}");
+        }
+        Debug.Log($"BookSpawner: {bodies.Count} kitap {waves} dalgada GERCEK fizikle yere firlatildi ({simulatedTotal:0.0} sn simule); " +
+                  $"{frozenTotal} yerinde dondu, {loose3.Count} serbest, {rethrown} kez yeniden atildi, {stranded} kurtarildi.");
+        done(true);
+    }
+
     private IEnumerator SeparateInitialBooks(List<BookItem> books)
     {
         bool handled = false;
         if (heapLayoutMode)
         {
-            var heaps = PlaceBooksAsMessyHeaps(books, ok => handled = ok);
+            var heaps = PlaceBooksByThrowing(books, ok => handled = ok);
             while (heaps.MoveNext()) yield return heaps.Current;
             if (handled) yield break;
         }

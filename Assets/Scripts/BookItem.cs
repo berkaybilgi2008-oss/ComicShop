@@ -134,6 +134,20 @@ public class BookItem : MonoBehaviour
 
     public bool IsFrozenAtRest => frozenAtRest;
 
+    /// <summary>
+    /// Kitabin GERCEK dunya merkezi (carpisma kutusunun ortasi). Kitap prefablarinin kok noktasi
+    /// mesh'ten ~1.2 m uzakta; egik/ters duran kitapta transform.position zeminin altinda kalip
+    /// kitap "kayip" sanilabiliyordu.
+    /// </summary>
+    public Vector3 WorldCenter
+    {
+        get
+        {
+            if (physicsCollider == null) physicsCollider = GetComponentInChildren<Collider>();
+            return physicsCollider != null && physicsCollider.enabled ? physicsCollider.bounds.center : transform.position;
+        }
+    }
+
     private static readonly Collider[] freezeHits = new Collider[32];
 
     /// <summary>
@@ -371,6 +385,7 @@ public class BookItem : MonoBehaviour
         outlineObjects = null;
         body = GetComponent<Rigidbody>();
         physicsCollider = GetComponentInChildren<Collider>();
+        BookPaperEdges.Apply(this); // krem sayfa kenarlari: yiginda kitaplar arasi "bosluk" gorunmesin
     }
 
     void OnDestroy()

@@ -137,7 +137,8 @@ public class BookRecallMachine : MonoBehaviour
     {
         bool networkScene = ConnectionManager.Instance != null;
         bool authority = !networkScene || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
-        if (authority && Time.time - lastLostCheckTime >= lostCheckInterval)
+        // Acilis yerlesimi (kitaplar gecici olarak haritanin altinda bekletilip firlatilirken) kayip sayilmaz.
+        if (authority && !BookSpawner.LayoutInProgress && !ShopLoadingScreen.IsVisible && Time.time - lastLostCheckTime >= lostCheckInterval)
         {
             lastLostCheckTime = Time.time;
             ScanLostBooks();
@@ -240,7 +241,7 @@ public class BookRecallMachine : MonoBehaviour
 
             // IsRecallable zaten kayip olmayanlari eledi; en uzaktakini secmek
             // birden fazla kayip kopya varsa hangisinin gelecegini belirler.
-            if (book.transform.position.y < lostBelowY)
+            if (book.WorldCenter.y < lostBelowY)
             {
                 lost = book;
                 break;
@@ -358,7 +359,8 @@ public class BookRecallMachine : MonoBehaviour
         if (book == null)
             return false;
 
-        Vector3 position = book.transform.position;
+        // Kok nokta degil gercek merkez: kok, mesh'ten ~1.2 m uzakta (ters duran kitap kayip sanilmasin).
+        Vector3 position = book.WorldCenter;
 
         if (position.y < lostBelowY)
             return true;
@@ -490,7 +492,7 @@ public class BookRecallMachine : MonoBehaviour
                 lostSince[book] = Time.time;
                 if (newlyLostCount < 5)
                 {
-                    Vector3 p = book.transform.position;
+                    Vector3 p = book.WorldCenter;
                     newlyLost.Append($"\n  {book.DisplayName} ({book.name}) @ ({p.x:0.0}, {p.y:0.0}, {p.z:0.0}) - " +
                         (p.y < lostBelowY ? "zeminin altina dustu" : "oyun alaninin disina cikti"));
                 }
