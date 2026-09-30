@@ -6,6 +6,13 @@ public class BookToonEffect : MonoBehaviour
 {
     private static readonly Dictionary<Material, Material> Materials = new Dictionary<Material, Material>();
 
+    // The shop is warm, muted and slightly dusty rather than high-saturation.
+    // These values affect the book material only and preserve the original cover texture.
+    private static readonly Color ShopWarmPalette = new Color(0.76f, 0.55f, 0.38f, 1f);
+    private const float PaletteSaturation = 0.78f;
+    private const float PaletteValue = 0.96f;
+    private const float WarmNeutralShift = 0.14f;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCache()
     {
@@ -13,6 +20,7 @@ public class BookToonEffect : MonoBehaviour
             if (material != null) Object.Destroy(material);
         Materials.Clear();
     }
+
     private void Awake()
     {
         ApplyGlobalToonMaterials();
@@ -35,8 +43,10 @@ public class BookToonEffect : MonoBehaviour
         foreach (MeshRenderer renderer in GetComponentsInChildren<MeshRenderer>(true))
         {
             if (renderer.transform.name.EndsWith("_CreaseLines")) continue;
+
             Material[] slots = renderer.sharedMaterials;
             bool changed = false;
+
             for (int i = 0; i < slots.Length; i++)
             {
                 Material cel = ResolveMaterial(slots[i]);
@@ -44,32 +54,41 @@ public class BookToonEffect : MonoBehaviour
                 slots[i] = cel;
                 changed = true;
             }
+
             if (changed) renderer.sharedMaterials = slots;
         }
-        // Books use the renderer feature. Do not attach legacy per-object ink MPBs.
 
+        // Books use the renderer feature. Do not attach legacy per-object ink MPBs.
     }
 
     public static Material ResolveMaterial(Material source)
     {
-        if (source == null || (source.shader != null && source.shader.name == "ComicShop/ToonLit")) return source;
-        if (Materials.TryGetValue(source, out Material cached) && cached != null) return cached;
+        if (source == null || (source.shader != null && source.shader.name == "ComicShop/ToonLit"))
+            return source;
+
+        if (Materials.TryGetValue(source, out Material cached) && cached != null)
+            return cached;
+
         Material template = Resources.Load<Material>("ComicShopToon/ToonRuntimeTemplate");
         Shader shader = ComicShop.Rendering.ToonStyleController.DefaultStyle.ToonShader;
         if (shader == null) shader = Shader.Find("ComicShop/ToonLit");
         if (shader == null) return source;
+
         Material cel = template != null ? new Material(template) : new Material(shader);
         cel.name = source.name + "_GlobalToon";
         cel.enableInstancing = true;
-        // Pastel comic treatment: stable, texture-first, and independent of scene lighting.
-        // The toon shader is used only as a visual filter; no scene-light response is added.
+
+        // Local book style: the environment is warm wood + amber lighting,
+        // so book shadows should not inherit a cold purple global shadow.
         cel.SetFloat("_UseLocalStyle", 1f);
         cel.EnableKeyword("_TOON_LOCAL_STYLE");
 
         cel.SetFloat("_OverrideShadowSteps", 1f);
-        cel.SetFloat("_LocalShadowSteps", 1f);
+        cel.SetFloat("_LocalShadowSteps", 2f);
         cel.SetFloat("_OverrideRampSmoothness", 1f);
-        cel.SetFloat("_LocalRampSmoothness", 1f);
+        cel.SetFloat("_LocalRampSmoothness", 0.03f);
+        cel.SetFloat("_OverrideShadowTint", 1f);
+        cel.SetColor("_LocalShadowTint", new Color(0.34f, 0.24f, 0.18f, 1f));
         cel.SetFloat("_OverrideBakedInfluence", 1f);
         cel.SetFloat("_LocalBakedInfluence", 0f);
 
@@ -84,6 +103,7 @@ public class BookToonEffect : MonoBehaviour
         cel.SetFloat("_OutlineEnabled", 1f);
         cel.SetFloat("_HalftoneEnabled", 0f);
         cel.DisableKeyword("_TOON_HALFTONE");
+
         string map = source.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
         if (source.HasProperty(map))
         {
@@ -91,15 +111,25 @@ public class BookToonEffect : MonoBehaviour
             cel.SetTextureScale("_BaseMap", source.GetTextureScale(map));
             cel.SetTextureOffset("_BaseMap", source.GetTextureOffset(map));
         }
+
         Color baseColor = source.HasProperty("_BaseColor")
             ? source.GetColor("_BaseColor")
             : (source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
 
-        // Soft pastel lift: preserve the original cover art while gently reducing
-        // harsh saturation. This is material-only; no extra scene-light response.
-        Color pastel = Color.Lerp(baseColor, Color.white, 0.10f);
-        cel.SetColor("_BaseColor", pastel);
+        // Harmonize the cover's existing texture instead of replacing it:
+        // reduce saturation, keep brightness slightly soft, and warm mostly
+        // neutral/gray artwork toward the shop's amber-brown palette.
+        Color.RGBToHSV(baseColor, out float h, out float s, out float v);
+        float neutralWeight = 1f - s;
+        h = Mathf.Repeat(Mathf.Lerp(h, 0.075f, neutralWeight * WarmNeutralShift), 1f);
+        s *= PaletteSaturation;
+        v *= PaletteValue;
 
+        Color harmonized = Color.HSVToRGB(h, s, v);
+        harmonized = Color.Lerp(harmonized, ShopWarmPalette, neutralWeight * 0.08f);
+        harmonized.a = baseColor.a;
+
+        cel.SetColor("_BaseColor", harmonized);
         Materials[source] = cel;
         return cel;
     }
