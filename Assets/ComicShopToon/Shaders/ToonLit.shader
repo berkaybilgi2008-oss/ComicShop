@@ -5,6 +5,10 @@ Shader "ComicShop/ToonLit"
         [MainTexture] _BaseMap("Albedo", 2D) = "white" {}
         [MainColor] _BaseColor("Base Color", Color) = (1,1,1,1)
         [Normal][NoScaleOffset] _BumpMap("Normal Map", 2D) = "bump" {}
+        [HideInInspector] _BookPaletteOverlay("Book Palette Overlay", Color) = (1,1,1,1)
+        [HideInInspector] _BookPaletteStrength("Book Palette Strength", Range(0,1)) = 0
+        [HideInInspector] _BookPaletteDesaturation("Book Palette Desaturation", Range(0,1)) = 0
+        [HideInInspector] _BookPaletteLift("Book Palette Lift", Range(0,0.25)) = 0
         [Toggle(_TOON_HALFTONE)] _HalftoneEnabled("Halftone", Float) = 1
         [ToggleUI] _OutlineEnabled("Outline Mask", Float) = 1
         [HideInInspector] _UseLocalStyle("Advanced Local Overrides", Float) = 0
@@ -26,11 +30,10 @@ Shader "ComicShop/ToonLit"
         [HideInInspector] _LocalSpecThreshold("SpecThreshold", Float) = 0.96
         [HideInInspector] _OverrideSpecColor("Override SpecColor", Float) = 0
         [HideInInspector] _LocalSpecColor("SpecColor", Color) = (1,0.98,0.9,1)
-        [HideInInspector] _OverrideSpecStrength("Override SpecStrength", Float) = 0
-        [HideInInspector] _LocalSpecStrength("SpecStrength", Float) = 0.4
+        [HideInInspector] _OverrideSpecStrength("Override SpecStrength", Float) = 0.4
         [HideInInspector] _OverrideRimEnabled("Override RimEnabled", Float) = 0
         [HideInInspector] _LocalRimEnabled("RimEnabled", Float) = 0
-        [HideInInspector] _OverrideRimThreshold("Override RimThreshold", Float) = 0
+        [HideInInspector] _OverrideRimThreshold("Override RimThreshold", Float) = 0.75
         [HideInInspector] _LocalRimThreshold("RimThreshold", Float) = 0.75
         [HideInInspector] _OverrideRimLitOnly("Override RimLitOnly", Float) = 0
         [HideInInspector] _LocalRimLitOnly("RimLitOnly", Float) = 1
@@ -42,9 +45,8 @@ Shader "ComicShop/ToonLit"
         [HideInInspector] _LocalHalftoneEnabled("HalftoneEnabled", Float) = 1
         [HideInInspector] _OverrideHalftoneScale("Override HalftoneScale", Float) = 0
         [HideInInspector] _LocalHalftoneScale("HalftoneScale", Float) = 8
-        [HideInInspector] _OverrideHalftoneStrength("Override HalftoneStrength", Float) = 0
-        [HideInInspector] _LocalHalftoneStrength("HalftoneStrength", Float) = 0.4
-        [HideInInspector] _OverrideHalftoneAngle("Override HalftoneAngle", Float) = 0
+        [HideInInspector] _OverrideHalftoneStrength("Override HalftoneStrength", Float) = 0.4
+        [HideInInspector] _OverrideHalftoneAngle("Override HalftoneAngle", Float) = 45
         [HideInInspector] _LocalHalftoneAngle("HalftoneAngle", Float) = 45
         [HideInInspector] _OverrideHalftoneRadius("Override HalftoneRadius", Float) = 0
         [HideInInspector] _LocalHalftoneRadius("HalftoneRadius", Float) = 0.27
@@ -115,7 +117,6 @@ Shader "ComicShop/ToonLit"
             #pragma multi_compile_instancing
             #pragma vertex AuxVertex
             #pragma fragment DepthFragment
-            
             #include "ToonAuxiliary.hlsl"
             ENDHLSL
         }
@@ -124,7 +125,6 @@ Shader "ComicShop/ToonLit"
             Name "DepthNormals"
             Tags { "LightMode"="DepthNormals" }
             Cull Back ZWrite On ZTest LEqual
-            
             HLSLPROGRAM
             #pragma target 4.5
             #pragma multi_compile_instancing
@@ -145,7 +145,6 @@ Shader "ComicShop/ToonLit"
             #pragma multi_compile_instancing
             #pragma vertex AuxVertex
             #pragma fragment MaskFragment
-            
             #include "ToonAuxiliary.hlsl"
             ENDHLSL
         }
@@ -160,13 +159,7 @@ Shader "ComicShop/ToonLit"
             #pragma fragment ToonMetaFragment
             #include "ToonInput.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/MetaInput.hlsl"
-            struct MetaAttributes
-            {
-                float4 positionOS:POSITION;
-                float2 uv:TEXCOORD0;
-                float2 uv1:TEXCOORD1;
-                float2 uv2:TEXCOORD2;
-            };
+            struct MetaAttributes { float4 positionOS:POSITION; float2 uv:TEXCOORD0; float2 uv1:TEXCOORD1; float2 uv2:TEXCOORD2; };
             struct MetaVaryings { float4 positionCS:SV_POSITION; float2 uv:TEXCOORD0; };
             MetaVaryings ToonMetaVertex(MetaAttributes i)
             {
