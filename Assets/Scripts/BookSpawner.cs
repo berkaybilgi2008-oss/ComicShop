@@ -2490,20 +2490,34 @@ public class BookSpawner : MonoBehaviour
     // Only the named scene group is discovered, never arbitrary gameplay colliders.
     public int DiscoverCorridors()
     {
+        // Only explicitly named Corridor_01..Corridor_04 objects are auto-registered.
+        // Legacy helpers such as Left/Right can remain in the hierarchy without
+        // accidentally becoming additional book spawn areas.
         var zones = new List<BoxCollider>(corridorAreas ?? System.Array.Empty<BoxCollider>());
         int added = 0;
+
         foreach (var root in gameObject.scene.GetRootGameObjects())
         {
             if (root.name != "Book Spawn Corridors") continue;
+
             foreach (var zone in root.GetComponentsInChildren<BoxCollider>(true))
             {
+                if (!zone) continue;
+                if (!zone.gameObject.name.StartsWith("Corridor_", StringComparison.OrdinalIgnoreCase)) continue;
                 if (zones.Contains(zone)) continue;
+
                 int vacant = zones.FindIndex(candidate => candidate == null);
-                if (vacant >= 0) zones[vacant] = zone; else zones.Add(zone);
+                if (vacant >= 0) zones[vacant] = zone;
+                else zones.Add(zone);
                 added++;
             }
         }
-        corridorAreas = zones.ToArray();
+
+        corridorAreas = zones
+            .Where(zone => zone)
+            .Take(4)
+            .ToArray();
+
         return added;
     }
 
