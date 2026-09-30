@@ -6,12 +6,12 @@ public class BookToonEffect : MonoBehaviour
 {
     private static readonly Dictionary<Material, Material> Materials = new Dictionary<Material, Material>();
 
-    // The shop is warm, muted and slightly dusty rather than high-saturation.
-    // These values affect the book material only and preserve the original cover texture.
-    private static readonly Color ShopWarmPalette = new Color(0.76f, 0.55f, 0.38f, 1f);
-    private const float PaletteSaturation = 0.78f;
-    private const float PaletteValue = 0.96f;
-    private const float WarmNeutralShift = 0.14f;
+    // Warm amber/sepia grade inspired by the shop interior.
+    // The original cover texture stays intact underneath this material overlay.
+    private static readonly Color ShopBookOverlay = new Color(1.08f, 0.78f, 0.52f, 1f);
+    private const float OverlayStrength = 0.34f;
+    private const float Desaturation = 0.18f;
+    private const float Lift = 0.035f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCache()
@@ -57,8 +57,6 @@ public class BookToonEffect : MonoBehaviour
 
             if (changed) renderer.sharedMaterials = slots;
         }
-
-        // Books use the renderer feature. Do not attach legacy per-object ink MPBs.
     }
 
     public static Material ResolveMaterial(Material source)
@@ -78,11 +76,18 @@ public class BookToonEffect : MonoBehaviour
         cel.name = source.name + "_GlobalToon";
         cel.enableInstancing = true;
 
-        // Local book style: the environment is warm wood + amber lighting,
-        // so book shadows should not inherit a cold purple global shadow.
         cel.SetFloat("_UseLocalStyle", 1f);
         cel.EnableKeyword("_TOON_LOCAL_STYLE");
 
+        // Keep the cover art, but grade the whole surface toward the warm
+        // wood/amber palette visible throughout the shop.
+        cel.SetColor("_BookPaletteOverlay", ShopBookOverlay);
+        cel.SetFloat("_BookPaletteStrength", OverlayStrength);
+        cel.SetFloat("_BookPaletteDesaturation", Desaturation);
+        cel.SetFloat("_BookPaletteLift", Lift);
+
+        // Warm local toon shadows so the graded cover and its shading belong
+        // to the same visual world as the wooden shelves and amber lamps.
         cel.SetFloat("_OverrideShadowSteps", 1f);
         cel.SetFloat("_LocalShadowSteps", 2f);
         cel.SetFloat("_OverrideRampSmoothness", 1f);
@@ -99,7 +104,6 @@ public class BookToonEffect : MonoBehaviour
 
         cel.SetFloat("_OverrideHalftoneEnabled", 1f);
         cel.SetFloat("_LocalHalftoneEnabled", 0f);
-
         cel.SetFloat("_OutlineEnabled", 1f);
         cel.SetFloat("_HalftoneEnabled", 0f);
         cel.DisableKeyword("_TOON_HALFTONE");
@@ -116,20 +120,14 @@ public class BookToonEffect : MonoBehaviour
             ? source.GetColor("_BaseColor")
             : (source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
 
-        // Harmonize the cover's existing texture instead of replacing it:
-        // reduce saturation, keep brightness slightly soft, and warm mostly
-        // neutral/gray artwork toward the shop's amber-brown palette.
+        // Only a small base-color lift is applied; the actual cover texture
+        // remains the dominant source of detail and color.
         Color.RGBToHSV(baseColor, out float h, out float s, out float v);
-        float neutralWeight = 1f - s;
-        h = Mathf.Repeat(Mathf.Lerp(h, 0.075f, neutralWeight * WarmNeutralShift), 1f);
-        s *= PaletteSaturation;
-        v *= PaletteValue;
-
+        s *= 0.90f;
+        v *= 0.98f;
         Color harmonized = Color.HSVToRGB(h, s, v);
-        harmonized = Color.Lerp(harmonized, ShopWarmPalette, neutralWeight * 0.08f);
-        harmonized.a = baseColor.a;
-
         cel.SetColor("_BaseColor", harmonized);
+
         Materials[source] = cel;
         return cel;
     }
