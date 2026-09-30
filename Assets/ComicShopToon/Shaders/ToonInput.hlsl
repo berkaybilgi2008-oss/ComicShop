@@ -8,6 +8,8 @@ TEXTURE2D(_BumpMap); SAMPLER(sampler_BumpMap);
 CBUFFER_START(UnityPerMaterial)
 float4 _BaseMap_ST, _BaseColor;
 float _HalftoneEnabled, _OutlineEnabled, _UseLocalStyle;
+float4 _BookPaletteOverlay;
+float _BookPaletteStrength, _BookPaletteDesaturation, _BookPaletteLift;
 float _LocalShadowSteps;
 float _OverrideShadowSteps;
 float _LocalRampSmoothness;
@@ -120,10 +122,23 @@ float4 _ToonHalftoneColor;
 #define _HalftoneRadius _ToonHalftoneRadius
 #define _HalftoneColor _ToonHalftoneColor
 #endif
+
 float3 ToonAlbedo(float2 uv)
 {
-    return SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv).rgb * _BaseColor.rgb;
+    float3 base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv).rgb * _BaseColor.rgb;
+
+    // Optional per-book color-grade layer. It sits on top of the original
+    // cover texture, so artwork/detail remain visible instead of being replaced.
+    float3 overlay = max(_BookPaletteOverlay.rgb, 0.001);
+    float3 graded = lerp(base, base * overlay, saturate(_BookPaletteStrength));
+
+    float luminance = dot(graded, float3(0.299, 0.587, 0.114));
+    graded = lerp(graded, float3(luminance, luminance, luminance), saturate(_BookPaletteDesaturation));
+
+    graded = lerp(graded, graded + float3(_BookPaletteLift, _BookPaletteLift * 0.78, _BookPaletteLift * 0.48), saturate(_BookPaletteLift * 2.0));
+    return saturate(graded);
 }
+
 float3 ToonNormal(float2 uv, float3 normalWS, float4 tangentWS)
 {
 #if defined(_NORMALMAP)
