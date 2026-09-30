@@ -6,12 +6,12 @@ public class BookToonEffect : MonoBehaviour
 {
     private static readonly Dictionary<Material, Material> Materials = new Dictionary<Material, Material>();
 
-    // Warm amber/sepia grade inspired by the shop interior.
-    // The original cover texture stays intact underneath this material overlay.
-    private static readonly Color ShopBookOverlay = new Color(1.08f, 0.78f, 0.52f, 1f);
-    private const float OverlayStrength = 0.34f;
-    private const float Desaturation = 0.18f;
-    private const float Lift = 0.035f;
+    // The cover texture remains the actual artwork. These values only tint
+    // the final material toward the warm pastel colors of the shop.
+    private static readonly Color ShopOverlay = new Color(1.08f, 0.84f, 0.64f, 1f);
+    private const float OverlayStrength = 0.22f;
+    private const float Desaturation = 0.10f;
+    private const float Brightness = 0.98f;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCache()
@@ -21,10 +21,7 @@ public class BookToonEffect : MonoBehaviour
         Materials.Clear();
     }
 
-    private void Awake()
-    {
-        ApplyGlobalToonMaterials();
-    }
+    private void Awake() => ApplyGlobalToonMaterials();
 
     public static void ApplyToBook(GameObject book)
     {
@@ -79,21 +76,19 @@ public class BookToonEffect : MonoBehaviour
         cel.SetFloat("_UseLocalStyle", 1f);
         cel.EnableKeyword("_TOON_LOCAL_STYLE");
 
-        // Keep the cover art, but grade the whole surface toward the warm
-        // wood/amber palette visible throughout the shop.
-        cel.SetColor("_BookPaletteOverlay", ShopBookOverlay);
+        // Real surface overlay: original BaseMap stays untouched and visible.
+        cel.SetColor("_BookPaletteOverlay", ShopOverlay);
         cel.SetFloat("_BookPaletteStrength", OverlayStrength);
         cel.SetFloat("_BookPaletteDesaturation", Desaturation);
-        cel.SetFloat("_BookPaletteLift", Lift);
+        cel.SetFloat("_BookPaletteLift", 0f);
 
-        // Warm local toon shadows so the graded cover and its shading belong
-        // to the same visual world as the wooden shelves and amber lamps.
+        // Warm, simple toon shading to match the amber/wood environment.
         cel.SetFloat("_OverrideShadowSteps", 1f);
         cel.SetFloat("_LocalShadowSteps", 2f);
         cel.SetFloat("_OverrideRampSmoothness", 1f);
-        cel.SetFloat("_LocalRampSmoothness", 0.03f);
+        cel.SetFloat("_LocalRampSmoothness", 0.04f);
         cel.SetFloat("_OverrideShadowTint", 1f);
-        cel.SetColor("_LocalShadowTint", new Color(0.34f, 0.24f, 0.18f, 1f));
+        cel.SetColor("_LocalShadowTint", new Color(0.36f, 0.27f, 0.21f, 1f));
         cel.SetFloat("_OverrideBakedInfluence", 1f);
         cel.SetFloat("_LocalBakedInfluence", 0f);
 
@@ -116,17 +111,19 @@ public class BookToonEffect : MonoBehaviour
             cel.SetTextureOffset("_BaseMap", source.GetTextureOffset(map));
         }
 
+        // Do not aggressively recolor BaseColor. Keep the material's original
+        // artwork color so the overlay can act like a translucent color grade.
         Color baseColor = source.HasProperty("_BaseColor")
             ? source.GetColor("_BaseColor")
             : (source.HasProperty("_Color") ? source.GetColor("_Color") : Color.white);
 
-        // Only a small base-color lift is applied; the actual cover texture
-        // remains the dominant source of detail and color.
-        Color.RGBToHSV(baseColor, out float h, out float s, out float v);
-        s *= 0.90f;
-        v *= 0.98f;
-        Color harmonized = Color.HSVToRGB(h, s, v);
-        cel.SetColor("_BaseColor", harmonized);
+        baseColor = Color.Lerp(baseColor, Color.white, 0.035f);
+        baseColor *= Brightness;
+        baseColor.a = source.HasProperty("_BaseColor")
+            ? source.GetColor("_BaseColor").a
+            : (source.HasProperty("_Color") ? source.GetColor("_Color").a : 1f);
+
+        cel.SetColor("_BaseColor", baseColor);
 
         Materials[source] = cel;
         return cel;
