@@ -2503,7 +2503,7 @@ public class BookSpawner : MonoBehaviour
             foreach (var zone in root.GetComponentsInChildren<BoxCollider>(true))
             {
                 if (!zone) continue;
-                if (!zone.gameObject.name.StartsWith("Corridor_", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!zone.gameObject.name.StartsWith("Corridor_")) continue;
                 if (zones.Contains(zone)) continue;
 
                 int vacant = zones.FindIndex(candidate => candidate == null);
@@ -2513,10 +2513,14 @@ public class BookSpawner : MonoBehaviour
             }
         }
 
-        corridorAreas = zones
-            .Where(zone => zone)
-            .Take(4)
-            .ToArray();
+        var validZones = new List<BoxCollider>();
+        foreach (var zone in zones)
+        {
+            if (!zone) continue;
+            if (validZones.Count >= 4) break;
+            validZones.Add(zone);
+        }
+        corridorAreas = validZones.ToArray();
 
         return added;
     }
