@@ -118,7 +118,6 @@ public sealed class BookWalkSurface : MonoBehaviour
             center + new Vector3(-half.x, -half.y,  half.z),
             center + new Vector3( half.x, -half.y,  half.z),
             center + new Vector3( half.x, -half.y, -half.z),
-
             center + new Vector3(-half.x + rampX, half.y, -half.z + rampZ),
             center + new Vector3(-half.x + rampX, half.y,  half.z - rampZ),
             center + new Vector3( half.x - rampX, half.y,  half.z - rampZ),
@@ -195,6 +194,15 @@ public sealed class BookWalkSurface : MonoBehaviour
             playerColliders.Remove(player);
     }
 
+    public static void EnsureForBook(BookItem book)
+    {
+        if (book == null || book.currentSlot != null)
+            return;
+
+        if (book.GetComponent<BookWalkSurface>() == null)
+            book.gameObject.AddComponent<BookWalkSurface>();
+    }
+
     public static bool TryGetTopSurface(
         Vector3 playerPosition,
         CharacterController controller,
@@ -225,7 +233,7 @@ public sealed class BookWalkSurface : MonoBehaviour
         {
             RaycastHit hit = hits[i];
             BookWalkSurface surface = hit.collider != null
-                ? hit.collider.GetComponent<BookWalkSurface>()
+                ? hit.collider.GetComponentInParent<BookWalkSurface>()
                 : null;
 
             if (surface == null || !surface.IsUsable)
@@ -252,5 +260,30 @@ public sealed class BookWalkSurface : MonoBehaviour
 
         topY = highest;
         return true;
+    }
+}
+
+internal sealed class BookWalkSurfaceBootstrap : MonoBehaviour
+{
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Install()
+    {
+        if (FindFirstObjectByType<BookWalkSurfaceBootstrap>() != null)
+            return;
+
+        GameObject go = new GameObject("BookWalkSurfaceBootstrap");
+        DontDestroyOnLoad(go);
+        go.AddComponent<BookWalkSurfaceBootstrap>();
+    }
+
+    private void Awake()
+    {
+        InvokeRepeating(nameof(AttachToActiveBooks), 0.1f, 0.25f);
+    }
+
+    private void AttachToActiveBooks()
+    {
+        foreach (BookItem book in BookItem.Active)
+            BookWalkSurface.EnsureForBook(book);
     }
 }
