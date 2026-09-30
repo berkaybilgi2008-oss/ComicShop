@@ -7,9 +7,9 @@ public sealed class BookWalkSurface : MonoBehaviour
     public const int BookLayer = 8;
 
     [Header("Yurume Yuzeyi")]
-    [Min(0.01f)] public float rampWidth = 0.12f;
-    [Min(0.001f)] public float topInset = 0.02f;
-    [Range(0.1f, 0.99f)] public float minimumUpDot = 0.78f;
+    [Min(0.01f)] public float rampWidth = 0.16f;
+    [Min(0.001f)] public float topInset = 0.015f;
+    [Range(0.1f, 0.99f)] public float minimumUpDot = 0.25f;
 
     private static readonly HashSet<BookWalkSurface> activeSurfaces = new HashSet<BookWalkSurface>();
     private static readonly HashSet<Collider> playerColliders = new HashSet<Collider>();
