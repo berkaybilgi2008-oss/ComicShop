@@ -62,6 +62,11 @@ public class BookSpawner : MonoBehaviour
         public BookSpawnCircle circle;
     }
 
+    void Awake()
+    {
+        RemoveFourthCorridor();
+    }
+
     void Start()
     {
         if (FindFirstObjectByType<NetworkManager>() != null) return;
@@ -269,8 +274,55 @@ public class BookSpawner : MonoBehaviour
         if (spawnCircles == null) yield break;
 
         foreach (var circle in spawnCircles)
-            if (circle != null && circle.isActiveAndEnabled)
+            if (circle != null && circle.isActiveAndEnabled && !IsFourthCorridor(circle.gameObject))
                 yield return circle;
+    }
+
+    private static bool IsFourthCorridor(GameObject obj)
+    {
+        if (obj == null) return false;
+        string name = obj.name.ToLowerInvariant();
+        return name.Contains("fourth corridor") ||
+               name.Contains("4th corridor") ||
+               name.Contains("corridor 4") ||
+               name.Contains("corridor_4") ||
+               name.Contains("koridor 4") ||
+               name.Contains("4. koridor");
+    }
+
+    private void RemoveFourthCorridor()
+    {
+        if (spawnCircles != null)
+        {
+            var filtered = new List<BookSpawnCircle>();
+            foreach (var circle in spawnCircles)
+            {
+                if (circle == null || IsFourthCorridor(circle.gameObject)) continue;
+                filtered.Add(circle);
+            }
+            spawnCircles = filtered.ToArray();
+        }
+
+        if (corridorAreas != null)
+        {
+            var filtered = new List<BoxCollider>();
+            foreach (var zone in corridorAreas)
+            {
+                if (zone == null || IsFourthCorridor(zone.gameObject)) continue;
+                filtered.Add(zone);
+            }
+            corridorAreas = filtered.ToArray();
+        }
+
+        var roots = gameObject.scene.GetRootGameObjects();
+        foreach (var root in roots)
+        {
+            foreach (var circle in root.GetComponentsInChildren<BookSpawnCircle>(true))
+            {
+                if (IsFourthCorridor(circle.gameObject))
+                    Destroy(circle.gameObject);
+            }
+        }
     }
 
     private int GetTotalFreeSpawnCapacity(int totalSpawnCount)
