@@ -15,6 +15,10 @@ public class BookSpawner : MonoBehaviour
     public BoxCollider[] corridorAreas;
     [Min(0f)] public float corridorEdgePadding = 0.35f;
 
+    [Header("Koridor Dagilimi")]
+    [Tooltip("Aktif dairesel koridorlara toplam kitaplari 2:2:1:0 oraninda dagitir. Ilk uc koridor 40/40/20, dorduncu koridor 0 kitap alir.")]
+    public bool useCorridorRatioDistribution = true;
+
     [Header("Varsayilan Prefab ve Alan")]
     [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
@@ -156,12 +160,13 @@ public class BookSpawner : MonoBehaviour
                     yield return new WaitForSecondsRealtime(Mathf.Max(0.01f, batchSpawnInterval));
             }
 
-            spawnRoutine = StartCoroutine(WatchSpawnAreas());
+            spawnRoutine = null;
             yield break;
         }
 
-        // Once her daireyi kendi Max Books kapasitesine kadar doldur.
-        while (pendingBookIds.Count > 0 && GetTotalFreeSpawnCapacity() > 0)
+        // Ilk uc aktif koridoru 2:2:1 oraninda doldur; dorduncu koridor bilincli olarak 0 kalir.
+        int totalSpawnCount = pendingBookIds.Count;
+        while (pendingBookIds.Count > 0 && GetTotalFreeSpawnCapacity(totalSpawnCount) > 0)
         {
             bool spawnedAny = false;
 
@@ -169,7 +174,8 @@ public class BookSpawner : MonoBehaviour
             {
                 if (pendingBookIds.Count == 0) break;
 
-                int free = GetFreeCapacity(circle);
+                int target = GetTargetCapacity(circle, totalSpawnCount);
+                int free = Mathf.Max(0, target - GetOccupiedBookCount(circle));
                 int amount = Mathf.Min(
                     Mathf.Max(1, batchSpawnCount),
                     Mathf.Min(free, pendingBookIds.Count));
@@ -195,15 +201,28 @@ public class BookSpawner : MonoBehaviour
 
     private IEnumerator WatchSpawnAreas()
     {
+        if (!HasCircularSpawnAreas())
+        {
+            spawnRoutine = null;
+            yield break;
+        }
+
         WaitForSecondsRealtime wait = new WaitForSecondsRealtime(Mathf.Max(0.05f, refillCheckInterval));
+        int totalSpawnCount = sessionBooks.Count + pendingBookIds.Count;
 
         while (true)
         {
-            if (pendingBookIds.Count > 0 && HasCircularSpawnAreas())
+            if (pendingBookIds.Count > 0)
             {
+                // Tum kitaplari tek geciste say; eski kod her koridor icin tum listeyi
+                // tekrar tarayarak gereksiz CPU maliyeti olusturuyordu.
+                var occupied = BuildOccupiedCounts();
+
                 foreach (var circle in GetActiveCircles())
                 {
-                    int free = GetFreeCapacity(circle);
+                    int target = GetTargetCapacity(circle, totalSpawnCount);
+                    int current = occupied.TryGetValue(circle, out int value) ? value : 0;
+                    int free = Mathf.Max(0, target - current);
                     if (free <= 0) continue;
 
                     int amount = Mathf.Min(
@@ -222,6 +241,29 @@ public class BookSpawner : MonoBehaviour
         }
     }
 
+    private Dictionary<BookSpawnCircle, int> BuildOccupiedCounts()
+    {
+        var counts = new Dictionary<BookSpawnCircle, int>();
+
+        for (int i = spawnAssignments.Count - 1; i >= 0; i--)
+        {
+            SpawnAssignment assignment = spawnAssignments[i];
+            if (assignment == null || assignment.book == null || !assignment.book.activeInHierarchy)
+            {
+                spawnAssignments.RemoveAt(i);
+                continue;
+            }
+
+            if (assignment.circle == null) continue;
+            if (!IsStillOccupyingSpawnArea(assignment)) continue;
+
+            counts.TryGetValue(assignment.circle, out int current);
+            counts[assignment.circle] = current + 1;
+        }
+
+        return counts;
+    }
+
     private IEnumerable<BookSpawnCircle> GetActiveCircles()
     {
         if (spawnCircles == null) yield break;
@@ -231,17 +273,32 @@ public class BookSpawner : MonoBehaviour
                 yield return circle;
     }
 
-    private int GetTotalFreeSpawnCapacity()
+    private int GetTotalFreeSpawnCapacity(int totalSpawnCount)
     {
         int total = 0;
         foreach (var circle in GetActiveCircles())
-            total += GetFreeCapacity(circle);
+        {
+            int target = GetTargetCapacity(circle, totalSpawnCount);
+            total += Mathf.Max(0, target - GetOccupiedBookCount(circle));
+        }
         return total;
     }
 
     private int GetFreeCapacity(BookSpawnCircle circle)
     {
         return Mathf.Max(0, circle.maxBooks - GetOccupiedBookCount(circle));
+    }
+
+    private int GetTargetCapacity(BookSpawnCircle circle, int totalSpawnCount)
+    {
+        if (circle == null || !useCorridorRatioDistribution || totalSpawnCount <= 0)
+            return circle != null ? circle.maxBooks : 0;
+
+        int index = System.Array.IndexOf(spawnCircles, circle);
+        if (index < 0 || index >= 4) return 0;
+
+        int weight = index == 0 || index == 1 ? 2 : index == 2 ? 1 : 0;
+        return Mathf.FloorToInt(totalSpawnCount * weight / 5f);
     }
 
     private int GetOccupiedBookCount(BookSpawnCircle circle)
