@@ -210,6 +210,10 @@ public class BookSpawner : MonoBehaviour
     private bool sessionSpawned;
     private readonly List<GameObject> sessionBooks = new List<GameObject>();
 
+    // When corridor areas are assigned, they are the complete spawn authority. In this mode
+    // books must never be relocated by the shelf-band / heap / tower layout systems.
+    private bool CorridorOnlySpawn => corridorAreas != null && corridorAreas.Length > 0;
+
     // Tum oyuncularda (host ve istemci) sahne yuklenince calisir: raf gozleri kopya sayisini alsin.
     void Awake() => ShelfSlot.MatchCapacityToCopies(copiesPerBook);
 
@@ -550,7 +554,7 @@ public class BookSpawner : MonoBehaviour
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
         loadPhase = "raf izleri";
-        BuildShelfFootprints();
+        if (!CorridorOnlySpawn) BuildShelfFootprints();
         loadPhase = "kitap olusturma";
         sessionBooks.Clear();
         {
@@ -574,15 +578,26 @@ public class BookSpawner : MonoBehaviour
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
             spawnedTowerBooks.Clear();
             towerSites.Clear();
-            if (!heapLayoutMode)
+            if (!CorridorOnlySpawn)
             {
-                var towers = ArrangeTowers(books);
-                while (towers.MoveNext()) yield return towers.Current;
+                if (!heapLayoutMode)
+                {
+                    var towers = ArrangeTowers(books);
+                    while (towers.MoveNext()) yield return towers.Current;
+                }
+                ShopLoadingScreen.Progress(0.55f);
+                loadPhase = "yerlesim";
+                var scattered = SeparateInitialBooks(books);
+                while (scattered.MoveNext()) yield return scattered.Current;
             }
-            ShopLoadingScreen.Progress(0.55f);
-            loadPhase = "yerlesim";
-            var scattered = SeparateInitialBooks(books);
-            while (scattered.MoveNext()) yield return scattered.Current;
+            else
+            {
+                // Corridor-only mode is intentionally a hard stop: the four corridor areas
+                // are the final positions. Do not move books to shelf fronts, heaps or towers.
+                Physics.SyncTransforms();
+                ShopLoadingScreen.Progress(0.85f);
+                Debug.Log($"BookSpawner: Corridor-only spawn aktif; {books.Count} kitap dort corridor alaninda birakildi. Raf/kule yerlesimi atlandi.");
+            }
             int published = 0;
             loadPhase = "ag yayini";
             // Publish the completed server layout, never the pre-arrangement poses.
