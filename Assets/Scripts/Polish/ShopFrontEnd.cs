@@ -19,7 +19,8 @@ public sealed class ShopFrontEnd : MonoBehaviour
     Canvas canvas;
     CanvasScaler canvasScaler;
     RectTransform overlay, card, content, hud;
-    Text statusText, progressText, hintText, heldText, timerText;
+    Text statusText;
+    ComicGameplayHud gameplayHud;
     Font font;
     AudioListener menuListener;
     int lastRevision = -1;
@@ -71,17 +72,7 @@ public sealed class ShopFrontEnd : MonoBehaviour
         card = Panel(overlay, "ComicShop menu", Paper); card.anchorMin = card.anchorMax = new Vector2(.5f, .5f);
         card.pivot = new Vector2(.5f, .5f); card.sizeDelta = new Vector2(1080, 760); card.anchoredPosition = Vector2.zero;
         hud = Panel(root.transform, "Gameplay HUD", Color.clear); Stretch(hud); hud.GetComponent<Image>().raycastTarget = false;
-        var summary = Panel(hud, "Round summary", new Color(Ink.r, Ink.g, Ink.b, .9f)); Rect(summary, 28, 24, 315, 108);
-        progressText = Label(summary, "", 20, 16, 275, 30, 25, Paper);
-        timerText = Label(summary, "", 20, 57, 275, 26, 17, Accent);
-        hintText = Label(hud, "", 320, 795, 960, 75, 23, Paper, TextAnchor.MiddleCenter);
-        var hintRect = (RectTransform)hintText.transform; hintRect.anchorMin = hintRect.anchorMax = new Vector2(.5f, 0);
-        hintRect.pivot = new Vector2(.5f, 0); hintRect.anchoredPosition = new Vector2(0, 28);
-        hintText.gameObject.AddComponent<Shadow>().effectColor = Color.black;
-        heldText = Label(hud, "", 1140, 28, 430, 140, 21, Paper, TextAnchor.UpperRight);
-        var heldRect = (RectTransform)heldText.transform; heldRect.anchorMin = heldRect.anchorMax = Vector2.one;
-        heldRect.pivot = Vector2.one; heldRect.anchoredPosition = new Vector2(-28, -28);
-        heldText.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+        gameplayHud = new ComicGameplayHud(hud, font);
         ShopSettings.Apply();
         if (!Application.isEditor && ShopSettings.Current.width > 0)
             Screen.SetResolution(ShopSettings.Current.width, ShopSettings.Current.height,
@@ -165,19 +156,9 @@ public sealed class ShopFrontEnd : MonoBehaviour
     }
     void UpdateHud()
     {
-        progressText.text = $"{GameStats.TotalPlaced:N0} / {GameStats.TotalBooks:N0} kitap";
-        timerText.text = $"{TimeLabel(ShopRound.Elapsed)}  •  {GameStats.CompletedBookGroupCount} grup tamam";
         var player = NetworkPlayerSetup.LocalPlayer;
         var interaction = player != null ? player.GetComponent<PlayerInteraction>() : oldHud != null ? oldHud.playerInteraction : null;
-        if (interaction == null) { heldText.text = ""; hintText.text = ""; return; }
-        var book = interaction.ActiveHeldBook;
-        heldText.text = $"ELDE  {interaction.HeldBooksList.Count}/{interaction.MaxHeldBooks}" +
-            (book != null ? "\n" + book.DisplayName + "\nTEKERLEK • kitap değiştir" : "");
-        if (!ShopSettings.Current.hints) { hintText.text = ""; return; }
-        hintText.text = interaction.InteractionHint;
-        if (string.IsNullOrEmpty(hintText.text)) hintText.text = book == null
-            ? $"Bir kitaba yaklaş  •  {ShopSettings.Key(ShopAction.Pickup)} ile al"
-            : $"Aynı yayıncının rafını bul  •  {ShopSettings.Key(ShopAction.Place)} ile yerleştir\n{ShopSettings.Key(ShopAction.Throw)} basılı tut → bırak: şarjlı atış";
+        gameplayHud.Refresh(interaction, TimeLabel(ShopRound.Elapsed));
     }
     static string TimeLabel(double seconds)
     {
