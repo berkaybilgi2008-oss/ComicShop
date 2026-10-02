@@ -575,10 +575,25 @@ public class BookSpawner : MonoBehaviour
             // pahali serit ornekleme (3000 kitap x binlerce deneme, TEK karede) Play Solo'da oyunu
             // saniyelerce donduruyordu. Ucuz rastgele koridor noktasi yeterli.
             Vector3[] positions = CreateSpawnPositions(ids.Count);
+
+            // Spawn in small bursts instead of instantiating the whole catalogue in one frame.
+            // The burst is intentionally short: books still appear quickly, but Instantiate +
+            // renderer/material setup + NetworkObject creation are spread across frames.
+            const int spawnBatchSize = 15;
+            const float spawnBatchDelay = 0.035f;
             for (int i = 0; i < ids.Count; i++)
             {
                 SpawnSingleBook(ids[i], positions[i]);
-                if (YieldForFrameBudget()) { ShopLoadingScreen.Progress((float)i / ids.Count * 0.45f); yield return null; }
+                if ((i + 1) % spawnBatchSize == 0)
+                {
+                    ShopLoadingScreen.Progress((float)(i + 1) / ids.Count * 0.45f);
+                    yield return new WaitForSecondsRealtime(spawnBatchDelay);
+                }
+                else if (YieldForFrameBudget())
+                {
+                    ShopLoadingScreen.Progress((float)(i + 1) / ids.Count * 0.45f);
+                    yield return null;
+                }
             }
             var books = new List<BookItem>(sessionBooks.Count);
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
