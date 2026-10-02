@@ -33,6 +33,20 @@ public static class GameplayPhysics
             && (hit.point - point).sqrMagnitude <= tolerance * tolerance;
     }
 
+    public const float DefaultInteractRange = 3f;
+    public const float ObstacleTolerance = 0.25f;
+
+    public static bool IsSoftObstacle(Collider collider, ShelfSlot targetSlot)
+    {
+        if (collider == null) return true;
+        if (collider.GetComponentInParent<BookItem>() != null) return true;
+        if (collider.GetComponentInParent<ShelfSlot>() != null) return true;
+        if (collider.GetComponentInParent<ShelfLogoBinding>() != null) return true;
+        if (collider.GetComponentInParent<PlayerInteraction>() != null) return true;
+        var furniture = targetSlot != null ? targetSlot.transform.parent : null;
+        return furniture != null && collider.transform.IsChildOf(furniture);
+    }
+
     public static bool CanReach(Transform actor, Vector3 eye, Collider target, float range)
     {
         if (!TryClosestPoint(target, eye, out var point)) return false;
