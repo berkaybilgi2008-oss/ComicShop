@@ -10,6 +10,8 @@ public class BrandCatalog : ScriptableObject
         public int brandID;
         public string brandName;
         public int bookCount;
+        [Tooltip("Raf tabelasinda kullanilan logo dokusu.")]
+        public Texture2D logoTexture;
     }
 
     public Entry[] brands = Array.Empty<Entry>();
@@ -25,6 +27,20 @@ public class BrandCatalog : ScriptableObject
                 if (brand != null) total += Mathf.Max(0, brand.bookCount);
             return total;
         }
+    }
+
+    // Exact asset identity: filenames and book cover textures are not publisher IDs.
+    public int GetBrandForLogo(Texture logo)
+    {
+        if (logo == null || brands == null) return -1;
+        int match = -1;
+        foreach (var brand in brands)
+        {
+            if (brand == null || brand.logoTexture != logo) continue;
+            if (brand.brandID < 0 || match >= 0) return -1;
+            match = brand.brandID;
+        }
+        return match;
     }
 
     public string GetBrandName(int brandID)
