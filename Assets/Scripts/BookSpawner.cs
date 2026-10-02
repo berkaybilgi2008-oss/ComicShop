@@ -2473,10 +2473,16 @@ public class BookSpawner : MonoBehaviour
             var positions = new Vector3[count];
             int at = 0;
             for (int corridor = 0; corridor < 3; corridor++)
-                for (int i = 0; i < targets[corridor]; i++)
-                    positions[at++] = SampleArea(usable[corridor]);
+            {
+                Vector3[] corridorPositions = CreateEvenCorridorPositions(usable[corridor], targets[corridor]);
+                for (int i = 0; i < corridorPositions.Length; i++)
+                    positions[at++] = corridorPositions[i];
+            }
 
-            // Shuffle so books are not spawned in corridor-sized blocks.
+            // Keep the requested 2:2:1 distribution, but randomize which physical
+            // book gets which corridor position. The positions themselves stay
+            // evenly separated so dense corridors do not start with overlapping
+            // dynamic rigidbodies and trigger a physics spike.
             for (int i = positions.Length - 1; i > 0; i--)
             {
                 int j = Random.Range(0, i + 1);
@@ -2488,6 +2494,57 @@ public class BookSpawner : MonoBehaviour
         var fallback = new Vector3[count];
         for (int i = 0; i < count; i++) fallback[i] = SampleSpawnPosition();
         return fallback;
+    }
+
+    private Vector3[] CreateEvenCorridorPositions(BoxCollider zone, int count)
+    {
+        if (zone == null || count <= 0) return System.Array.Empty<Vector3>();
+
+        Vector3 scale = zone.transform.lossyScale;
+        float width = Mathf.Max(0.1f, zone.size.x * Mathf.Abs(scale.x) - 2f * corridorEdgePadding);
+        float depth = Mathf.Max(0.1f, zone.size.z * Mathf.Abs(scale.z) - 2f * corridorEdgePadding);
+
+        // Build a roughly square world-space grid. Every chosen cell gets one book,
+        // which removes the large random-overlap spikes caused by dense corridor spawns.
+        float aspect = width / Mathf.Max(0.1f, depth);
+        int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count * aspect)));
+        int rows = Mathf.Max(1, Mathf.CeilToInt((float)count / columns));
+
+        // If the first estimate is too narrow on one axis, expand the grid until
+        // there are enough cells while keeping the cell aspect close to the corridor.
+        while (columns * rows < count)
+            rows++;
+
+        float cellWidth = width / columns;
+        float cellDepth = depth / rows;
+        float halfX = zone.size.x * 0.5f - corridorEdgePadding / Mathf.Max(0.001f, Mathf.Abs(scale.x));
+        float halfZ = zone.size.z * 0.5f - corridorEdgePadding / Mathf.Max(0.001f, Mathf.Abs(scale.z));
+
+        var cells = new List<int>(columns * rows);
+        for (int i = 0; i < columns * rows; i++) cells.Add(i);
+
+        // Randomize cell selection, not the cell positions, so visual distribution
+        // stays natural without sacrificing the minimum grid spacing.
+        for (int i = cells.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (cells[i], cells[j]) = (cells[j], cells[i]);
+        }
+
+        var result = new Vector3[count];
+        for (int i = 0; i < count; i++)
+        {
+            int cell = cells[i];
+            int x = cell % columns;
+            int z = cell / columns;
+
+            float localX = -halfX + (x + 0.5f) * (2f * halfX / columns);
+            float localZ = -halfZ + (z + 0.5f) * (2f * halfZ / rows);
+            result[i] = zone.transform.TransformPoint(zone.center + new Vector3(localX, 0f, localZ))
+                         + Vector3.up * spawnHeight;
+        }
+
+        return result;
     }
 
     public Vector3 SampleSpawnPosition() => SampleSpawnPosition(0.15f);
