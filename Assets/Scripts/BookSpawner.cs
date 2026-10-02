@@ -5,7 +5,6 @@ using UnityEngine;
 
 public class BookSpawner : MonoBehaviour
 {
-    public Transform v16SpawnArea; // Legacy single-area fallback
     [Header("Corridor Spawn Areas")]
     [Tooltip("When assigned, books spawn only in these boxes. Box colliders may stay disabled.")]
     public BoxCollider[] corridorAreas;
@@ -14,7 +13,6 @@ public class BookSpawner : MonoBehaviour
     [Header("Varsayilan Prefab ve Alan")]
     [Tooltip("BookData icinde ozel prefab verilmezse kullanilacak fiziksel kitap prefab'i.")]
     public GameObject bookPrefab;
-    public Vector2 areaSize = new Vector2(10f, 10f);
     public float spawnHeight = 1.5f;
 
     [Header("Kitap Verileri")]
@@ -28,364 +26,6 @@ public class BookSpawner : MonoBehaviour
     [Tooltip("Yerdeki binlerce kitabin her biri golge isiklarinda yeniden cizilir. Oyun kasiyorsa " +
              "kapatmayi dene: kitaplar golge dusurmez ama golge almaya devam eder.")]
     public bool booksCastShadows = true;
-
-    [Header("Raf Onu Yerlesimi")]
-    [Tooltip("Acikken yerdeki kitaplar ve kuleler koridorlarin ortasina degil, kitapliklarin " +
-             "onune (uzun yuzlerine bitisik bir seride) toplanir. Kitapliklarin arasindaki gecitler " +
-             "ve koridorun ortasi bos kalir.")]
-    public bool gatherInFrontOfShelves = true;
-    [Tooltip("Kitaplik yuzunden itibaren kitaplarin dizilecegi seridin genisligi (metre).")]
-    // Yeni ad: sahnede kayitli eski serit genisligi (1.4 / 3.5 / 3.8) yeni degeri ezmesin.
-    [Min(0.3f)] public float bookAreaDepthMeters = 4.45f;
-    [Tooltip("Kitaplik yuzu ile ilk kitap arasinda birakilan bosluk (metre).")]
-    [Min(0f)] public float shelfFrontClearance = 0.1f;
-
-    [Header("Test")]
-    [Tooltip("BookData listesi bosken kullanilacak test kitap turu sayisi. Normal oyunda Setup ALL Book Models tarafindan doldurulan bookTypes kullanilir.")]
-    [Min(1)]
-    public int testBookTypeCount = 15;
-
-    [Header("Rastgele Kuleler")]
-    // Yeni alan adlari: sahnede kayitli eski kule ayarlari (0.1 / 15'lik / ekstra uzun) geri gelmesin.
-    [Tooltip("Kitaplarin kulelerde duran payi. Kalan kitaplar serit icinde daginik yigilir.")]
-    [Range(0f, 1f)] public float towerBookShare = 0.08f;
-    [Tooltip("Acikken daginik kitaplar kendi alanlarina (gecici gorunmez duvarlarla cevrili) rastgele " +
-             "egimle birakilir ve acilis ekrani sirasinda fizikle devrilip dagilir: gercek karmasa, ic ice gecme yok.")]
-    public bool dropLooseBooks = true;
-    [Tooltip("Acikken kule yok: kitaplar fotograftaki gibi YIGINLAR halinde (ortasi yuksek, kenarlari alcak, " +
-             "kitaplar hafif kaymis/donmus) dizilir. Fizik dususu yok; yerlesim aninda biter, her kitap yerinde donmus baslar.")]
-    public bool heapLayoutMode = true;
-    [Tooltip("Bir yigin sutununun en fazla kitap sayisi.")]
-    [Min(2)] public int heapMaxColumnBooks = 14;
-    [Tooltip("Kucuk kulelerin en fazla kitap sayisi (6..bu deger).")]
-    [Min(2)] public int smallTowerMaxBooks = 10;
-    [Tooltip("Buyuk kulelerin en fazla kitap sayisi (14..bu deger).")]
-    [Min(2)] public int largeTowerMaxBooks = 20;
-    [Tooltip("Her kitap icin kule yonunden rastgele sapma (derece).")]
-    [Range(0f, 180f)] public float towerYawJitter = 8f;
-    [Tooltip("Kuleler arasinda birakilan en az bosluk (metre); kuleler serit boyunca dengeli dagilir.")]
-    [Min(0.1f)] public float towerGapMeters = 1.1f;
-    [Tooltip("Kitaplik uclarinda (karsi koridora gecis, raf sirasi sonu) bos birakilan gecit uzunlugu (metre).")]
-    [Min(0f)] public float endPassageMeters = 1.0f;
-    [Tooltip("Tezgah/masa gibi engellerin cevresinde bos birakilan gecis payi (metre).")]
-    [Min(0f)] public float propClearanceMeters = 0.6f;
-    [Tooltip("Daginik kitaplarin bir kismi yandaki kitaba yaslanir (egik durur).")]
-    [Range(0f, 1f)] public float bookLeanChance = 0.85f;
-    // Daginik yiginlarin en fazla yuksekligi: kuleye donusmesin.
-    private const float maxLoosePileHeight = 0.7f;
-
-    private readonly HashSet<BookItem> spawnedTowerBooks = new HashSet<BookItem>();
-    private readonly List<Vector4> towerSites = new List<Vector4>();
-    private GameObject dropWalls;
-    private struct DroppedBody { public Rigidbody body; public CollisionDetectionMode mode; public float depenetration; }
-    private readonly List<DroppedBody> droppedBodies = new List<DroppedBody>();
-
-    /// <summary>Yerlesim (dusus) suruyorken true: gercekci carpma etkileri bu surede kapali.</summary>
-    public static bool LayoutInProgress { get; private set; }
-
-    /// <summary>
-    /// Dusus fizigini acilis ekraninin arkasinda HIZLANDIRILMIS calistirir (Physics.Simulate):
-    /// kitaplar gercek fizikle devrilip durur, oyuncu saniyelerce beklemez. Sonra yalnizca
-    /// gercekten duran ve alti dolu olan kitaplar, alttan uste, oldugu yerde dondurulur.
-    /// </summary>
-    private IEnumerator FastForwardDrop()
-    {
-        const float step = 0.02f;
-        var entries = new List<(Rigidbody body, BookItem item)>(sessionBooks.Count);
-        foreach (var go in sessionBooks)
-        {
-            if (go == null || !go.TryGetComponent<Rigidbody>(out var rb) || rb.isKinematic) continue;
-            entries.Add((rb, go.GetComponent<BookItem>()));
-        }
-        // Alttan uste dalgalar: ayni anda binlerce dinamik govde simule etmek cok yavasti (oyuncu
-        // 20+ sn bekliyordu). Her dalga ~300 kitap; o dalga durunca yerinde donar, sonra ustundeki
-        // dalga onun ustune duser. Bekleyen dalgalar havada kinematik bekler.
-        entries.Sort((a, b) => a.body.position.y.CompareTo(b.body.position.y));
-        var saved = new Dictionary<Rigidbody, (float linear, float angular, float sleep)>(entries.Count);
-        foreach (var e in entries)
-        {
-            saved[e.body] = (e.body.linearDamping, e.body.angularDamping, e.body.sleepThreshold);
-            e.body.isKinematic = true;
-        }
-        var previousMode = Physics.simulationMode;
-        LayoutInProgress = true;
-        Transform ignore = dropWalls != null ? dropWalls.transform : null;
-        int waveSize = Mathf.Clamp(entries.Count / 8 + 1, 150, 400);
-        int frozen = 0;
-        float simulatedTotal = 0f;
-        var active = new List<(Rigidbody body, BookItem item)>(waveSize * 2);
-        ShopLoadingScreen.Settling(0f);
-        try
-        {
-            Physics.simulationMode = SimulationMode.Script;
-            for (int start = 0; start < entries.Count; start += waveSize)
-            {
-                for (int i = start; i < Mathf.Min(entries.Count, start + waveSize); i++)
-                {
-                    var e = entries[i];
-                    if (e.body == null) continue;
-                    e.body.isKinematic = false;
-                    // Dusus sirasinda biraz daha sonumlu: cabuk durulur, yine de devrilir/kayar.
-                    e.body.linearDamping = Mathf.Max(e.body.linearDamping, 0.35f);
-                    e.body.angularDamping = Mathf.Max(e.body.angularDamping, 0.8f);
-                    e.body.sleepThreshold = Mathf.Max(e.body.sleepThreshold, 0.04f);
-                    e.body.WakeUp();
-                    active.Add(e);
-                }
-                float simulated = 0f;
-                int quiet = 0;
-                while (simulated < 2.2f)
-                {
-                    double began = Time.realtimeSinceStartupAsDouble;
-                    while (Time.realtimeSinceStartupAsDouble - began < 0.08 && simulated < 2.2f)
-                    {
-                        Physics.Simulate(step);
-                        simulated += step;
-                    }
-                    int moving = 0;
-                    foreach (var e in active)
-                    {
-                        if (e.body == null || e.body.isKinematic || e.body.IsSleeping()) continue;
-                        if (e.body.linearVelocity.sqrMagnitude > 0.0025f || e.body.angularVelocity.sqrMagnitude > 0.02f) moving++;
-                    }
-                    ShopLoadingScreen.Settling(Mathf.Clamp01((start + (float)waveSize * Mathf.Min(1f, simulated / 1.2f)) / entries.Count) * 0.97f);
-                    if (simulated >= 0.4f && moving <= active.Count / 50) { if (++quiet >= 2) break; } else quiet = 0;
-                    yield return null;
-                }
-                simulatedTotal += simulated;
-                // Bu dalgadan duranlar (ve onceki dalgalardan kalanlar) alttan uste donar.
-                Physics.SyncTransforms();
-                active.Sort((a, b) => a.body.position.y.CompareTo(b.body.position.y));
-                for (int pass = 0; pass < 6; pass++)
-                {
-                    int changed = 0;
-                    foreach (var e in active)
-                        if (e.item != null && e.item.FreezeWhereResting(ignore)) changed++;
-                    frozen += changed;
-                    if (changed == 0) break;
-                }
-                active.RemoveAll(e => e.body == null || e.body.isKinematic);
-            }
-        }
-        finally
-        {
-            Physics.simulationMode = previousMode;
-            foreach (var pair in saved)
-            {
-                if (pair.Key == null) continue;
-                pair.Key.linearDamping = pair.Value.linear;
-                pair.Key.angularDamping = pair.Value.angular;
-                pair.Key.sleepThreshold = pair.Value.sleep;
-            }
-        }
-        Debug.Log($"BookSpawner: dusus {simulatedTotal:0.0} sn (dalgalar halinde, hizlandirilmis) simule edildi; " +
-                  $"{frozen} kitap yerinde donduruldu, {active.Count} serbest.");
-        EndDrop();
-        LayoutInProgress = false;
-        ShopLoadingScreen.Settling(1f);
-    }
-
-    private void EndDrop()
-    {
-        if (dropWalls != null) { Destroy(dropWalls); dropWalls = null; }
-        foreach (var dropped in droppedBodies)
-        {
-            if (dropped.body == null) continue;
-            dropped.body.collisionDetectionMode = dropped.mode;
-            dropped.body.maxDepenetrationVelocity = dropped.depenetration;
-        }
-        droppedBodies.Clear();
-    }
-
-    private double frameBudgetStarted;
-    private bool YieldForFrameBudget()
-    {
-        double now = Time.realtimeSinceStartupAsDouble;
-        // Yukleme ekrani sadece dusen kitaplari gizler; her karede daha fazla is yapip
-        // ekrani kisa tut (ilerleme cubugu yine akici gorunur).
-        if (now - frameBudgetStarted < 0.05) return false;
-        frameBudgetStarted = now;
-        return true;
-    }
-    private bool sessionSpawned;
-    private readonly List<GameObject> sessionBooks = new List<GameObject>();
-
-    // When corridor areas are assigned, they are the complete spawn authority. In this mode
-    // books must never be relocated by the shelf-band / heap / tower layout systems.
-    private bool CorridorOnlySpawn => corridorAreas != null && corridorAreas.Length > 0;
-
-    // Corridor_04 is permanently excluded from book spawning. The scene object may remain
-    // for level geometry, but it is never a valid spawn area.
-    private static bool IsFourthCorridor(BoxCollider zone)
-    {
-        if (zone == null) return false;
-        string name = zone.gameObject.name.ToLowerInvariant().Replace("_", " ").Replace("-", " ");
-        return name.Contains("corridor 04") || name.Contains("corridor 4") ||
-               name.Contains("4th corridor") || name.Contains("fourth corridor") ||
-               name.Contains("koridor 04") || name.Contains("koridor 4") ||
-               name.Contains("4. koridor");
-    }
-
-    // Tum oyuncularda (host ve istemci) sahne yuklenince calisir: raf gozleri kopya sayisini alsin.
-    void Awake() => ShelfSlot.MatchCapacityToCopies(copiesPerBook);
-
-    // ---------------- Raf onu seridi ----------------
-    private struct ShelfFootprint { public Vector2 min, max; public bool longAlongX; public bool passMin, passMax; public float minY; }
-    private readonly List<ShelfFootprint> shelfFootprints = new List<ShelfFootprint>();
-    private readonly HashSet<Collider> shelfColliders = new HashSet<Collider>();
-    // Koridorlari olusturan kitapliklarin yonu (cogunluk). Ters yondeki kitapliklarin (orn. arka
-    // duvardaki, capraz gecit koridoruna bakanlar) onune kitap dokulmez: o alan gecis yolu.
-    private bool dominantAlongX;
-
-    private void BuildShelfFootprints()
-    {
-        shelfFootprints.Clear();
-        shelfColliders.Clear();
-        if (!gatherInFrontOfShelves) return;
-        var roots = new HashSet<Transform>();
-        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
-            if (slot != null && slot.gameObject.scene == gameObject.scene) roots.Add(slot.transform.root);
-        foreach (var root in roots)
-        {
-            Bounds bounds = default;
-            bool any = false;
-            foreach (var col in root.GetComponentsInChildren<Collider>())
-            {
-                if (!col.enabled || col.isTrigger || col.GetComponentInParent<BookItem>() != null) continue;
-                shelfColliders.Add(col);
-                if (!any) { bounds = col.bounds; any = true; } else bounds.Encapsulate(col.bounds);
-            }
-            if (!any)
-                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
-                {
-                    if (!any) { bounds = renderer.bounds; any = true; } else bounds.Encapsulate(renderer.bounds);
-                }
-            if (!any || bounds.size.x < 0.05f || bounds.size.z < 0.05f) continue;
-            shelfFootprints.Add(new ShelfFootprint
-            {
-                min = new Vector2(bounds.min.x, bounds.min.z),
-                max = new Vector2(bounds.max.x, bounds.max.z),
-                longAlongX = bounds.size.x >= bounds.size.z,
-                minY = bounds.min.y
-            });
-        }
-        int alongX = 0;
-        foreach (var f in shelfFootprints) if (f.longAlongX) alongX++;
-        dominantAlongX = alongX * 2 > shelfFootprints.Count;
-        // Kitaplik ucundaki aralik GERCEK bir gecit mi (karsi koridora yurunebiliyor mu)? Duvar kenarindaki
-        // yan yana kitapliklarin arasi duvara cikar: orasi gecit degil, yigin kesintisiz devam eder.
-        int passages = 0;
-        for (int i = 0; i < shelfFootprints.Count; i++)
-        {
-            var f = shelfFootprints[i];
-            f.passMin = IsPassage(f, true);
-            f.passMax = IsPassage(f, false);
-            if (f.passMin) passages++;
-            if (f.passMax) passages++;
-            shelfFootprints[i] = f;
-        }
-        Debug.Log($"BookSpawner: {shelfFootprints.Count} kitaplik, {passages} gercek uc gecidi (digerlerinde yigin kesintisiz).");
-    }
-
-    private static readonly RaycastHit[] passageHits = new RaycastHit[32];
-    private bool IsPassage(ShelfFootprint f, bool atMin)
-    {
-        float along = atMin ? (f.longAlongX ? f.min.x : f.min.y) - 0.35f : (f.longAlongX ? f.max.x : f.max.y) + 0.35f;
-        float acrossMin = f.longAlongX ? f.min.y : f.min.x, acrossMax = f.longAlongX ? f.max.y : f.max.x;
-        float length = acrossMax - acrossMin + 1.6f;
-        Vector3 dir = f.longAlongX ? Vector3.forward : Vector3.right;
-        float probeY = float.NaN;
-        // Tavandan degil kitaplik tabaninin biraz ustunden asagi: zemini bul.
-        Vector3 groundProbe = f.longAlongX ? new Vector3(along, f.minY + 1.0f, acrossMin - 0.8f) : new Vector3(acrossMin - 0.8f, f.minY + 1.0f, along);
-        if (Ground(groundProbe, out var floor)) probeY = floor.point.y;
-        if (float.IsNaN(probeY)) probeY = f.minY;
-        // Iki yonden de (tek yuzlu duvar mesh'leri arkadan gorunmez) ve iki yukseklikte tara.
-        foreach (float h in new[] { 0.5f, 1.2f })
-            for (int d = 0; d < 2; d++)
-            {
-                float fromAcross = d == 0 ? acrossMin - 0.8f : acrossMax + 0.8f;
-                Vector3 start = f.longAlongX ? new Vector3(along, probeY + h, fromAcross) : new Vector3(fromAcross, probeY + h, along);
-                int n = Physics.RaycastNonAlloc(start, d == 0 ? dir : -dir, passageHits, length, Physics.AllLayers, QueryTriggerInteraction.Ignore);
-                for (int k = 0; k < n; k++)
-                    if (passageHits[k].collider != null && passageHits[k].collider.GetComponentInParent<BookItem>() == null) return false;
-            }
-        return true;
-    }
-
-    // Nokta bir kitapligin UZUN yuzunun onundeki seritte mi? Kitaplik uclarindaki gecitler haric.
-    private bool InShelfBand(Vector3 point, float radius, float spill = 0f, float depthSpill = float.NaN)
-    {
-        if (shelfFootprints.Count == 0) return true;
-        Vector2 p = new Vector2(point.x, point.z);
-        bool inBand = false;
-        foreach (var f in shelfFootprints)
-        {
-            // Hicbir kitapligin icine ya da dibine girme.
-            float gap = shelfFrontClearance + radius;
-            if (p.x > f.min.x - gap && p.x < f.max.x + gap && p.y > f.min.y - gap && p.y < f.max.y + gap)
-            {
-                bool alongInside = f.longAlongX ? p.x > f.min.x && p.x < f.max.x : p.y > f.min.y && p.y < f.max.y;
-                if (!alongInside) return false; // uc kismi: gecit
-                float across = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
-                if (across < gap) return false;
-            }
-            if (f.longAlongX != dominantAlongX) continue; // capraz gecide bakan kitaplik: serit yok
-            float along = f.longAlongX ? p.x : p.y;
-            // Gecit olmayan uc (duvar kenarinda yan yana kitapliklar): serit komsu kitapliginkine ulasir.
-            float alongMin = (f.longAlongX ? f.min.x : f.min.y) + radius + 0.1f - spill - (f.passMin ? 0f : 0.9f);
-            float alongMax = (f.longAlongX ? f.max.x : f.max.y) - radius - 0.1f + spill + (f.passMax ? 0f : 0.9f);
-            if (along < alongMin || along > alongMax) continue;
-            float distance = f.longAlongX ? Mathf.Max(f.min.y - p.y, p.y - f.max.y) : Mathf.Max(f.min.x - p.x, p.x - f.max.x);
-            if (distance >= shelfFrontClearance + radius && distance <= bookAreaDepthMeters - radius + (float.IsNaN(depthSpill) ? spill : depthSpill)) inBand = true;
-        }
-        if (!inBand) return false;
-        // Kitaplik sirasinin uclari (kitapliklar arasi gecit, sira sonu, arka raflarin onundeki
-        // capraz koridor) her zaman bos: kitaplik ucundan disari dogru shelfEndPassage kadar,
-        // serit derinligi boyunca hic kitap yok.
-        foreach (var g in shelfFootprints)
-        {
-            float along = g.longAlongX ? p.x : p.y;
-            float gMin = g.longAlongX ? g.min.x : g.min.y, gMax = g.longAlongX ? g.max.x : g.max.y;
-            float beyond = along < gMin ? gMin - along : along > gMax ? along - gMax : -1f;
-            if (beyond < 0f || beyond > endPassageMeters + radius - spill) continue;
-            if (along < gMin ? !g.passMin : !g.passMax) continue; // gecit degil: bos birakma
-            float across = g.longAlongX ? Mathf.Max(g.min.y - p.y, p.y - g.max.y) : Mathf.Max(g.min.x - p.x, p.x - g.max.x);
-            if (across <= bookAreaDepthMeters + spill) return false;
-        }
-        return true;
-    }
-
-    // ---------------- Yerlesim icin kaba izgara (binlerce kitapta O(n^2) tarama olmasin) ----------------
-    private const float GridCell = 0.5f;
-    private readonly Dictionary<long, List<int>> placedGrid = new Dictionary<long, List<int>>();
-    private static long CellKey(int x, int z) => ((long)x << 32) ^ (uint)z;
-    private void GridAdd(List<Bounds> placed, Bounds bounds)
-    {
-        int index = placed.Count;
-        placed.Add(bounds);
-        int x0 = Mathf.FloorToInt(bounds.min.x / GridCell), x1 = Mathf.FloorToInt(bounds.max.x / GridCell);
-        int z0 = Mathf.FloorToInt(bounds.min.z / GridCell), z1 = Mathf.FloorToInt(bounds.max.z / GridCell);
-        for (int x = x0; x <= x1; x++)
-            for (int z = z0; z <= z1; z++)
-            {
-                long key = CellKey(x, z);
-                if (!placedGrid.TryGetValue(key, out var list)) placedGrid.Add(key, list = new List<int>(4));
-                list.Add(index);
-            }
-    }
-    private readonly HashSet<int> gridSeen = new HashSet<int>();
-    private readonly List<int> gridResult = new List<int>();
-    private List<int> GridQuery(Bounds area)
-    {
-        gridSeen.Clear(); gridResult.Clear();
-        int x0 = Mathf.FloorToInt(area.min.x / GridCell), x1 = Mathf.FloorToInt(area.max.x / GridCell);
-        int z0 = Mathf.FloorToInt(area.min.z / GridCell), z1 = Mathf.FloorToInt(area.max.z / GridCell);
-        for (int x = x0; x <= x1; x++)
-            for (int z = z0; z <= z1; z++)
-                if (placedGrid.TryGetValue(CellKey(x, z), out var list))
-                    foreach (int i in list) if (gridSeen.Add(i)) gridResult.Add(i);
-        return gridResult;
-    }
 
     IEnumerator Start()
     {
@@ -425,6 +65,7 @@ public class BookSpawner : MonoBehaviour
         SpawnError = null;
         ShelfSlot.BuildNetworkRegistry();
         ShopLoadingScreen.Show();
+        LayoutInProgress = true;
         var routine = SpawnBooks(BookTypeCount);
         try
         {
@@ -447,22 +88,13 @@ public class BookSpawner : MonoBehaviour
             // Tur (ve sayac) ancak bu bittikten sonra baslar.
             if (sessionSpawned)
             {
-                if (dropWalls != null)
-                {
-                    var fast = FastForwardDrop();
-                    while (fast.MoveNext()) yield return fast.Current;
-                }
-                else
-                {
-                    var settle = WaitForBooksToSettle();
-                    while (settle.MoveNext()) yield return settle.Current;
-                }
+                var settle = WaitForBooksToSettle();
+                while (settle.MoveNext()) yield return settle.Current;
             }
         }
         finally
         {
             (routine as System.IDisposable)?.Dispose();
-            EndDrop();
             LayoutInProgress = false;
             if (Physics.simulationMode == SimulationMode.Script) Physics.simulationMode = SimulationMode.FixedUpdate;
             if (!sessionSpawned)
@@ -565,8 +197,6 @@ public class BookSpawner : MonoBehaviour
         }
 
         ValidateConfiguration(NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
-        loadPhase = "raf izleri";
-        if (!CorridorOnlySpawn) BuildShelfFootprints();
         loadPhase = "kitap olusturma";
         sessionBooks.Clear();
         {
@@ -597,28 +227,10 @@ public class BookSpawner : MonoBehaviour
             }
             var books = new List<BookItem>(sessionBooks.Count);
             foreach (var book in sessionBooks) books.Add(book.GetComponent<BookItem>());
-            spawnedTowerBooks.Clear();
-            towerSites.Clear();
-            if (!CorridorOnlySpawn)
-            {
-                if (!heapLayoutMode)
-                {
-                    var towers = ArrangeTowers(books);
-                    while (towers.MoveNext()) yield return towers.Current;
-                }
-                ShopLoadingScreen.Progress(0.55f);
-                loadPhase = "yerlesim";
-                var scattered = SeparateInitialBooks(books);
-                while (scattered.MoveNext()) yield return scattered.Current;
-            }
-            else
-            {
-                // Corridor-only mode is intentionally a hard stop: the four corridor areas
-                // are the final positions. Do not move books to shelf fronts, heaps or towers.
-                Physics.SyncTransforms();
-                ShopLoadingScreen.Progress(0.85f);
-                Debug.Log($"BookSpawner: Corridor-only spawn aktif; {books.Count} kitap dort corridor alaninda birakildi. Raf/kule yerlesimi atlandi.");
-            }
+            Physics.SyncTransforms();
+            ShopLoadingScreen.Progress(0.85f);
+            Debug.Log($"BookSpawner: aktif corridor spawn sistemi; {books.Count} kitap atanmis corridor alanlarinda birakildi.");
+
             int published = 0;
             loadPhase = "ag yayini";
             // Publish the completed server layout, never the pre-arrangement poses.
@@ -2506,9 +2118,7 @@ public class BookSpawner : MonoBehaviour
             return positions;
         }
 
-        var fallback = new Vector3[count];
-        for (int i = 0; i < count; i++) fallback[i] = SampleSpawnPosition();
-        return fallback;
+        throw new System.InvalidOperationException("BookSpawner: corridorAreas atanmamis.");
     }
 
     private Vector3[] CreateEvenCorridorPositions(BoxCollider zone, int count)
@@ -2603,8 +2213,7 @@ public class BookSpawner : MonoBehaviour
             if (hasFallback) return fallback; // Seritte yer yoksa koridor icinde bir nokta.
             throw new System.InvalidOperationException("Could not sample corridor union.");
         }
-        Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-        return area.TransformPoint(new Vector3(Random.Range(-areaSize.x*.5f,areaSize.x*.5f),spawnHeight,Random.Range(-areaSize.y*.5f,areaSize.y*.5f)));
+        throw new System.InvalidOperationException("BookSpawner: corridorAreas atanmamis.");
     }
     Vector3 SampleArea(BoxCollider selected)
     {
@@ -2680,10 +2289,8 @@ public class BookSpawner : MonoBehaviour
         }
         else
         {
-            Transform area = v16SpawnArea != null ? v16SpawnArea : transform;
-            if (areaSize.x <= 0 || areaSize.y <= 0 || !Finite(areaSize.sqrMagnitude) ||
-                Mathf.Abs(area.lossyScale.x * area.lossyScale.z) < .00001f)
-            { error = "Legacy spawn area has invalid Size or zero Scale. Assign corridor areas."; return false; }
+            error = "BookSpawner: corridorAreas atanmamis. Aktif spawn sistemi yalnizca corridor alanlarini kullanir.";
+            return false;
         }
         error = null; return true;
     }
