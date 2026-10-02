@@ -10,9 +10,12 @@ public static class ShopSettings
     [Serializable]
     public sealed class Preferences
     {
-        public float sensitivity = 2.2f, fov = 75f, master = .8f, effects = .8f, ambience = .3f;
+        public float sensitivity = 2.2f, fov = 75f, master = .8f, effects = .8f, ambience = .3f, music = .55f;
         public bool fovChosen, invertY, vsync = true, hints = true;
         public int fps = 120, width, height, windowMode = 1;
+        public int graphics = GraphicsQuality.High;
+        // Gercekci fizik (lamba sallanmasi, atilan kitabin yigini dagitmasi). Varsayilan kapali: dusuk sistemleri etkilemez.
+        public bool realisticPhysics;
         public int[] keys = DefaultKeys();
     }
     static Preferences current;
@@ -31,8 +34,9 @@ public static class ShopSettings
         p.sensitivity = Clamp(p.sensitivity, .1f, 10f, 2.2f);
         p.fov = Clamp(p.fov, 55, 105, 75);
         p.master = Clamp(p.master, 0, 1, .8f); p.effects = Clamp(p.effects, 0, 1, .8f);
-        p.ambience = Clamp(p.ambience, 0, 1, .3f);
+        p.ambience = Clamp(p.ambience, 0, 1, .3f); p.music = Clamp(p.music, 0, 1, .55f);
         p.fps = Mathf.Clamp(p.fps, 30, 240); p.windowMode = Mathf.Clamp(p.windowMode, 0, 1);
+        p.graphics = Mathf.Clamp(p.graphics, GraphicsQuality.Low, GraphicsQuality.VeryHigh);
         if (p.width < 640 || p.width > 16384 || p.height < 480 || p.height > 16384) { p.width = 0; p.height = 0; }
         var defaults = DefaultKeys();
         if (p.keys == null || p.keys.Length != defaults.Length) p.keys = defaults;
@@ -62,6 +66,7 @@ public static class ShopSettings
         Validate(Current);
         QualitySettings.vSyncCount = Current.vsync ? 1 : 0;
         Application.targetFrameRate = Current.vsync ? -1 : Current.fps;
+        GraphicsQuality.Apply(Current.graphics);
         var player = NetworkPlayerSetup.LocalPlayer;
         if (player != null) ApplyPlayer(player.GetComponent<PlayerInteraction>());
         Changed?.Invoke();
@@ -82,7 +87,7 @@ public static class ShopSettings
     public static void Save() { PlayerPrefs.SetString(StorageKey, JsonUtility.ToJson(Current)); PlayerPrefs.Save(); }
     public static string Label(ShopAction action)
     {
-        string[] labels = { "İleri", "Geri", "Sol", "Sağ", "Zıpla / ayağa kalk", "Koş", "Kitabı al", "Yerleştir / bırak", "Şarjlı atış", "Kayıp kitapları çağır" };
-        return labels[(int)action];
+        string[] keys = { "action.forward", "action.back", "action.left", "action.right", "action.jump", "action.sprint", "action.pickup", "action.place", "action.throw", "action.recall" };
+        return Loc.T(keys[(int)action]);
     }
 }
