@@ -29,6 +29,8 @@ public class ShelfSlot : MonoBehaviour
 
     [Header("Marka")]
     [Min(0)] public int brandID;
+    public ShelfLogoBinding publisherLogo;
+    public int PublisherID => publisherLogo != null ? publisherLogo.PublisherID : brandID;
 
     [Header("Kapasite")]
     [Min(1)] public int capacity = 10;
@@ -61,6 +63,8 @@ public class ShelfSlot : MonoBehaviour
     [Tooltip("Ince ayar: dunya uzayinda yukseklik/derinlik offset'i. Dizilme eksenindeki " +
              "bilesen yok sayilir; sol kenar mesafesini First Book Inset ile ayarla.")]
     public Vector3 worldOffset = Vector3.zero;
+    [Tooltip("X = rafin icine mesafe, Y = dunya yuksekligi (metre). Raf donunce derinlik de doner. Z eski yanal ayardir; sabit kitap araligi icin kullanilmaz.")]
+    public bool rotateOffsetWithShelf = true;
 
     [Tooltip("Kitabin rafa konuldugundaki ek rotasyonu (slot'un rotasyonu uzerine eklenir).")]
     public Vector3 bookRotationOffsetEuler = Vector3.zero;
@@ -123,6 +127,54 @@ public class ShelfSlot : MonoBehaviour
             slot.NetworkKey = key;
             networkSlots.Add(key, slot);
         }
+        RepairUniformPublisherLayout();
+    }
+
+    private static void RepairUniformPublisherLayout()
+    {
+        var spawner = FindFirstObjectByType<BookSpawner>();
+        if (spawner == null || spawner.bookTypes == null || networkSlots.Count == 0) return;
+        var slots = new List<ShelfSlot>(networkSlots.Values);
+        int originalBrand = slots[0].brandID;
+        foreach (var slot in slots)
+            if (slot.brandID != originalBrand || slot.FilledCount > 0) return;
+        var demand = new SortedDictionary<int, int>();
+        foreach (var data in spawner.bookTypes)
+        {
+            if (data == null) continue;
+            demand.TryGetValue(data.BrandID, out int count);
+            demand[data.BrandID] = count + 1;
+        }
+        if (demand.Count < 2) return;
+        // This fallback applies only to a scene whose entire publisher layout was lost.
+        // Keep an intentionally authored multi-publisher layout unchanged.
+        slots.Sort((a, b) => string.CompareOrdinal(LayoutPath(a.transform), LayoutPath(b.transform)));
+        var assignments = new List<int>();
+        int cursor = 0;
+        foreach (var pair in demand)
+            for (int type = 0; type < pair.Value; type++)
+            {
+                int remaining = Mathf.Max(1, spawner.copiesPerBook);
+                while (remaining > 0)
+                {
+                    if (cursor >= slots.Count)
+                    { Debug.LogError("[Raf] Katalog icin yeterli raf gozu yok; yayinci dagilimi uygulanmadi."); return; }
+                    assignments.Add(pair.Key);
+                    remaining -= Mathf.Max(1, slots[cursor++].capacity);
+                }
+            }
+        // Extra shelf space follows the same publisher proportions.
+        var extra = new List<int>(assignments);
+        while (assignments.Count < slots.Count) assignments.Add(extra[(assignments.Count - cursor) % extra.Count]);
+        for (int i = 0; i < slots.Count; i++) slots[i].brandID = assignments[i];
+        Debug.Log($"[Raf] Tek yayinciya sifirlanmis {slots.Count} raf gozu, katalogdaki {demand.Count} yayinciya ayrildi.");
+    }
+
+    private static string LayoutPath(Transform t)
+    {
+        var parts = new Stack<string>();
+        while (t != null) { parts.Push(t.GetSiblingIndex().ToString("D6") + ":" + t.name); t = t.parent; }
+        return string.Join("/", parts);
     }
 
     public static ShelfSlot FindNetworkSlot(ulong key)
@@ -166,6 +218,38 @@ public class ShelfSlot : MonoBehaviour
     void Awake()
     {
         EnsureArray();
+        // Placement volumes are interaction triggers, never solid barriers across openings.
+        foreach (var box in GetComponentsInChildren<BoxCollider>(true))
+            if ((box.gameObject == gameObject || box.name == "__ShelfInteraction") &&
+                box.GetComponentInParent<ShelfSlot>() == this && box.GetComponentInParent<BookItem>() == null)
+            { box.enabled = true; box.isTrigger = true; }
+    }
+
+    public bool CanInteract(Transform actor, Vector3 eye, float range)
+    {
+        foreach (var box in GetComponentsInChildren<BoxCollider>())
+            if (box.enabled && box.GetComponentInParent<ShelfSlot>() == this &&
+                box.GetComponentInParent<BookItem>() == null && GameplayPhysics.CanReach(actor, eye, box, range))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Her kitap turunun tum kopyalari tek raf gozune girer. Kopya sayisi goz kapasitesini
+    /// asarsa (orn. 20 kopya, 10'luk goz) kapasite kopya sayisina cikarilir ve kitaplar ayni
+    /// goz genisligine sigacak sekilde daha sik dizilir. Tum oyuncularda ayni sahne
+    /// verisinden hesaplanir; ag uzerinden ayri bir ayar gonderilmez.
+    /// </summary>
+    public static void MatchCapacityToCopies(int copies)
+    {
+        if (copies < 1) return;
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (slot == null || slot.capacity >= copies) continue;
+            slot.bookSpacing = Mathf.Max(0.001f, slot.bookSpacing * slot.capacity / copies);
+            slot.capacity = copies;
+            slot.EnsureArray();
+        }
     }
 
     void EnsureArray()
@@ -194,7 +278,10 @@ public class ShelfSlot : MonoBehaviour
 
     public bool Matches(BookItem book)
     {
-        if (book == null || book.brandID != brandID || !IsAvailable)
+        int publisher = PublisherID;
+        if (publisher < 0 || book == null || book.brandID != publisher || !IsAvailable)
+            return false;
+        if (BrandConfig.IsPlacementDisabled(book.brandID))
             return false;
 
         if (IsClaimed)
@@ -533,7 +620,12 @@ public class ShelfSlot : MonoBehaviour
             position.y = box.bounds.min.y + bottomLift;
 
         // Old scene offsets must not shift the fixed left-edge inset.
-        position += worldOffset - Vector3.Project(worldOffset, worldAxis);
+        if (rotateOffsetWithShelf)
+        {
+            Vector3 depth = Vector3.Cross(worldAxis.normalized, Vector3.up).normalized;
+            position += depth * worldOffset.x + Vector3.up * worldOffset.y;
+        }
+        else position += worldOffset - Vector3.Project(worldOffset, worldAxis);
         rotation = space.rotation * Quaternion.Euler(bookRotationOffsetEuler);
         return true;
     }
