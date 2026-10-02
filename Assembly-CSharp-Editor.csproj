@@ -96,7 +96,6 @@
     <Compile Include="Assets\Editor\BookCorridorSetup.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonLitGUI.cs" />
     <Compile Include="Assets\ComicShopToon\Editor\ToonPendantRepair.cs" />
-    <Compile Include="Assets\Editor\ComicShopV16Repair.cs" />
     <Compile Include="Assets\Editor\BookEdgeMeshReadability.cs" />
     <Compile Include="Assets\Editor\GameplayQaChecks.cs" />
     <Compile Include="Assets\ComicShopMenu\Editor\ComicProjectAutoBind.cs" />
