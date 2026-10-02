@@ -7,14 +7,23 @@ public class BookItem : MonoBehaviour
     [Min(0)] public int bookID;
     [Min(0)] public int brandID;
 
+    private string cachedNameSource, cachedNamePublisher, cachedDisplayName;
+
     public string DisplayName
     {
         get
         {
             BookDisplayName custom = GetComponent<BookDisplayName>();
-            return custom != null && !string.IsNullOrWhiteSpace(custom.Name)
-                ? custom.Name
-                : $"Book {bookID + 1}";
+            string source = custom != null && !string.IsNullOrWhiteSpace(custom.Name)
+                ? custom.Name : gameObject.name;
+            string publisher = BrandConfig.GetBrandName(brandID);
+            if (cachedNameSource != source || cachedNamePublisher != publisher)
+            {
+                cachedNameSource = source;
+                cachedNamePublisher = publisher;
+                cachedDisplayName = BookNameFormatter.Format(publisher, source);
+            }
+            return cachedDisplayName;
         }
     }
 
