@@ -18,6 +18,8 @@ public class ConnectionManager : MonoBehaviour
     public ConnectionRoute connectionRoute = ConnectionRoute.InternetRelay;
     public string address = "127.0.0.1";
     public ushort port = 7777;
+    // Oturumda gercekten kullanilan port: 7777'yi baska bir program tutuyorsa bos olan bir sonraki.
+    private ushort activePort = 7777;
     public string relayJoinCode = "";
     public bool showDebugUI = true;
     [Min(1f)] public float connectionTimeout = 15f;
@@ -28,8 +30,9 @@ public class ConnectionManager : MonoBehaviour
     public event Action<string> OnStatusChanged;
 
     private NetworkManager networkManager;
-    public string Status => status;
-    private string status = "Bagli degil";
+    // Durum metni ekrana basilirken secili dile cevrilir; bos ise "bagli degil".
+    public string Status => string.IsNullOrEmpty(status) ? Loc.T("net.not_connected") : status;
+    private string status = "";
     private float attemptStarted;
     private int onlineOperation;
     private Coroutine serverStartup;
@@ -107,14 +110,14 @@ public class ConnectionManager : MonoBehaviour
     public async void StartRelayHost()
     {
         connectionRoute = ConnectionRoute.InternetRelay;
-        if (!BeginOnlinePreparation("Internet odasi hazirlaniyor...")) return;
+        if (!BeginOnlinePreparation(Loc.T("net.preparing_online"))) return;
         int operation = onlineOperation;
         try
         {
             await relayTransport.PrepareHostAsync(networkManager, Mathf.Clamp(maxPlayers, 1, 4));
             if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
             relayJoinCode = relayTransport.JoinCode;
-            StartPreparedSession(true, $"Internet odasi kuruluyor. Kod: {relayJoinCode}");
+            StartPreparedSession(true, Loc.T("net.hosting_online", relayJoinCode));
         }
         catch (Exception exception)
         {
@@ -128,16 +131,16 @@ public class ConnectionManager : MonoBehaviour
         relayJoinCode = UnityRelaySessionTransport.NormalizeJoinCode(relayJoinCode);
         if (relayJoinCode.Length == 0)
         {
-            SetStatus("Oda kodunu gir.");
+            SetStatus(Loc.T("net.enter_code"));
             return;
         }
-        if (!BeginOnlinePreparation("Oda kodu kontrol ediliyor...")) return;
+        if (!BeginOnlinePreparation(Loc.T("net.checking_code"))) return;
         int operation = onlineOperation;
         try
         {
             await relayTransport.PrepareClientAsync(networkManager, relayJoinCode);
             if (operation != onlineOperation || State != SessionState.PreparingOnline) return;
-            StartPreparedSession(false, $"Internet odasina baglaniliyor: {relayJoinCode}");
+            StartPreparedSession(false, Loc.T("net.joining_online", relayJoinCode));
         }
         catch (Exception exception)
         {
@@ -162,7 +165,7 @@ public class ConnectionManager : MonoBehaviour
         relayTransport.Reset();
         State = SessionState.Idle;
         SetCursor(false);
-        SetStatus("Internet odasi hatasi: " + FriendlyOnlineError(exception));
+        SetStatus(Loc.T("net.online_error", FriendlyOnlineError(exception)));
     }
 
     private static string FriendlyOnlineError(Exception exception)
@@ -171,7 +174,7 @@ public class ConnectionManager : MonoBehaviour
         if (message.IndexOf("join", StringComparison.OrdinalIgnoreCase) >= 0 ||
             message.IndexOf("allocation", StringComparison.OrdinalIgnoreCase) >= 0 ||
             message.IndexOf("404", StringComparison.OrdinalIgnoreCase) >= 0)
-            return "Oda kodu gecersiz veya odanin suresi dolmus.";
+            return Loc.T("net.code_invalid");
         return message.Length > 140 ? message.Substring(0, 140) : message;
     }
 
@@ -186,30 +189,62 @@ public class ConnectionManager : MonoBehaviour
         }
         if (!host && string.IsNullOrWhiteSpace(address))
         {
-            SetStatus("Baglanilacak adresi gir.");
+            SetStatus(Loc.T("net.enter_address"));
             return false;
         }
         try
         {
+            // 7777 bu bilgisayarda baska bir program (ya da asili kalmis eski bir oyun) tarafindan
+            // tutuluyorsa oda kurulamiyordu ("Server failed to bind"). Host bos portu kendisi bulur;
+            // katilan taraf "ip:port" yazarak o porta baglanabilir.
+            string target = address.Trim();
+            activePort = port;
+            if (host) activePort = FindFreeUdpPort(port);
+            else
+            {
+                int colon = target.LastIndexOf(':');
+                if (colon > 0 && ushort.TryParse(target.Substring(colon + 1), out ushort parsed) && parsed > 0)
+                { activePort = parsed; target = target.Substring(0, colon); }
+            }
+            if (host && activePort != port)
+                Debug.LogWarning($"[Baglanti] Port {port} baska bir program tarafindan kullaniliyor; oda {activePort} portunda aciliyor.");
             // Remote address and server listen address are distinct UTP settings.
-            transport.SetConnectionData(host ? "127.0.0.1" : address.Trim(), port,
+            transport.SetConnectionData(host ? "127.0.0.1" : target, activePort,
                 host ? "0.0.0.0" : null);
             return StartPreparedSession(host,
-                host ? $"Yerel oda kuruluyor (port {port})" : $"Yerel aga baglaniliyor: {address}:{port}");
+                host ? Loc.T("net.hosting_local", activePort) : Loc.T("net.joining_local", target, activePort));
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            StopWithStatus($"Baglanti hatasi: {exception.Message}");
+            StopWithStatus(Loc.T("net.conn_error", exception.Message));
             return false;
         }
+    }
+
+    private static ushort FindFreeUdpPort(ushort preferred)
+    {
+        for (int candidate = preferred; candidate < preferred + 50 && candidate <= 65535; candidate++)
+            if (UdpPortFree(candidate)) return (ushort)candidate;
+        return preferred;
+    }
+
+    private static bool UdpPortFree(int candidate)
+    {
+        try
+        {
+            using (var probe = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Any, candidate)))
+                return true;
+        }
+        catch (System.Net.Sockets.SocketException) { return false; }
+        catch (Exception) { return true; }
     }
 
     private bool ValidateStart()
     {
         if (networkManager == null || IsRunning)
         {
-            SetStatus("Once mevcut baglantinin kapanmasini bekle.");
+            SetStatus(Loc.T("net.wait_close"));
             return false;
         }
         if (networkManager.NetworkConfig.PlayerPrefab == null)
@@ -222,10 +257,34 @@ public class ConnectionManager : MonoBehaviour
 
     private bool StartPreparedSession(bool host, string startingMessage)
     {
+        if (!host) return StartPreparedSessionNow(false, startingMessage);
+        // Play Solo / oda kurma: NGO host baslatma, oyuncu olusturma ve raf kaydi ayni karede
+        // calisip menuyu saniyelerce dondurmus gibi gosteriyordu. Once acilis ekranini cizdir,
+        // agir isi bir sonraki karede baslat; takilma olsa bile oyuncu yukleme ekranini gorur.
+        ShopLoadingScreen.Show();
+        State = SessionState.StartingHost;
+        attemptStarted = Time.realtimeSinceStartup;
+        SetStatus(startingMessage);
+        StartCoroutine(StartHostAfterPaint(startingMessage));
+        return true;
+    }
+
+    private System.Collections.IEnumerator StartHostAfterPaint(string startingMessage)
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+        if (State != SessionState.StartingHost) { ShopLoadingScreen.Hide(); yield break; }
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        if (!StartPreparedSessionNow(true, startingMessage)) ShopLoadingScreen.Hide();
+        Debug.Log($"[Baglanti] Host baslatma {clock.ElapsedMilliseconds} ms surdu (yukleme ekrani arkasinda).");
+    }
+
+    private bool StartPreparedSessionNow(bool host, string startingMessage)
+    {
         try
         {
             // Synchronized gameplay layout. Both peers must run this build generation.
-            networkManager.NetworkConfig.ProtocolVersion = 4;
+            networkManager.NetworkConfig.ProtocolVersion = 6;
             ShopRound.Reset();
             ShelfSlot.ResetNetworkSession();
             ShelfSlot.BuildNetworkRegistry();
@@ -241,18 +300,18 @@ public class ConnectionManager : MonoBehaviour
             SetStatus(startingMessage);
             bool started = host ? networkManager.StartHost() : networkManager.StartClient();
             if (!started)
-                StopWithStatus(host ? "Oda baslatilamadi." : "Baglanti baslatilamadi.");
+                StopWithStatus(host ? Loc.T("net.host_failed") : Loc.T("net.client_failed"));
             return started;
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
-            StopWithStatus($"Baglanti hatasi: {exception.Message}");
+            StopWithStatus(Loc.T("net.conn_error", exception.Message));
             return false;
         }
     }
 
-    public void Disconnect() => StopWithStatus("Baglanti kapatiliyor...");
+    public void Disconnect() => StopWithStatus(Loc.T("net.closing"));
 
     private void StopWithStatus(string message)
     {
@@ -276,14 +335,14 @@ public class ConnectionManager : MonoBehaviour
             ShopRound.Reset();
             State = SessionState.Idle;
             SetCursor(false);
-            SetStatus(status + " Yeni oturum acabilirsin.");
+            SetStatus(Status + " " + Loc.T("net.new_session"));
         }
         float timeout = State == SessionState.PreparingOnline ? onlineServiceTimeout : connectionTimeout;
         if ((State == SessionState.PreparingOnline || State == SessionState.Connecting ||
              State == SessionState.StartingHost) && Time.realtimeSinceStartup - attemptStarted >= timeout)
             StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
-                ? "Internet odasi zaman asimina ugradi. Baglantini ve oda kodunu kontrol et."
-                : "Baglanti zaman asimina ugradi. Host ve adresi kontrol et.");
+                ? Loc.T("net.timeout_online")
+                : Loc.T("net.timeout_local"));
         if (!ShopFrontEnd.IsActive && State == SessionState.Connected && Input.GetKeyDown(KeyCode.Escape))
             SetCursor(Cursor.lockState != CursorLockMode.Locked);
     }
@@ -292,12 +351,27 @@ public class ConnectionManager : MonoBehaviour
         NetworkManager.ConnectionApprovalResponse response)
     {
         maxPlayers = Mathf.Clamp(maxPlayers, 1, 4);
-        response.Approved = networkManager.ConnectedClientsIds.Count < maxPlayers;
+        // NGO always accepts its own host. Rejecting it while clearing
+        // CreatePlayerObject leaves a connected host with no player/camera.
+        bool hostConnection = request.ClientNetworkId == Unity.Netcode.NetworkManager.ServerClientId;
+        response.Approved = hostConnection || networkManager.ConnectedClientsIds.Count < maxPlayers;
         response.CreatePlayerObject = response.Approved;
         response.Pending = false;
-        response.Reason = response.Approved ? "" : "Oda dolu.";
+        response.Reason = response.Approved ? "" : "net.room_full";
         Transform spawn = playerSpawnPoint != null ? playerSpawnPoint : networkManager.NetworkConfig.PlayerPrefab.transform;
-        response.Position = spawn.position + spawn.right * (1.2f * (request.ClientNetworkId % (ulong)maxPlayers));
+        if (response.Approved)
+        {
+            if (ComicSafeSpawn.TryFind(spawn, networkManager.NetworkConfig.PlayerPrefab, out var safePosition)) response.Position = safePosition;
+            else if (hostConnection)
+            {
+                // Preserve the scene's configured host spawn when the optional
+                // safe-position probe cannot find a candidate. Remote clients
+                // still require a free position so they cannot overlap the host.
+                response.Position = spawn.position;
+                Debug.LogWarning("[ComicShop] Guvenli nokta taramasi sonuc vermedi; host sahnedeki PlayerSpawnPoint konumunda olusturuluyor.");
+            }
+            else { response.Approved = false; response.CreatePlayerObject = false; response.Reason = "net.no_spawn"; }
+        }
         response.Rotation = spawn.rotation;
     }
 
@@ -316,18 +390,18 @@ public class ConnectionManager : MonoBehaviour
         try
         {
             foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-                spawner.SpawnSession();
+            {
+                yield return spawner.SpawnSessionAsync();
+                if (spawner.SpawnError != null)
+                {
+                    Debug.LogException(spawner.SpawnError);
+                    StopWithStatus(Loc.T("net.spawn_fail", spawner.SpawnError.Message));
+                    yield break;
+                }
+            }
             ShopRound.Begin();
         }
-        catch (Exception error)
-        {
-            Debug.LogException(error);
-            StopWithStatus("Kitaplar oluşturulamadı: " + error.Message);
-        }
-        finally
-        {
-            serverStartup = null;
-        }
+        finally { serverStartup = null; ShopLoadingScreen.Hide(); }
     }
 
     private void HandleConnected(ulong id)
@@ -337,11 +411,11 @@ public class ConnectionManager : MonoBehaviour
         {
             State = SessionState.Connected;
             if (connectionRoute == ConnectionRoute.InternetRelay)
-                SetStatus(networkManager.IsHost ? $"Internet odasi acik. Kod: {relayJoinCode}" : "Internet odasina katildin.");
+                SetStatus(networkManager.IsHost ? Loc.T("net.online_open", relayJoinCode) : Loc.T("net.online_joined"));
             else
-                SetStatus(networkManager.IsHost ? $"Yerel oda acik (port {port})" : "Yerel odaya katildin.");
+                SetStatus(networkManager.IsHost ? Loc.T("net.local_open", activePort) : Loc.T("net.local_joined"));
         }
-        else if (networkManager.IsServer) SetStatus($"Oyuncu katildi (ID {id}).");
+        else if (networkManager.IsServer) SetStatus(Loc.T("net.player_joined", id));
     }
 
     private void HandleDisconnected(ulong id)
@@ -349,12 +423,12 @@ public class ConnectionManager : MonoBehaviour
         if (networkManager.IsServer && id != networkManager.LocalClientId)
         {
             NetworkBook.ReleaseAllForPlayer(id);
-            SetStatus($"Oyuncu ayrildi (ID {id}).");
+            SetStatus(Loc.T("net.player_left", id));
             return;
         }
         if (State == SessionState.Disconnecting) return;
         string reason = networkManager.DisconnectReason;
-        StopWithStatus(string.IsNullOrEmpty(reason) ? "Baglanti kesildi." : reason);
+        StopWithStatus(string.IsNullOrEmpty(reason) ? Loc.T("net.disconnected") : Loc.Resolve(reason));
     }
 
     private void HandleStopped(bool wasHost)
@@ -364,8 +438,8 @@ public class ConnectionManager : MonoBehaviour
     }
 
     private void HandleTransportFailure() => StopWithStatus(connectionRoute == ConnectionRoute.InternetRelay
-        ? "Relay ag hatasi. Internet baglantini kontrol et."
-        : $"Ag hatasi. Adres ve port {port} ayarini kontrol et.");
+        ? Loc.T("net.relay_error")
+        : Loc.T("net.net_error", activePort));
 
     public static void SetCursor(bool gameplay)
     {
