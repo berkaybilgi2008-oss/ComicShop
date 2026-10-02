@@ -14,6 +14,10 @@ public static class BrandConfig
     public static string GetBrandName(int brandID)
         => Catalog != null ? Catalog.GetBrandName(brandID) : string.Empty;
 
+    // Gecici olarak rafa konamayan yayincilar (orn. ECLIPSE, VERIDIAN): spawn olurlar, yerlesmezler.
+    public static bool IsPlacementDisabled(int brandID)
+        => Catalog != null && Catalog.IsPlacementDisabled(brandID);
+
     // Eski script API uyumlulugu.
     public static int[] booksPerBrand
     {
