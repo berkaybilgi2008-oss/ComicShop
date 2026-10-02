@@ -7,14 +7,23 @@ public class BookItem : MonoBehaviour
     [Min(0)] public int bookID;
     [Min(0)] public int brandID;
 
+    private string cachedNameSource, cachedNamePublisher, cachedDisplayName;
+
     public string DisplayName
     {
         get
         {
             BookDisplayName custom = GetComponent<BookDisplayName>();
-            return custom != null && !string.IsNullOrWhiteSpace(custom.Name)
-                ? custom.Name
-                : $"Book {bookID + 1}";
+            string source = custom != null && !string.IsNullOrWhiteSpace(custom.Name)
+                ? custom.Name : gameObject.name;
+            string publisher = BrandConfig.GetBrandName(brandID);
+            if (cachedNameSource != source || cachedNamePublisher != publisher)
+            {
+                cachedNameSource = source;
+                cachedNamePublisher = publisher;
+                cachedDisplayName = BookNameFormatter.Format(publisher, source);
+            }
+            return cachedDisplayName;
         }
     }
 
@@ -65,6 +74,159 @@ public class BookItem : MonoBehaviour
         public Quaternion rotation;
     }
     private readonly List<RestSupport> restSupports = new List<RestSupport>(8);
+
+    // Called only after the spawner has placed a stack bottom-up on a verified floor.
+    // Reuse the ordinary support invalidation: removing a lower book wakes every book above it.
+    public bool InitializeSpawnSupport(Collider support)
+    {
+        if (body == null || support == null || IsHeld || currentSlot != null) return false;
+        var own = GetComponentInChildren<Collider>();
+        if (own == null || support.isTrigger || !support.enabled) return false;
+        Bounds bounds = own.bounds;
+        Vector3 bottom = new Vector3(bounds.center.x, bounds.min.y, bounds.center.z);
+        if (Vector3.Distance(support.ClosestPoint(bottom), bottom) > 0.015f) return false;
+        var below = support.GetComponentInParent<BookItem>();
+        if (below != null && !below.frozenAtRest) return false;
+        if (support.attachedRigidbody != null && !support.attachedRigidbody.isKinematic) return false;
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        restSupports.Clear();
+        restSupports.Add(new RestSupport { collider = support, position = support.transform.position,
+            rotation = support.transform.rotation, scale = support.transform.lossyScale });
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        return true;
+    }
+
+    /// <summary>
+    /// Yerlesim tarafindan hesaplanmis birden cok temas (egik kitap: bir ucu kitapta, bir ucu yerde).
+    /// Geometri yerlesimde garanti edildigi icin mesafe testi yapilmaz; destekler donmus/kinematik olmali.
+    /// Desteklerden biri kipirdarsa kitap cozulur ve dusar.
+    /// </summary>
+    public bool InitializeSpawnSupports(System.Collections.Generic.IReadOnlyList<Collider> supports)
+    {
+        if (body == null || supports == null || supports.Count == 0 || IsHeld || currentSlot != null) return false;
+        foreach (var support in supports)
+        {
+            if (support == null || support.isTrigger || !support.enabled) return false;
+            var below = support.GetComponentInParent<BookItem>();
+            if (below != null && !below.frozenAtRest) return false;
+            if (support.attachedRigidbody != null && !support.attachedRigidbody.isKinematic) return false;
+        }
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        restSupports.Clear();
+        foreach (var support in supports)
+            restSupports.Add(new RestSupport { collider = support, position = support.transform.position,
+                rotation = support.transform.rotation, scale = support.transform.lossyScale });
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        return true;
+    }
+
+    public bool IsFrozenAtRest => frozenAtRest;
+
+    /// <summary>
+    /// Kitabin GERCEK dunya merkezi (carpisma kutusunun ortasi). Kitap prefablarinin kok noktasi
+    /// mesh'ten ~1.2 m uzakta; egik/ters duran kitapta transform.position zeminin altinda kalip
+    /// kitap "kayip" sanilabiliyordu.
+    /// </summary>
+    public Vector3 WorldCenter
+    {
+        get
+        {
+            if (physicsCollider == null) physicsCollider = GetComponentInChildren<Collider>();
+            return physicsCollider != null && physicsCollider.enabled ? physicsCollider.bounds.center : transform.position;
+        }
+    }
+
+    private static readonly Collider[] freezeHits = new Collider[32];
+
+    /// <summary>
+    /// Acilis dusus fiziginden sonra: altinda gercekten bir sey (zemin/kitap/raf) olan kitabi oldugu
+    /// yerde, oldugu egimle dondurur. Yiginlarin ust uste "kucuk kucuk ziplamasi" biter. Gecici
+    /// dusus duvarlari (ignoreRoot) destek sayilmaz; duvar kalkinca kitap dusmez.
+    /// </summary>
+    public bool FreezeWhereResting(Transform ignoreRoot)
+    {
+        if (body == null || physicsCollider == null || IsHeld || currentSlot != null || frozenAtRest || body.isKinematic) return false;
+        // Hala kayan/donen kitap dondurulmaz (havada asili kalmasin); fizik bitirsin.
+        if (!body.IsSleeping() && (body.linearVelocity.sqrMagnitude > 0.01f || body.angularVelocity.sqrMagnitude > 0.05f)) return false;
+        Bounds b = physicsCollider.bounds;
+        int count = Physics.OverlapBoxNonAlloc(b.center - Vector3.up * 0.03f, b.extents + new Vector3(0.01f, 0.02f, 0.01f),
+            freezeHits, Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        restSupports.Clear();
+        for (int i = 0; i < count; i++)
+        {
+            var col = freezeHits[i];
+            if (col == null || col == physicsCollider || col.attachedRigidbody == body || col.isTrigger || !col.enabled) continue;
+            if (ignoreRoot != null && col.transform.IsChildOf(ignoreRoot)) continue;
+            if (col.GetComponentInParent<PlayerInteraction>() != null) continue;
+            var other = col.GetComponentInParent<BookItem>();
+            if (other != null && other.IsHeld) continue;
+            // Destek sabit olmali: zemin/raf ya da zaten donmus kitap. Hareketli kitap destek
+            // sayilirsa o kayinca ustundeki de cozuluyor, yigin surekli kipirdiyordu.
+            var supportBody = col.attachedRigidbody;
+            if (supportBody != null && !supportBody.isKinematic) continue;
+            float contactY = col is MeshCollider mesh && !mesh.convex ? col.bounds.max.y : col.ClosestPoint(b.center).y;
+            if (contactY > b.center.y - 0.005f) continue;
+            bool duplicate = false;
+            foreach (var saved in restSupports) if (saved.collider == col) { duplicate = true; break; }
+            if (duplicate) continue;
+            restSupports.Add(new RestSupport { collider = col, position = col.transform.position,
+                rotation = col.transform.rotation, scale = col.transform.lossyScale });
+        }
+        if (restSupports.Count == 0) return false;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.isKinematic = true;
+        frozenAtRest = true;
+        nextSupportCheck = Time.time + 0.1f;
+        return true;
+    }
+
+    private static readonly Collider[] impactHits = new Collider[48];
+
+    /// <summary>
+    /// Gercekci fizik acikken (Ayarlar): hizla carpan bir kitap donmus yigini dagitir. Carpilan
+    /// kitap ve cevresindekiler cozulur, ustundekiler duser; hepsi oturunca yeniden donar.
+    /// Kapaliyken (varsayilan, dusuk sistemler) eski davranis: Q atislari yiginlari cozmez.
+    /// </summary>
+    private void RealisticImpact(Collision collision)
+    {
+        if (!RealisticPhysics.Enabled || !frozenAtRest || IsHeld || currentSlot != null || body == null) return;
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && manager.IsListening && !manager.IsServer) return;
+        var hitter = collision.rigidbody;
+        if (hitter == null || hitter.isKinematic || hitter == body) return;
+        // Yalnizca oyuncunun FIRLATTIGI kitap (ThrownBook) etkiler; acilistaki dusus ya da yigindan
+        // kayan kitaplar kuleleri/yiginlari dagitmaz.
+        if (BookSpawner.LayoutInProgress || hitter.GetComponentInParent<ThrownBook>() == null) return;
+        float speed = collision.relativeVelocity.magnitude;
+        if (speed < 3f) return;
+        Vector3 point = collision.contactCount > 0 ? collision.GetContact(0).point : transform.position;
+        Vector3 direction = hitter.linearVelocity.sqrMagnitude > 0.01f ? hitter.linearVelocity.normalized : -collision.relativeVelocity.normalized;
+        Unfreeze();
+        ReleaseBooksAbove();
+        body.AddForceAtPosition(direction * Mathf.Min(speed * 0.22f, 6f), point, ForceMode.VelocityChange);
+        // Cevredeki donmus kitaplar da cozulur ki darbe yigina yayilsin.
+        float radius = Mathf.Clamp(0.2f + speed * 0.008f, 0.25f, 0.5f);
+        int count = Physics.OverlapSphereNonAlloc(point, radius, impactHits, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            var other = impactHits[i] != null ? impactHits[i].GetComponentInParent<BookItem>() : null;
+            if (other == null || other == this || !other.frozenAtRest) continue;
+            if (other.WakeFromRest()) other.ReleaseBooksAbove();
+        }
+    }
 
     private bool CaptureRestSupports()
     {
@@ -119,6 +281,13 @@ public class BookItem : MonoBehaviour
             { intact = false; break; }
         }
         if (intact) return; // Incoming Q impacts never unfreeze a supported book.
+        Unfreeze();
+        // Destek kaybolunca ustteki butun yigin ayni anda dussun (0.1 sn'lik kademe beklemeden).
+        ReleaseBooksAbove();
+    }
+
+    private void Unfreeze()
+    {
         frozenAtRest = false;
         restSupports.Clear();
         body.isKinematic = false;
@@ -131,11 +300,84 @@ public class BookItem : MonoBehaviour
         settleNotBefore = Time.time + 0.5f;
     }
 
+    private static readonly Collider[] aboveHits = new Collider[64];
+    private static readonly Queue<BookItem> aboveQueue = new Queue<BookItem>();
+    private static readonly HashSet<BookItem> aboveVisited = new HashSet<BookItem>();
+
+    private static bool HasPhysicsAuthority()
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        return manager == null || !manager.IsListening || manager.IsServer;
+    }
+
+    /// <summary>
+    /// Bu kitap yiginin icinden/altindan alininca ustunde duran kitaplar
+    /// (dondurulmus ya da fizik uykusundaki) havada asili kalmasin: zincirleme uyandirilir.
+    /// PhysX, destek kinematic olup carpismasi kapatilinca ustteki uyuyan govdeleri uyandirmaz.
+    /// </summary>
+    public void ReleaseBooksAbove()
+    {
+        if (!HasPhysicsAuthority()) return;
+        aboveQueue.Clear();
+        aboveVisited.Clear();
+        aboveVisited.Add(this);
+        aboveQueue.Enqueue(this);
+        while (aboveQueue.Count > 0 && aboveVisited.Count < 256)
+        {
+            BookItem below = aboveQueue.Dequeue();
+            Collider own = below.physicsCollider != null ? below.physicsCollider : below.GetComponentInChildren<Collider>();
+            if (own == null) continue;
+            Bounds b = own.bounds;
+            // Kitabin ortasindan ust yuzeyinin biraz yukarisina kadar olan hacim.
+            float bottom = b.center.y, top = b.max.y + 0.06f;
+            Vector3 center = new Vector3(b.center.x, (bottom + top) * 0.5f, b.center.z);
+            Vector3 half = new Vector3(b.extents.x + 0.02f, (top - bottom) * 0.5f, b.extents.z + 0.02f);
+            int count = Physics.OverlapBoxNonAlloc(center, half, aboveHits, Quaternion.identity,
+                Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                BookItem other = aboveHits[i] != null ? aboveHits[i].GetComponentInParent<BookItem>() : null;
+                if (other == null || aboveVisited.Contains(other) || other.IsHeld || other.currentSlot != null) continue;
+                // Yalnizca gercekten ustte duranlar: yanindaki ayni seviyedeki kitaplara dokunma.
+                if (aboveHits[i].bounds.min.y <= b.min.y + 0.005f) continue;
+                aboveVisited.Add(other);
+                if (other.WakeFromRest()) aboveQueue.Enqueue(other);
+            }
+        }
+        aboveQueue.Clear();
+        aboveVisited.Clear();
+    }
+
+    private bool WakeFromRest()
+    {
+        if (body == null || IsHeld || currentSlot != null) return false;
+        // Yerde duran (elde/rafta olmayan) kinematic kitap da destegini kaybetmistir:
+        // "donmus" isareti bir sekilde silinmis olsa bile yercekimine birak.
+        if (frozenAtRest || body.isKinematic) { Unfreeze(); return true; }
+        body.WakeUp();
+        stillTimer = 0f;
+        settleNotBefore = Mathf.Max(settleNotBefore, Time.time + 0.25f);
+        return true;
+    }
+
     [Header("Elde Tutulan Kitap Kontrolu")]
     [Tooltip("Bir kitabin altindaki elde tasinan kitabi algilamak icin kullanilan dikey tolerans.")]
     [Min(0.005f)] public float heldSupportTolerance = 0.08f;
 
     private enum SupportState { None, Stable, Held }
+
+    // Sahnedeki aktif kitaplar; periyodik taramalar binlerce kitapta FindObjectsByType cagirmasin.
+    private static readonly HashSet<BookItem> active = new HashSet<BookItem>();
+    public static IReadOnlyCollection<BookItem> Active => active;
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetActive() => active.Clear();
+    void OnEnable()
+    {
+        active.Add(this);
+        // Dusuk/Orta grafikte yerdeki binlerce kitap golge dusurmez (istemcide de).
+        if (!GraphicsQuality.BooksCastShadows) GraphicsQuality.ApplyToBook(this);
+    }
+    void OnDisable() => active.Remove(this);
 
     void Awake()
     {
@@ -143,6 +385,7 @@ public class BookItem : MonoBehaviour
         outlineObjects = null;
         body = GetComponent<Rigidbody>();
         physicsCollider = GetComponentInChildren<Collider>();
+        BookPaperEdges.Apply(this); // krem sayfa kenarlari: yiginda kitaplar arasi "bosluk" gorunmesin
     }
 
     void OnDestroy()
@@ -169,7 +412,13 @@ public class BookItem : MonoBehaviour
         stillTimer += Time.fixedDeltaTime;
         if (stillTimer < Mathf.Max(0.5f, sleepDelay)) return;
         stillTimer = 0f;
-        if (!CaptureRestSupports()) return;
+        if (!CaptureRestSupports())
+        {
+            // Uyuyan govdenin eski temasi artik gercek bir destege ait degil (alttaki kitap
+            // alindi): uyanik tut ki yercekimi onu indirsin, havada asili kalmasin.
+            if (body.IsSleeping()) body.WakeUp();
+            return;
+        }
         if (!CanFreezeAfterSettling()) return;
         body.linearVelocity = Vector3.zero;
         body.angularVelocity = Vector3.zero;
@@ -182,6 +431,7 @@ public class BookItem : MonoBehaviour
     {
         RecordSettlingContacts(collision);
         AssistEdgeImpact(collision);
+        RealisticImpact(collision);
     }
     void OnCollisionStay(Collision collision) { RecordSettlingContacts(collision); }
     void OnCollisionExit(Collision collision)
@@ -498,6 +748,8 @@ public class BookItem : MonoBehaviour
 
     public void SetHeld(bool held)
     {
+        // Yigindan alinan kitabin ustundekiler dussun (tasima durumu degismeden once).
+        if (held && !IsHeld && currentSlot == null) ReleaseBooksAbove();
         frozenAtRest = false;
         restSupports.Clear();
         IsHeld = held;
