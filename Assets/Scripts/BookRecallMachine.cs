@@ -68,6 +68,11 @@ public class BookRecallMachine : MonoBehaviour
              "Is Trigger acik olsun). Bu alanin DISINA cikan kitap KAYIP sayilir.\n" +
              "Bos birakilirsa sadece 'Lost Below Y' kontrolu yapilir.")]
     public Collider playArea;
+    [Tooltip("Oyun alanini dukkanin gercek icerigine (raflar ve kitap dogus alanlari) gore otomatik genislet. " +
+             "Dukkan tasinip buyudugunde eski kutu, dukkanin icindeki kitaplari yanlislikla KAYIP saymasin.")]
+    public bool expandPlayAreaToShop = true;
+    [Tooltip("Raflarin ve dogus alanlarinin cevresine eklenen yatay pay (metre).")]
+    [Min(0f)] public float shopMargin = 1.5f;
 
     [Header("Kayip Kitabi Dondurma")]
     [Tooltip("Oyun alaninin disina cikan kitap, belirtilen sure sonra DONDURULUR. " +
@@ -78,9 +83,14 @@ public class BookRecallMachine : MonoBehaviour
     [Min(0f)] public float freezeDelay = 5f;
 
     [Header("Kayip Kitap Kurtarma")]
-    [Tooltip("Zeminin altina dusen kitaplari otomatik geri getir. " +
-             "Asil bug sigortasi budur, bekleme suresine takilmaz.")]
-    public bool autoRecoverLostBooks = true;
+    [Tooltip("Dukkanin disina cikan ya da zeminin altina dusen kitabi birkac saniye sonra " +
+             "dukkandaki kitap dogus alanina geri getirir. Isinlama pedine gitmek gerekmez.")]
+    public bool returnLostBooksToShop = true;
+    [Tooltip("Kitap bu kadar saniye boyunca kayip kalirsa geri getirilir (havaya atilan kitap yanlislikla isinlanmasin).")]
+    [Min(1f)] public float returnDelay = 4f;
+    // Eski alan: sahnede kapali kayitliydi ve kayip kitaplar pede gitmeden hic geri gelmiyordu.
+    // Yerini returnLostBooksToShop aldi; seri hale getirme uyumu icin duruyor.
+    [HideInInspector] public bool autoRecoverLostBooks = true;
     [Tooltip("Bu yukseklikten asagi dusen kitap kayip sayilir.")]
     public float lostBelowY = -5f;
     [Tooltip("Kayip kontrolunun kac saniyede bir yapilacagi.")]
@@ -127,7 +137,8 @@ public class BookRecallMachine : MonoBehaviour
     {
         bool networkScene = ConnectionManager.Instance != null;
         bool authority = !networkScene || (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer);
-        if (authority && Time.time - lastLostCheckTime >= lostCheckInterval)
+        // Acilis yerlesimi (kitaplar gecici olarak haritanin altinda bekletilip firlatilirken) kayip sayilmaz.
+        if (authority && !BookSpawner.LayoutInProgress && !ShopLoadingScreen.IsVisible && Time.time - lastLostCheckTime >= lostCheckInterval)
         {
             lastLostCheckTime = Time.time;
             ScanLostBooks();
@@ -230,7 +241,7 @@ public class BookRecallMachine : MonoBehaviour
 
             // IsRecallable zaten kayip olmayanlari eledi; en uzaktakini secmek
             // birden fazla kayip kopya varsa hangisinin gelecegini belirler.
-            if (book.transform.position.y < lostBelowY)
+            if (book.WorldCenter.y < lostBelowY)
             {
                 lost = book;
                 break;
@@ -284,8 +295,8 @@ public class BookRecallMachine : MonoBehaviour
             else if (!IsLost(book)) inside++;
         }
 
-        string area = playArea != null
-            ? $"Oyun alani atanmis, sinirlari: {playArea.bounds.min} .. {playArea.bounds.max}"
+        string area = HasPlayBounds
+            ? $"Oyun alani atanmis, sinirlari: {PlayBounds.min} .. {PlayBounds.max}"
             : $"OYUN ALANI ATANMAMIS -- sadece 'Lost Below Y' ({lostBelowY}) kontrolu yapiliyor. " +
               "Duvardan disari cikan ama yere dusmeyen kitaplar kayip sayilmaz!";
 
@@ -320,8 +331,8 @@ public class BookRecallMachine : MonoBehaviour
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
 
         sb.AppendLine($"[Isinlama Makinesi] Hedef kitap ID: {targetBookID}");
-        sb.AppendLine(playArea != null
-            ? $"Oyun alani: {playArea.bounds.min} .. {playArea.bounds.max}"
+        sb.AppendLine(HasPlayBounds
+            ? $"Oyun alani: {PlayBounds.min} .. {PlayBounds.max}"
             : "Oyun alani: ATANMAMIS");
         sb.AppendLine($"Lost Below Y: {lostBelowY}");
         sb.AppendLine();
@@ -348,25 +359,114 @@ public class BookRecallMachine : MonoBehaviour
         if (book == null)
             return false;
 
-        Vector3 position = book.transform.position;
+        // Kok nokta degil gercek merkez: kok, mesh'ten ~1.2 m uzakta (ters duran kitap kayip sanilmasin).
+        Vector3 position = book.WorldCenter;
 
         if (position.y < lostBelowY)
             return true;
 
-        if (playArea != null && !playArea.bounds.Contains(position))
+        if (HasPlayBounds && !PlayBounds.Contains(position))
             return true;
 
         return false;
     }
 
+    // ------------------------------------------------------------------
+    // Oyun alani
+    // ------------------------------------------------------------------
+
+    private Bounds playBounds;
+    private bool playBoundsReady, hasPlayBounds;
+
+    private bool HasPlayBounds { get { if (!playBoundsReady) RebuildPlayBounds(); return hasPlayBounds; } }
+
+    /// <summary>Kayip kontrolunde kullanilan alan: atanmis kutu + dukkanin gercek icerigi.</summary>
+    public Bounds PlayBounds { get { if (!playBoundsReady) RebuildPlayBounds(); return playBounds; } }
+
+    /// <summary>
+    /// Eski GameZone kutusu dukkan tasindiginda dukkanin dogu tarafini (x > 44.7) disarida
+    /// birakiyordu: orada dogan ya da birakilan her kitap KAYIP sayilip donduruluyordu.
+    /// Alan artik raflari ve kitap dogus alanlarini her zaman kapsar.
+    /// </summary>
+    public void RebuildPlayBounds()
+    {
+        playBoundsReady = true;
+        hasPlayBounds = false;
+        if (playArea == null) return;
+
+        if (playArea.enabled && playArea.gameObject.activeInHierarchy) playBounds = playArea.bounds;
+        else if (playArea is BoxCollider box) playBounds = WorldBounds(box.transform, box.center, box.size);
+        else return; // Kapali bir collider'in bounds'u bostur; her kitabi kayip saymasin.
+        hasPlayBounds = true;
+        if (!expandPlayAreaToShop) return;
+
+        Bounds shop = default;
+        bool any = false;
+        foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
+        {
+            if (spawner == null || spawner.gameObject.scene != gameObject.scene) continue;
+            if (spawner.corridorAreas != null && spawner.corridorAreas.Length > 0)
+            {
+                foreach (var zone in spawner.corridorAreas)
+                    if (zone != null && zone.gameObject.activeInHierarchy)
+                        Include(ref shop, ref any, WorldBounds(zone.transform, zone.center, zone.size));
+            }
+            else
+            {
+                Transform area = spawner.v16SpawnArea != null ? spawner.v16SpawnArea : spawner.transform;
+                Include(ref shop, ref any, WorldBounds(area, Vector3.zero, new Vector3(spawner.areaSize.x, 0f, spawner.areaSize.y)));
+            }
+        }
+        foreach (var slot in FindObjectsByType<ShelfSlot>(FindObjectsSortMode.None))
+            if (slot != null && slot.gameObject.scene == gameObject.scene)
+                Include(ref shop, ref any, new Bounds(slot.transform.position, Vector3.zero));
+        if (!any) return;
+
+        Vector3 min = shop.min - new Vector3(shopMargin, 1f, shopMargin);
+        Vector3 max = shop.max + new Vector3(shopMargin, 3f, shopMargin);
+        shop.SetMinMax(min, max);
+        bool grew = !playBounds.Contains(min) || !playBounds.Contains(max);
+        playBounds.Encapsulate(shop);
+        if (grew)
+            Debug.Log($"Isinlama makinesi: oyun alani dukkani kapsayacak sekilde genisletildi: {playBounds.min} .. {playBounds.max}", this);
+    }
+
+    private static void Include(ref Bounds total, ref bool any, Bounds part)
+    {
+        if (!any) { total = part; any = true; }
+        else total.Encapsulate(part);
+    }
+
+    private static Bounds WorldBounds(Transform space, Vector3 center, Vector3 size)
+    {
+        Bounds result = default;
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 corner = center + Vector3.Scale(size * 0.5f, new Vector3(
+                (i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+            Vector3 world = space.TransformPoint(corner);
+            if (i == 0) result = new Bounds(world, Vector3.zero);
+            else result.Encapsulate(world);
+        }
+        return result;
+    }
+
+    private readonly System.Text.StringBuilder newlyLost = new System.Text.StringBuilder();
+    private int newlyLostCount;
+
     /// <summary>
     /// Kayip kitaplari tarar. Iki is yapar:
     ///   - Kayip kalan kitabi belirli sure sonra DONDURUR (bosuna fizik hesabi olmasin).
-    ///   - Otomatik kurtarma acikssa geri getirir.
+    ///   - Birkac saniye kayip kalan kitabi dukkandaki kitap dogus alanina geri getirir.
     /// </summary>
+    private readonly System.Collections.Generic.List<BookItem> scanBuffer = new System.Collections.Generic.List<BookItem>();
+
     private void ScanLostBooks()
     {
-        BookItem[] books = FindObjectsByType<BookItem>(FindObjectsSortMode.None);
+        // Binlerce kitapta her 3 sn'de FindObjectsByType yerine kayitli aktif kitap listesi.
+        scanBuffer.Clear();
+        scanBuffer.AddRange(BookItem.Active);
+        var books = scanBuffer;
         int recovered = 0;
         int frozen = 0;
         staleBooks.Clear();
@@ -388,10 +488,33 @@ public class BookRecallMachine : MonoBehaviour
             }
 
             if (!lostSince.ContainsKey(book))
+            {
                 lostSince[book] = Time.time;
+                if (newlyLostCount < 5)
+                {
+                    Vector3 p = book.WorldCenter;
+                    newlyLost.Append($"\n  {book.DisplayName} ({book.name}) @ ({p.x:0.0}, {p.y:0.0}, {p.z:0.0}) - " +
+                        (p.y < lostBelowY ? "zeminin altina dustu" : "oyun alaninin disina cikti"));
+                }
+                newlyLostCount++;
+            }
+            float lostFor = Time.time - lostSince[book];
+
+            // Dukkana geri getir (pede gitmeye gerek yok). Kisa sure disari cikan kitaba dokunma.
+            if (returnLostBooksToShop && lostFor >= returnDelay)
+            {
+                if (!recoveryCounts.TryGetValue(book, out var budget))
+                    recoveryCounts.Add(book, budget = new RecoveryBudget());
+                if (budget.Attempt(Time.timeAsDouble, maxRecoveryAttempts, recoveryRetryDelay))
+                {
+                    if (Teleport(book, true)) { recovered++; continue; }
+                    if (budget.RetryAt > Time.timeAsDouble)
+                        Debug.LogWarning($"[BOOK RECOVERY] {book.name}: no safe output. Retrying in {recoveryRetryDelay:0}s; manual recall remains available.", this);
+                }
+            }
 
             // Dondurma
-            if (freezeLostBooks && Time.time - lostSince[book] >= freezeDelay)
+            if (freezeLostBooks && lostFor >= freezeDelay)
             {
                 Rigidbody body = book.GetComponent<Rigidbody>();
                 if (body != null && !body.isKinematic)
@@ -403,42 +526,38 @@ public class BookRecallMachine : MonoBehaviour
                 }
             }
 
-            // Otomatik kurtarma (kapaliysa atlanir)
-            if (!autoRecoverLostBooks)
-                continue;
-
-            if (!recoveryCounts.TryGetValue(book, out var budget))
-                recoveryCounts.Add(book, budget = new RecoveryBudget());
-            if (!budget.Attempt(Time.timeAsDouble, maxRecoveryAttempts, recoveryRetryDelay)) continue;
-            if (Teleport(book)) recovered++;
-            else if (budget.RetryAt > Time.timeAsDouble)
-                Debug.LogWarning($"[BOOK RECOVERY] {book.name}: no safe output. Retrying in {recoveryRetryDelay:0}s; manual recall remains available.", this);
         }
 
+        if (newlyLostCount > 0)
+            Debug.LogWarning($"[Kayip kitap] {newlyLostCount} kitap kayboldu" +
+                (returnLostBooksToShop ? $", {returnDelay:0} sn icinde dukkana geri getirilecek." : ".") + newlyLost, this);
+        newlyLost.Clear();
+        newlyLostCount = 0;
+
         if (recovered > 0)
-            Debug.Log($"Isinlama makinesi: {recovered} kayip kitap otomatik kurtarildi.");
+            Debug.Log($"Isinlama makinesi: {recovered} kayip kitap dukkana geri getirildi.");
 
         if (frozen > 0)
             Debug.Log($"Isinlama makinesi: {frozen} kayip kitap donduruldu, cagrilmayi bekliyor.");
     }
 
-    /// <summary>Kitabi cikisa tasir. Zemin bulunamazsa tasimaz ve false doner.</summary>
-    private bool Teleport(BookItem book)
+    /// <summary>
+    /// Kitabi guvenli bir yere tasir. preferShop: once dukkandaki kitap dogus alanini dener
+    /// (otomatik kurtarma; ped dukkanin disinda olabilir). Degilse once makinenin cikisini dener
+    /// (oyuncu pedde E'ye bastiginda). Zemin bulunamazsa tasimaz ve false doner.
+    /// </summary>
+    private bool Teleport(BookItem book, bool preferShop = false)
     {
-        Vector3 target = OutputPosition + new Vector3(Random.Range(-outputSpread, outputSpread), 0,
-            Random.Range(-outputSpread, outputSpread));
-        if (!TrySafeOutput(target, out target))
+        Vector3 target = default;
+        bool found = preferShop && TryShopOutput(out target);
+        if (!found)
         {
-            // Reuse the configured spawn footprint as a fallback; never alter its layout.
-            bool found = false;
-            foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
-            {
-                if (spawner.gameObject.scene != gameObject.scene || !spawner.ValidateSpawnAreas(out _)) continue;
-                for (int i = 0; i < 8 && !found; i++) found = TrySafeOutput(spawner.SampleSpawnPosition(), out target);
-                if (found) break;
-            }
-            if (!found) return false;
+            Vector3 pad = OutputPosition + new Vector3(Random.Range(-outputSpread, outputSpread), 0,
+                Random.Range(-outputSpread, outputSpread));
+            found = TrySafeOutput(pad, out target);
         }
+        if (!found && !preferShop) found = TryShopOutput(out target);
+        if (!found) return false;
         ThrownBook thrown = book.GetComponent<ThrownBook>();
         if (thrown != null) { thrown.enabled = false; Destroy(thrown); }
 
@@ -468,6 +587,32 @@ public class BookRecallMachine : MonoBehaviour
     // Etkilesim
     // ------------------------------------------------------------------
 
+    /// <summary>Dukkandaki kitap dogus alaninda, mumkunse ustunde kule/raf olmayan bir nokta bulur.</summary>
+    private bool TryShopOutput(out Vector3 target)
+    {
+        target = default;
+        foreach (var spawner in FindObjectsByType<BookSpawner>(FindObjectsSortMode.None))
+        {
+            if (spawner.gameObject.scene != gameObject.scene || !spawner.ValidateSpawnAreas(out _)) continue;
+            bool hasFallback = false;
+            Vector3 fallback = default;
+            for (int i = 0; i < 12; i++)
+            {
+                Vector3 sample;
+                try { sample = spawner.SampleSpawnPosition(); }
+                catch (System.InvalidOperationException) { break; }
+                if (!TrySafeOutput(sample, out var candidate)) continue;
+                if (!hasFallback) { fallback = candidate; hasFallback = true; }
+                if (Physics.OverlapSphereNonAlloc(candidate, 0.3f, outputProbe, Physics.AllLayers, QueryTriggerInteraction.Ignore) == 0)
+                { target = candidate; return true; }
+            }
+            if (hasFallback) { target = fallback; return true; }
+        }
+        return false;
+    }
+
+    private readonly Collider[] outputProbe = new Collider[1];
+
     private bool TrySafeOutput(Vector3 candidate, out Vector3 target)
     {
         target = candidate;
@@ -486,7 +631,7 @@ public class BookRecallMachine : MonoBehaviour
             }
             if (!found) return false;
         }
-        return target.y >= lostBelowY && (playArea == null || playArea.bounds.Contains(target));
+        return target.y >= lostBelowY && (!HasPlayBounds || PlayBounds.Contains(target));
     }
 
     public void ResetSession()
@@ -496,6 +641,7 @@ public class BookRecallMachine : MonoBehaviour
         lastRecallTime = -9999f;
         lastLostCheckTime = Time.time;
         playerCamera = null;
+        RebuildPlayBounds();
     }
 
     private bool ForwardClientRequest()
@@ -537,7 +683,7 @@ public class BookRecallMachine : MonoBehaviour
         if (playArea != null)
         {
             Gizmos.color = new Color(1f, 0.55f, 0.2f, 0.9f);
-            Bounds b = playArea.bounds;
+            Bounds b = Application.isPlaying && HasPlayBounds ? PlayBounds : playArea.bounds;
             Gizmos.DrawWireCube(b.center, b.size);
         }
 
@@ -548,4 +694,4 @@ public class BookRecallMachine : MonoBehaviour
         Gizmos.DrawSphere(OutputPosition, 0.06f);
 
     }
-}
+}
