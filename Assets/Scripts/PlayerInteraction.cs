@@ -77,6 +77,11 @@ public class PlayerInteraction : MonoBehaviour
     [Min(0f)] public float minThrowSpin = 10f;
     [Min(0f)] public float maxThrowSpin = 34f;
 
+    // Serialized prefab speed values cannot silently revert the approved full-charge speed.
+    public float ChargedThrowSpeed(float charge) =>
+        Mathf.Lerp(Mathf.Clamp01(minThrowSpeed / Mathf.Max(0.001f, maxThrowSpeed)),
+            1f, Mathf.Clamp01(charge)) * (207f / 3.6f);
+
     [Header("Etkilesim")]
     public float interactRange = 3f;
     public LayerMask interactMask = ~0;
@@ -128,6 +133,11 @@ public class PlayerInteraction : MonoBehaviour
 
         interactMask |= 1 << 0;
 
+        // Menzil artik zorla 5 m'ye cikarilmiyor: prefab'taki Interact Range (3 m) gecerli.
+        // Sunucu dogrulamasi da ayni degeri (+0.5 m tolerans) kullanir.
+        if (interactRange <= 0f) interactRange = GameplayPhysics.DefaultInteractRange;
+        maxPlacementDistance = Mathf.Max(maxPlacementDistance, interactRange + 2f);
+
         // Multiplayer: her oyuncu KENDI nisangahini kullanmali. Sahne genelinde
         // arayinca baska bir oyuncunun nisangahini bulup ona yaziyordu.
         crosshair = GetComponent<Crosshair>();
@@ -141,6 +151,7 @@ public class PlayerInteraction : MonoBehaviour
 
     void Update()
     {
+        if (ShopLoadingScreen.IsVisible) return;
         UpdateCollisionRestoration();
         if (heldBooks.RemoveAll(book => book == null) > 0)
         {
@@ -175,6 +186,8 @@ public class PlayerInteraction : MonoBehaviour
 
         // One inventory action per input frame. Pickup/placement coroutines
         // start immediately; a second button must not release that same book.
+        if (pickupKey == dropKey && Input.GetKeyDown(dropKey) && ActiveHeldBook != null && lookedSlot != null)
+        { TryPlaceActiveBook(); return; }
         if (Input.GetKeyDown(pickupKey))
         {
             HandlePickupPress();
@@ -208,11 +221,11 @@ public class PlayerInteraction : MonoBehaviour
 
         Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         RaycastHit[] hits = lookHits;
-        int hitCount = Physics.RaycastNonAlloc(ray, hits, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        int hitCount = Physics.RaycastNonAlloc(ray, hits, interactRange, Physics.AllLayers, QueryTriggerInteraction.Collide);
         if (hitCount == hits.Length)
         {
             // NonAlloc hits are unordered; a full buffer may omit the nearest wall.
-            hits = Physics.RaycastAll(ray, interactRange, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            hits = Physics.RaycastAll(ray, interactRange, Physics.AllLayers, QueryTriggerInteraction.Collide);
             hitCount = hits.Length;
         }
         System.Array.Sort(hits, 0, hitCount, LookHitOrder);
@@ -224,16 +237,29 @@ public class PlayerInteraction : MonoBehaviour
         // Raf collider'i, kitap collider'indan once gelebiliyor. Bu yuzden ikisini de
         // ayri ayri topluyoruz: en yakin serbest kitap + en yakin raf gozu.
         // (Eskiden kitap bulununca lookedSlot null'lanip rafa koyma tamamen bloklaniyordu.)
+        float blockedBeyond = float.PositiveInfinity;
         for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
         {
             RaycastHit hit = hits[hitIndex];
+            if (hit.distance > blockedBeyond) break;
+            // ComicFix15 trigger filter
+            if (hit.collider.isTrigger && !hit.collider.GetComponentInParent<ShelfSlot>()) continue;
             if (hit.collider.transform.IsChildOf(transform)) continue;
             var blockingBook = hit.collider.GetComponentInParent<BookItem>();
             if (blockingBook != null && blockingBook.IsHeld) continue;
             var blockingSlot = hit.collider.GetComponentInParent<ShelfSlot>();
             // An interaction mask must never make a wall transparent to pickup.
-            if (blockingBook == null && blockingSlot == null) break;
-            if ((interactMask.value & (1 << hit.collider.gameObject.layer)) == 0) break;
+            bool obstacle = (blockingBook == null && blockingSlot == null) ||
+                (blockingSlot == null && (interactMask.value & (1 << hit.collider.gameObject.layer)) == 0);
+            if (obstacle)
+            {
+                // Kitaplik govdesi/tabelasi, diger oyuncular ve kitaplar hedefi gizlemez.
+                // Gercek bir engelin hemen arkasindaki (ince parca kadar) hedef yine secilebilir;
+                // daha gerisi (duvarin arkasi gibi) secilemez. Sunucu da ayni kurali uygular.
+                if (GameplayPhysics.IsSoftObstacle(hit.collider, null)) continue;
+                if (float.IsPositiveInfinity(blockedBeyond)) blockedBeyond = hit.distance + GameplayPhysics.ObstacleTolerance;
+                continue;
+            }
             if (nearestBook == null)
             {
                 BookItem book = hit.collider.GetComponentInParent<BookItem>();
@@ -268,23 +294,35 @@ public class PlayerInteraction : MonoBehaviour
     }
     private string placementFeedback;
     private float placementFeedbackUntil;
-    public string InteractionHint
+    // HUD'un ipucunu metinden tahmin etmesine gerek kalmasin diye ipucunun turu ayrica verilir.
+    public enum HintKind { None, Pickup, Place, Warning }
+    public HintKind CurrentHintKind { get { ComputeHint(out var kind); return kind; } }
+    public string InteractionHint => ComputeHint(out _);
+
+    string ComputeHint(out HintKind kind)
     {
-        get
+        kind = HintKind.Warning;
+        if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
+        if (lookedSlot != null && ActiveHeldBook != null)
         {
-            if (Time.unscaledTime < placementFeedbackUntil) return placementFeedback;
-            if (lookedSlot != null && ActiveHeldBook != null)
-            {
-                if (!lookedSlot.IsAvailable) return "Raf gözü dolu";
-                if (ActiveHeldBook.brandID != lookedSlot.brandID) return "Yanlış yayıncı";
-                if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
-                    return "Bu raf gözü başka bir kitap grubuna ayrılmış";
-                return dropKey + ": Rafa yerleştir";
-            }
-            if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
-                return heldBooks.Count >= maxHeldBooks ? "Ellerin dolu" : pickupKey + ": Kitabı al";
-            return string.Empty;
+            if (lookedSlot.PublisherID < 0) return Loc.T("hint.logo_missing");
+            if (BrandConfig.IsPlacementDisabled(ActiveHeldBook.brandID))
+                return Loc.T("hint.publisher_disabled", BrandConfig.GetBrandName(ActiveHeldBook.brandID));
+            if (!lookedSlot.IsAvailable) return Loc.T("hint.slot_full");
+            if (ActiveHeldBook.brandID != lookedSlot.PublisherID) return Loc.T("hint.this_shelf", BrandConfig.GetBrandName(lookedSlot.PublisherID));
+            if (lookedSlot.IsClaimed && lookedSlot.OwnerBookID != ActiveHeldBook.bookID)
+                return Loc.T("hint.reserved");
+            kind = HintKind.Place;
+            return dropKey + ": " + Loc.T("prompt.place") + " · " + BrandConfig.GetBrandName(lookedSlot.PublisherID);
         }
+        if (lookedBook != null || (lookedSlot != null && lookedSlot.FilledCount > 0))
+        {
+            if (heldBooks.Count >= maxHeldBooks) return Loc.T("hint.hands_full");
+            kind = HintKind.Pickup;
+            return pickupKey + ": " + Loc.T("prompt.pickup");
+        }
+        kind = HintKind.None;
+        return string.Empty;
     }
 
     void HandlePickupPress()
@@ -401,11 +439,12 @@ public class PlayerInteraction : MonoBehaviour
 
         float elapsed = 0f;
 
+        float snapDuration = Mathf.Max(0.02f, throwArcDuration * 0.6f);
         // Bas arkasindan one dogru tek temiz yay; sona dogru hizlanir (bilek sokumu).
-        while (elapsed < throwArcDuration)
+        while (elapsed < snapDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / throwArcDuration);
+            float t = Mathf.Clamp01(elapsed / snapDuration);
             // Kubik egri: basta yuklenme hissi, sonda kirbac gibi bilek sokumu.
             ThrowReleaseProgress = t * t * t;
             float angle = ThrowSwingAngle(finalCharge, ThrowReleaseProgress);
@@ -436,6 +475,7 @@ public class PlayerInteraction : MonoBehaviour
                 fallbackHeldIndex = nextVisibleHeldIndex;
         }
 
+        BookItem nextVisibleBook = fallbackHeldIndex >= 0 ? heldBooks[fallbackHeldIndex] : null;
         heldBooks.RemoveAt(index);
 
         if (heldBooks.Count == 0)
@@ -445,9 +485,7 @@ public class PlayerInteraction : MonoBehaviour
         else
         {
             // Convert the pre-removal list index to the new list index.
-            BookItem nextBook = fallbackHeldIndex >= 0
-                ? GetBookFromPreRemovalIndex(displayOrderBeforeThrow, displayIndex - 1)
-                : null;
+            BookItem nextBook = nextVisibleBook;
             int newIndex = nextBook != null ? heldBooks.IndexOf(nextBook) : -1;
             activeHeldIndex = newIndex >= 0
                 ? newIndex
@@ -455,10 +493,12 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         Transform cam = playerCamera.transform;
+        var throwView = GetComponentInChildren<FirstPersonThrowView>();
+        if (throwView != null) throwView.BeginFlightHandoff(book);
 
         ThrowBook(
             book,
-            cam.forward * (Mathf.Lerp(minThrowSpeed, maxThrowSpeed, finalCharge) * releaseSnap),
+            cam.forward * ChargedThrowSpeed(finalCharge),
             cam.right,
             Mathf.Lerp(minThrowSpin, maxThrowSpin, finalCharge),
             true);
@@ -508,7 +548,7 @@ public class PlayerInteraction : MonoBehaviour
 
         // Kitabin BOYU kolun dogrultusunda -- yay boyunca kolla beraber doner.
         rotation = book != null
-            ? book.GetAlignedRotation(coverNormal, armDirection)
+            ? book.GetAlignedRotation(-coverNormal, armDirection)
             : Quaternion.identity;
     }
 
@@ -931,9 +971,12 @@ public class PlayerInteraction : MonoBehaviour
         // Explain a local rejection without changing inventory or dropping the book.
         if (!lookedSlot.Matches(book))
         {
-            placementFeedback = !lookedSlot.IsAvailable ? "Raf gözü dolu" :
-                book.brandID != lookedSlot.brandID ? "Yanlış yayıncı" :
-                "Bu kitap grubu farklı bir raf gözüne ayrılmış";
+            placementFeedback = lookedSlot.PublisherID < 0 ? Loc.T("hint.logo_missing") :
+                BrandConfig.IsPlacementDisabled(book.brandID)
+                    ? Loc.T("hint.publisher_disabled", BrandConfig.GetBrandName(book.brandID)) :
+                !lookedSlot.IsAvailable ? Loc.T("hint.slot_full") :
+                book.brandID != lookedSlot.PublisherID ? Loc.T("hint.wrong_publisher") :
+                Loc.T("hint.reserved");
             ShowFeedback(placementFeedback);
             return false;
         }
@@ -1146,12 +1189,34 @@ public class PlayerInteraction : MonoBehaviour
         return origin + direction * allowed;
     }
 
+    Vector3 AimChargedThrow(BookItem book, Vector3 origin, float speed)
+    {
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        float distance = 100f;
+        foreach (var hit in Physics.RaycastAll(ray, distance, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<BookItem>() == book) continue;
+            var held = hit.collider.GetComponentInParent<BookItem>();
+            if (held != null && held.IsHeld) continue;
+            distance = Mathf.Min(distance, hit.distance);
+        }
+        foreach (var player in PlayerKnockdown.Players)
+            if (player != null && player.transform != transform && !player.IsDown &&
+                player.HitBounds.IntersectRay(ray, out float hitDistance))
+                distance = Mathf.Min(distance, hitDistance);
+        Vector3 delta = ray.GetPoint(Mathf.Max(0.2f, distance)) - origin;
+        if (Vector3.Dot(delta, ray.direction) <= 0.05f) return ray.direction * speed;
+        return delta.normalized * speed;
+    }
+
     void ThrowBook(BookItem book, Vector3 velocity, Vector3 spinAxis, float spin, bool charged)
     {
         if (book == null)
             return;
 
         Vector3 worldPosition = ConstrainBookToRoom(book, book.transform.position);
+        if (charged && playerCamera != null)
+            velocity = AimChargedThrow(book, worldPosition, velocity.magnitude);
         Quaternion worldRotation = book.transform.rotation;
         NetworkBook networkBook = book.GetComponent<NetworkBook>();
         if (networkBook != null && networkBook.IsSpawned)
@@ -1192,8 +1257,12 @@ public class PlayerInteraction : MonoBehaviour
             rb.WakeUp();
 
             // Sarjli atista kitap diger kitaplara CARPAR ama onlari SAVURMAZ.
-            if (charged && book.GetComponent<ThrownBook>() == null)
-                book.gameObject.AddComponent<ThrownBook>().Configure(spinAxis, transform);
+            if (charged)
+            {
+                var flight = book.GetComponent<ThrownBook>();
+                if (flight == null) flight = book.gameObject.AddComponent<ThrownBook>();
+                flight.Configure(spinAxis, transform);
+            }
         }
 
         pendingCollisionRestores.Add(new CollisionRestore { book = book, deadline = Time.unscaledTime + 2f, readyAt = -1f });
