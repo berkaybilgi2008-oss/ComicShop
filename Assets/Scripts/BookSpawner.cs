@@ -232,7 +232,7 @@ public class BookSpawner : MonoBehaviour
         var result = new List<BoxCollider>();
         if (corridorAreas == null) return result;
         foreach (var zone in corridorAreas)
-            if (zone != null && zone.isActiveAndEnabled && !IsFourthCorridor(zone))
+            if (zone != null && zone.enabled && zone.gameObject.activeInHierarchy && !IsFourthCorridor(zone))
                 result.Add(zone);
         return result;
     }
@@ -608,9 +608,7 @@ public class BookSpawner : MonoBehaviour
             else if (heapLayoutMode && corridorAreas != null && corridorAreas.Length > 0)
             {
                 positions = new Vector3[ids.Count];
-                var usable = GetSpawnCorridors();
-                if (usable.Count == 0) throw new System.InvalidOperationException("BookSpawner: usable corridor bulunamadi.");
-                for (int i = 0; i < positions.Length; i++) positions[i] = SampleArea(usable[i % usable.Count]);
+                for (int i = 0; i < positions.Length; i++) positions[i] = SampleArea(corridorAreas[i % corridorAreas.Length]);
             }
             else positions = CreateSpawnPositions(ids.Count);
             for (int i = 0; i < ids.Count; i++)
@@ -2486,7 +2484,7 @@ public class BookSpawner : MonoBehaviour
     public Vector3[] CreateSpawnPositions(int count)
     {
         if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
-        if (count < 0) throw new System.ArgumentException("Spawn count cannot be negative.");
+        if (count < 0) throw new System.ArgumentException("Count must be non-negative.");
         if (CorridorOnlySpawn && useCorridorRatioDistribution)
             return CreateCorridorRatioPositions(count);
         int guaranteed = corridorAreas == null ? 0 : corridorAreas.Length;
@@ -2597,7 +2595,7 @@ public class BookSpawner : MonoBehaviour
             for (int i = 0; i < corridorAreas.Length; i++)
             {
                 var zone = corridorAreas[i];
-                string reason = zone == null ? "missing reference" : !zone.gameObject.activeInHierarchy ? "inactive GameObject" :
+                string reason = zone == null ? "missing reference" : IsFourthCorridor(zone) ? null : !zone.gameObject.activeInHierarchy ? "inactive GameObject" :
                     zone.gameObject.scene != gameObject.scene ? "different scene" : !seen.Add(zone) ? "duplicate area" :
                     !Finite(zone.center.sqrMagnitude) || !Finite(zone.transform.position.sqrMagnitude) ||
                     !Finite(zone.transform.lossyScale.sqrMagnitude) || !Finite(ZoneWeight(zone)) || ZoneWeight(zone) <= 0 ? "Size/Scale too small after Edge Padding" :
