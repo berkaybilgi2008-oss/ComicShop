@@ -214,6 +214,18 @@ public class BookSpawner : MonoBehaviour
     // books must never be relocated by the shelf-band / heap / tower layout systems.
     private bool CorridorOnlySpawn => corridorAreas != null && corridorAreas.Length > 0;
 
+    // Corridor_04 is permanently excluded from book spawning. The scene object may remain
+    // for level geometry, but it is never a valid spawn area.
+    private static bool IsFourthCorridor(BoxCollider zone)
+    {
+        if (zone == null) return false;
+        string name = zone.gameObject.name.ToLowerInvariant().Replace("_", " ").Replace("-", " ");
+        return name.Contains("corridor 04") || name.Contains("corridor 4") ||
+               name.Contains("4th corridor") || name.Contains("fourth corridor") ||
+               name.Contains("koridor 04") || name.Contains("koridor 4") ||
+               name.Contains("4. koridor");
+    }
+
     // Tum oyuncularda (host ve istemci) sahne yuklenince calisir: raf gozleri kopya sayisini alsin.
     void Awake() => ShelfSlot.MatchCapacityToCopies(copiesPerBook);
 
@@ -562,13 +574,7 @@ public class BookSpawner : MonoBehaviour
             // Yigin/dagitim modunda tum kitaplar zaten sonradan yerlestirilir: baslangic konumu icin
             // pahali serit ornekleme (3000 kitap x binlerce deneme, TEK karede) Play Solo'da oyunu
             // saniyelerce donduruyordu. Ucuz rastgele koridor noktasi yeterli.
-            Vector3[] positions;
-            if (heapLayoutMode && corridorAreas != null && corridorAreas.Length > 0)
-            {
-                positions = new Vector3[ids.Count];
-                for (int i = 0; i < positions.Length; i++) positions[i] = SampleArea(corridorAreas[i % corridorAreas.Length]);
-            }
-            else positions = CreateSpawnPositions(ids.Count);
+            Vector3[] positions = CreateSpawnPositions(ids.Count);
             for (int i = 0; i < ids.Count; i++)
             {
                 SpawnSingleBook(ids[i], positions[i]);
@@ -2442,11 +2448,46 @@ public class BookSpawner : MonoBehaviour
     public Vector3[] CreateSpawnPositions(int count)
     {
         if (!ValidateSpawnAreas(out string error)) throw new System.InvalidOperationException(error);
-        int guaranteed = corridorAreas == null ? 0 : corridorAreas.Length;
-        if (count < guaranteed || count < 0) throw new System.ArgumentException("At least one book per corridor is required.");
-        var positions = new Vector3[count];
-        for (int i = 0; i < count; i++) positions[i] = i < guaranteed ? SampleArea(corridorAreas[i]) : SampleSpawnPosition();
-        return positions;
+        if (count < 0) throw new System.ArgumentException("Book count cannot be negative.");
+
+        // Final corridor distribution: 2 : 2 : 1 : 0.
+        // Base unit = count / 5. Any remainder is assigned randomly to corridors 1..3.
+        // The total number of spawned books never changes.
+        if (corridorAreas != null && corridorAreas.Length > 0)
+        {
+            var usable = new List<BoxCollider>(3);
+            foreach (var zone in corridorAreas)
+                if (zone != null && zone.gameObject.activeInHierarchy && !IsFourthCorridor(zone))
+                    usable.Add(zone);
+
+            if (usable.Count < 3)
+                throw new System.InvalidOperationException("BookSpawner: 1., 2. ve 3. koridor bulunamadi.");
+
+            int unit = count / 5;
+            int[] targets = { unit * 2, unit * 2, unit };
+            int remainder = count - (targets[0] + targets[1] + targets[2]);
+
+            for (int i = 0; i < remainder; i++)
+                targets[Random.Range(0, 3)]++;
+
+            var positions = new Vector3[count];
+            int at = 0;
+            for (int corridor = 0; corridor < 3; corridor++)
+                for (int i = 0; i < targets[corridor]; i++)
+                    positions[at++] = SampleArea(usable[corridor]);
+
+            // Shuffle so books are not spawned in corridor-sized blocks.
+            for (int i = positions.Length - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (positions[i], positions[j]) = (positions[j], positions[i]);
+            }
+            return positions;
+        }
+
+        var fallback = new Vector3[count];
+        for (int i = 0; i < count; i++) fallback[i] = SampleSpawnPosition();
+        return fallback;
     }
 
     public Vector3 SampleSpawnPosition() => SampleSpawnPosition(0.15f);
@@ -2508,7 +2549,11 @@ public class BookSpawner : MonoBehaviour
         // Only explicitly named Corridor_01..Corridor_04 objects are auto-registered.
         // Legacy helpers such as Left/Right can remain in the hierarchy without
         // accidentally becoming additional book spawn areas.
-        var zones = new List<BoxCollider>(corridorAreas ?? System.Array.Empty<BoxCollider>());
+        var zones = new List<BoxCollider>();
+        if (corridorAreas != null)
+            foreach (var existing in corridorAreas)
+                if (existing != null && !IsFourthCorridor(existing))
+                    zones.Add(existing);
         int added = 0;
 
         foreach (var root in gameObject.scene.GetRootGameObjects())
@@ -2519,6 +2564,7 @@ public class BookSpawner : MonoBehaviour
             {
                 if (!zone) continue;
                 if (!zone.gameObject.name.StartsWith("Corridor_")) continue;
+                if (IsFourthCorridor(zone)) continue;
                 if (zones.Contains(zone)) continue;
 
                 int vacant = zones.FindIndex(candidate => candidate == null);
@@ -2531,8 +2577,8 @@ public class BookSpawner : MonoBehaviour
         var validZones = new List<BoxCollider>();
         foreach (var zone in zones)
         {
-            if (!zone) continue;
-            if (validZones.Count >= 4) break;
+            if (!zone || IsFourthCorridor(zone)) continue;
+            if (validZones.Count >= 3) break;
             validZones.Add(zone);
         }
         corridorAreas = validZones.ToArray();
