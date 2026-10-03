@@ -24085,8 +24085,8 @@ Transform:
   m_GameObject: {fileID: 562874736}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8.12, y: 0.000002861023, z: -13.86}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -8.25, y: 0.000002861023, z: -15.01}
+  m_LocalScale: {x: 1, y: 1, z: 0.76263}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1257132855}
@@ -36543,7 +36543,7 @@ MonoBehaviour:
   - {fileID: 1283671383}
   - {fileID: 1633343670}
   - {fileID: 562874738}
-  - {fileID: 2000000003}
+  - {fileID: 0}
   corridorEdgePadding: 0.35
   bookPrefab: {fileID: 5900836606748428891, guid: c7f97661a1ac6ff4b82bebc4b5130bc7, type: 3}
   areaSize: {x: 15, y: 30}
@@ -36707,12 +36707,14 @@ MonoBehaviour:
   testBookTypeCount: 150
   towerBookShare: 0.08
   dropLooseBooks: 1
+  heapLayoutMode: 1
+  heapMaxColumnBooks: 14
   smallTowerMaxBooks: 10
   largeTowerMaxBooks: 20
   towerYawJitter: 8
   towerGapMeters: 1.1
-  shelfEndPassage: 1.6
-  propClearance: 1.1
+  endPassageMeters: 1
+  propClearanceMeters: 0.6
   bookLeanChance: 0.85
   maxSettleSeconds: 12
 --- !u!4 &899125251
@@ -52633,7 +52635,6 @@ Transform:
   - {fileID: 1283671382}
   - {fileID: 1633343669}
   - {fileID: 562874737}
-  - {fileID: 2000000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1260804521
@@ -69940,7 +69941,7 @@ Transform:
   m_GameObject: {fileID: 1633343668}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.3659413, y: 0.000002861023, z: -1.6881084}
+  m_LocalPosition: {x: 2.32, y: 0.000002861023, z: -1.6881084}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -92918,57 +92919,3 @@ SceneRoots:
   - {fileID: 1210249636}
   - {fileID: 345280500}
   - {fileID: 1257132855}
-
---- !u!1 &2000000001
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2000000002}
-  - component: {fileID: 2000000003}
-  m_Layer: 0
-  m_Name: Corridor_04
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2000000002
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2000000001}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 2.3659413, y: 0.000002861023, z: -26.36}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1257132855}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &2000000003
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2000000001}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 0
-  serializedVersion: 3
-  m_Size: {x: 6.4, y: 0.1, z: 12.5}
-  m_Center: {x: 0, y: 0, z: 0}

@@ -13,6 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _TOON_HALFTONE
+  - _TOON_LOCAL_STYLE
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -29,12 +30,72 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _BookPaletteDesaturation: 0
+    - _BookPaletteLift: 0
+    - _BookPaletteStrength: 0
     - _HalftoneEnabled: 1
+    - _LocalBakedInfluence: 0.2
+    - _LocalBakedSteps: 3
+    - _LocalHalftoneAngle: 45
+    - _LocalHalftoneEnabled: 1
+    - _LocalHalftoneRadius: 0.27
+    - _LocalHalftoneScale: 8
+    - _LocalLightFalloffScale: 8
+    - _LocalRampSmoothness: 0.02
+    - _LocalRimEnabled: 0
+    - _LocalRimLitOnly: 1
+    - _LocalRimStrength: 0.2
+    - _LocalRimThreshold: 0.75
+    - _LocalShadowSteps: 2
+    - _LocalSpecEnabled: 0
+    - _LocalSpecThreshold: 0.96
     - _OutlineEnabled: 1
-    - _UseLocalStyle: 0
+    - _OverrideBakedInfluence: 0
+    - _OverrideBakedSteps: 0
+    - _OverrideHalftoneAngle: 45
+    - _OverrideHalftoneColor: 0
+    - _OverrideHalftoneEnabled: 0
+    - _OverrideHalftoneRadius: 0
+    - _OverrideHalftoneScale: 0
+    - _OverrideHalftoneStrength: 0.4
+    - _OverrideLightFalloffScale: 0
+    - _OverrideRampSmoothness: 0
+    - _OverrideRimColor: 0
+    - _OverrideRimEnabled: 0
+    - _OverrideRimLitOnly: 0
+    - _OverrideRimStrength: 0
+    - _OverrideRimThreshold: 0.75
+    - _OverrideShadowSteps: 0
+    - _OverrideShadowTint: 0
+    - _OverrideSpecColor: 0
+    - _OverrideSpecEnabled: 0
+    - _OverrideSpecStrength: 0.4
+    - _OverrideSpecThreshold: 0
+    - _UseLocalStyle: 1
     m_Colors:
     - _BaseColor: {r: 0.9372549, g: 0.8901961, b: 0.7607843, a: 1}
+    - _BookPaletteOverlay: {r: 1, g: 1, b: 1, a: 1}
+    - _LocalHalftoneColor: {r: 0.14117643, g: 0.10980389, b: 0.2078431, a: 1}
+    - _LocalRimColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+    - _LocalShadowTint: {r: 0.22745094, g: 0.18039212, b: 0.3215686, a: 1}
+    - _LocalSpecColor: {r: 1, g: 0.97999996, b: 0.9, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
